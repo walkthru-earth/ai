@@ -250,9 +250,11 @@ const MessageSuggestionsList = React.forwardRef<HTMLDivElement, MessageSuggestio
             side="top"
           >
             <button
+              type="button"
               className={cn(
-                "py-2 px-2.5 rounded-2xl text-xs transition-colors",
+                "py-2 px-3 rounded-2xl text-xs transition-colors cursor-pointer",
                 "border border-flat",
+                "flex items-center gap-1.5",
                 getSuggestionButtonClassName({
                   isGenerating,
                   isSelected: selectedSuggestionId === suggestion.id,
@@ -264,6 +266,17 @@ const MessageSuggestionsList = React.forwardRef<HTMLDivElement, MessageSuggestio
               data-suggestion-index={index}
             >
               <span className="font-medium">{suggestion.title}</span>
+              <svg
+                className="w-3 h-3 opacity-50"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M5 12h14M12 5l7 7-7 7" />
+              </svg>
             </button>
           </Tooltip>
         ))}

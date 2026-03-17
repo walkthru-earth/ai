@@ -43,13 +43,15 @@ export interface MessageThreadFullProps extends React.HTMLAttributes<HTMLDivElem
    * @example variant="compact"
    */
   variant?: VariantProps<typeof messageVariants>["variant"];
+  /** Override the default initial suggestions shown on empty threads. */
+  initialSuggestions?: Suggestion[];
 }
 
 /**
  * A full-screen chat thread component with message history, input, and suggestions
  */
 export const MessageThreadFull = React.forwardRef<HTMLDivElement, MessageThreadFullProps>(
-  ({ className, variant, ...props }, ref) => {
+  ({ className, variant, initialSuggestions, ...props }, ref) => {
     const { containerRef, historyPosition } = useThreadContainerContext();
     const mergedRef = useMergeRefs<HTMLDivElement | null>(ref, containerRef);
 
@@ -62,7 +64,7 @@ export const MessageThreadFull = React.forwardRef<HTMLDivElement, MessageThreadF
       </ThreadHistory>
     );
 
-    const defaultSuggestions: Suggestion[] = [
+    const fallbackSuggestions: Suggestion[] = [
       {
         id: "suggestion-1",
         title: "Get started",
@@ -82,6 +84,8 @@ export const MessageThreadFull = React.forwardRef<HTMLDivElement, MessageThreadF
         messageId: "examples-query",
       },
     ];
+
+    const defaultSuggestions = initialSuggestions ?? fallbackSuggestions;
 
     return (
       <div className="flex h-full w-full">
