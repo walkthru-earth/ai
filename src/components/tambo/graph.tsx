@@ -12,14 +12,14 @@ import { useInDashboardPanel } from "./panel-context";
 
 /* ── Variants ─────────────────────────────────────────────────────── */
 
-export const graphVariants = cva("w-full h-full rounded-lg overflow-hidden transition-all duration-200", {
+export const graphVariants = cva("w-full rounded-lg overflow-hidden transition-all duration-200", {
   variants: {
     variant: {
       default: "bg-background",
       solid: "shadow-lg bg-muted",
       bordered: "border-2 border-border",
     },
-    size: { default: "min-h-[16rem]", sm: "min-h-[12rem]", lg: "min-h-[24rem]" },
+    size: { default: "", sm: "", lg: "" },
   },
   defaultVariants: { variant: "default", size: "default" },
 });
@@ -154,10 +154,12 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
       return data ?? null;
     }, [queryId, queryResult, xColumn, yColumns, chartType, data, crossFilter]);
 
+    const heightClass = inPanel ? "h-full" : "h-[320px]";
+
     // Loading state
     if (!resolvedData) {
       return (
-        <div ref={ref} className={cn(graphVariants({ variant, size }), className)}>
+        <div ref={ref} className={cn(graphVariants({ variant, size }), heightClass, className)}>
           <div className="p-4 h-full flex items-center justify-center text-muted-foreground text-sm">
             {queryId ? "Loading chart data..." : "Awaiting data..."}
           </div>
@@ -168,7 +170,7 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
     const { type, labels, datasets } = resolvedData;
     if (!labels?.length || !datasets?.length) {
       return (
-        <div ref={ref} className={cn(graphVariants({ variant, size }), className)}>
+        <div ref={ref} className={cn(graphVariants({ variant, size }), heightClass, className)}>
           <div className="p-4 h-full flex items-center justify-center text-muted-foreground text-sm">
             Building chart...
           </div>
@@ -205,6 +207,20 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
       }
     };
 
+    // Auto-rotate/hide X labels when many data points
+    const manyPoints = chartData.length > 10;
+    const xAxisProps = {
+      dataKey: "name" as const,
+      stroke: "var(--muted-foreground)",
+      axisLine: false,
+      tickLine: false,
+      fontSize: 10,
+      interval: manyPoints ? Math.ceil(chartData.length / 8) : 0,
+      angle: manyPoints ? -45 : 0,
+      textAnchor: manyPoints ? ("end" as const) : ("middle" as const),
+      height: manyPoints ? 50 : 30,
+    };
+
     const tooltipStyle = {
       backgroundColor: "var(--card)",
       border: "1px solid var(--border)",
@@ -218,19 +234,21 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
           return (
             <RechartsCore.BarChart data={chartData} onClick={handleBarClick}>
               <RechartsCore.CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-              <RechartsCore.XAxis
-                dataKey="name"
+              <RechartsCore.XAxis {...xAxisProps} />
+              <RechartsCore.YAxis
                 stroke="var(--muted-foreground)"
                 axisLine={false}
                 tickLine={false}
-                fontSize={11}
+                fontSize={10}
+                width={40}
               />
-              <RechartsCore.YAxis stroke="var(--muted-foreground)" axisLine={false} tickLine={false} fontSize={11} />
               <RechartsCore.Tooltip
                 contentStyle={tooltipStyle}
                 cursor={{ fill: "var(--muted-foreground)", fillOpacity: 0.1 }}
               />
-              {showLegend && <RechartsCore.Legend wrapperStyle={{ color: "var(--foreground)" }} />}
+              {showLegend && validDatasets.length > 1 && (
+                <RechartsCore.Legend wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }} />
+              )}
               {validDatasets.map((d, i) => (
                 <RechartsCore.Bar
                   key={d.label}
@@ -246,16 +264,18 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
           return (
             <RechartsCore.LineChart data={chartData}>
               <RechartsCore.CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-              <RechartsCore.XAxis
-                dataKey="name"
+              <RechartsCore.XAxis {...xAxisProps} />
+              <RechartsCore.YAxis
                 stroke="var(--muted-foreground)"
                 axisLine={false}
                 tickLine={false}
-                fontSize={11}
+                fontSize={10}
+                width={40}
               />
-              <RechartsCore.YAxis stroke="var(--muted-foreground)" axisLine={false} tickLine={false} fontSize={11} />
               <RechartsCore.Tooltip contentStyle={tooltipStyle} />
-              {showLegend && <RechartsCore.Legend wrapperStyle={{ color: "var(--foreground)" }} />}
+              {showLegend && validDatasets.length > 1 && (
+                <RechartsCore.Legend wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }} />
+              )}
               {validDatasets.map((d, i) => (
                 <RechartsCore.Line
                   key={d.label}
@@ -284,12 +304,14 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
                 nameKey="name"
                 cx="50%"
                 cy="50%"
-                outerRadius={80}
+                outerRadius="70%"
                 labelLine={false}
                 isAnimationActive={false}
               />
               <RechartsCore.Tooltip contentStyle={tooltipStyle} />
-              {showLegend && <RechartsCore.Legend wrapperStyle={{ color: "var(--foreground)" }} />}
+              {showLegend && validDatasets.length > 1 && (
+                <RechartsCore.Legend wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }} />
+              )}
             </RechartsCore.PieChart>
           );
         }
@@ -298,12 +320,14 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
       }
     };
 
+    const showTitle = title && !inPanel;
+
     return (
       <GraphErrorBoundary className={className} variant={variant} size={size}>
-        <div ref={ref} className={cn(graphVariants({ variant, size }), className)}>
-          <div className="p-4 h-full">
-            {title && !inPanel && <h3 className="text-sm font-semibold mb-3 text-foreground">{title}</h3>}
-            <div className="w-full h-[calc(100%-2rem)]">
+        <div ref={ref} className={cn(graphVariants({ variant, size }), heightClass, className)}>
+          <div className="p-2 sm:p-4 h-full flex flex-col">
+            {showTitle && <h3 className="text-xs sm:text-sm font-semibold mb-1 sm:mb-3 text-foreground">{title}</h3>}
+            <div className="w-full flex-1 min-h-0">
               <RechartsCore.ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                 {renderChart() ?? <></>}
               </RechartsCore.ResponsiveContainer>

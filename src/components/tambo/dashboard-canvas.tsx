@@ -405,7 +405,7 @@ export function DashboardCanvas({ className }: DashboardCanvasProps) {
               {orderedPanels.map((panel) => {
                 const name = (panel.componentName || "").toLowerCase();
                 const isMap = name.includes("map") || name.includes("h3map");
-                const minH = isMap ? "min-h-[420px]" : "min-h-[220px]";
+                const minH = isMap ? "h-[420px]" : "h-[280px]";
                 return (
                   <SortablePanel
                     key={panel.id}
