@@ -3,6 +3,8 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // Fully static export — no SSR, deploy to any CDN/S3/GitHub Pages
   output: "export",
+  // Serve under /ai subpath (e.g. walkthru.earth/ai)
+  basePath: process.env.BASE_PATH || "/ai",
   // Run ESLint separately via `npm run lint` (avoids deprecated next lint)
   eslint: {
     ignoreDuringBuilds: true,
