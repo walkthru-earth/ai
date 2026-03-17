@@ -355,11 +355,13 @@ export default function DeckGLMap({
       attributionControl: false,
     });
 
-    const overlay = new MapboxOverlay({ interleaved: true, layers });
+    const overlay = new MapboxOverlay({ interleaved: true, layers: [] });
 
     map.once("load", () => {
       map.addControl(overlay);
       map.addControl(new maplibregl.NavigationControl(), "top-right");
+      // Apply layers only after map viewport is ready
+      overlay.setProps({ layers });
     });
 
     let boundsTimer: ReturnType<typeof setTimeout>;
