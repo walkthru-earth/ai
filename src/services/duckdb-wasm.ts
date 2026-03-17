@@ -72,6 +72,7 @@ async function initDuckDB(): Promise<any> {
             "LOAD a5",
             "SET s3_region = 'us-west-2'",
             "SET s3_url_style = 'path'",
+            "SET geometry_always_xy = true",
           ]) {
             try {
               await conn.query(stmt);
@@ -153,6 +154,9 @@ function cleanSql(raw: string): string | null {
 /**
  * Detect GEOMETRY columns via DESCRIBE. Returns { geomColumn, allColumns } or null on failure.
  * DESCRIBE reads Parquet metadata (no data scan) — fast even for remote files.
+ *
+ * DuckDB v1.5+ reports typed geometry as `GEOMETRY('EPSG:4326')` or `GEOMETRY('OGC:CRS84')`
+ * instead of plain `GEOMETRY`, so we check with startsWith rather than exact match.
  */
 async function detectGeometryColumns(
   conn: any,
@@ -170,7 +174,8 @@ async function detectGeometryColumns(
       const name = String(nameVec.get(i));
       const colType = String(typeVec.get(i) ?? "").toUpperCase();
       allColumns.push(name);
-      if (colType === "GEOMETRY" && !geomColumn) {
+      // v1.5+: GEOMETRY, GEOMETRY('EPSG:4326'), GEOMETRY('OGC:CRS84'), etc.
+      if (colType.startsWith("GEOMETRY") && !geomColumn) {
         geomColumn = name;
       }
     }

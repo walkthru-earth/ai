@@ -26,12 +26,16 @@ pnpm lint:fix     # biome auto-fix
 
 ## DuckDB Rules (for AI tool descriptions)
 
-- Extensions loaded: `httpfs`, `spatial`, `h3`, `a5`
+- **DuckDB v1.5+** (Variegata). Extensions loaded: `httpfs`, `spatial`, `h3`, `a5`. `geometry_always_xy = true` set at init.
+- **GEOMETRY is a core type** in v1.5 — no `INSTALL spatial` needed to read GEOMETRY columns from Parquet. `ST_AsWKB`/`ST_GeomFromWKB` are built-in. `ST_Centroid`, `ST_X`, `ST_Y`, `ST_Transform`, `ST_Intersects` still need spatial (pre-loaded).
+- **Geometry auto-detection**: Parquet files with GEOMETRY columns auto-render — just `SELECT * FROM file`. DESCRIBE returns `GEOMETRY('EPSG:4326')` in v1.5 (not just `GEOMETRY`), so detection uses `startsWith("GEOMETRY")`.
 - `h3_cell_to_latlng()` returns `DOUBLE[2]` list, NOT a struct
 - Use `h3_grid_ring` not `h3_k_ring` (deprecated)
 - `h3_cell_area(h3_index, 'km^2')` not `h3_cell_area_km2`
-- `ST_AsGeoJSON(geometry)` converts spatial geometry to GeoJSON string for GeoMap
+- `ST_AsGeoJSON(geometry)` converts spatial geometry to GeoJSON string for GeoMap (but prefer geometry auto-detection — no conversion needed)
 - ONE statement per call, always LIMIT 500, HTTPS URLs in FROM
+- **v1.5 syntax**: Use `lambda x: x + 1` NOT `x -> x + 1` (arrow syntax deprecated). `TRY_CAST(x AS GEOMETRY)` is broken — use `TRY(ST_GeomFromText(x))`.
+- **Spatial filter pushdown**: `geom && ST_MakeEnvelope(w,s,e,n)` prunes Parquet row groups for bbox queries (uses column stats).
 - **Coordinate order**: `lat` = latitude (north/south, e.g. 30.05 for Cairo), `lng` = longitude (east/west, e.g. 31.25 for Cairo). H3: `h3_latlng_to_cell(lat, lng, res)`. DuckDB spatial: `ST_Point(lng, lat)` (x=lon, y=lat). deck.gl GeoMap props: `latitude`/`longitude`.
 - **NEVER hardcode H3 hex strings** — AI will hallucinate wrong indices. Always compute from coordinates: `h3_latlng_to_cell(lat, lng, res)::BIGINT`. For area queries: `h3_grid_disk(h3_latlng_to_cell(lat, lng, res)::BIGINT, radius)`. If user's pre-computed H3 cells are available in context, use those directly.
 

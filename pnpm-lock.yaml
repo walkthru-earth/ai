@@ -33,8 +33,8 @@ importers:
         specifier: ^3.2.2
         version: 3.2.2(react@19.2.4)
       '@duckdb/duckdb-wasm':
-        specifier: 1.33.1-dev20.0
-        version: 1.33.1-dev20.0
+        specifier: 1.33.1-dev37.0
+        version: 1.33.1-dev37.0
       '@geoarrow/deck.gl-layers':
         specifier: ^0.3.1
         version: 0.3.1(34ae092dc0c3a9116be4167f056775b2)
@@ -429,8 +429,8 @@ packages:
     peerDependencies:
       react: '>=16.8.0'
 
-  '@duckdb/duckdb-wasm@1.33.1-dev20.0':
-    resolution: {integrity: sha512-ual3d/WDZnyZHNZ3tGdFvTZY22IDdg63Bh0icSBA6JPOy1u89rNfVH/3wQhtoJPv3Xn7eWVJ/4gpT3wprrisoA==}
+  '@duckdb/duckdb-wasm@1.33.1-dev37.0':
+    resolution: {integrity: sha512-80u0qQmRuNfHvYUU2kV11pnZWfmqQsmhqBs+lfzroXocjP8W2+mnUCWuhjK3p5kbtiZq0dpIJTT2vJDRQdeXZw==}
 
   '@emnapi/runtime@1.9.0':
     resolution: {integrity: sha512-QN75eB0IH2ywSpRpNddCRfQIhmJYBCJ1x5Lb3IscKAL8bMnVAKnRg8dCoXbHzVLLH7P38N2Z3mtulB7W0J0FKw==}
@@ -4990,7 +4990,7 @@ snapshots:
       react: 19.2.4
       tslib: 2.8.1
 
-  '@duckdb/duckdb-wasm@1.33.1-dev20.0':
+  '@duckdb/duckdb-wasm@1.33.1-dev37.0':
     dependencies:
       apache-arrow: 17.0.0
       qs: 6.15.0
