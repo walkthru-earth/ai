@@ -69,6 +69,7 @@ All three queryId components use `useQueryResult(queryId)` (reactive hook from q
 
 ### `dashboard-canvas.tsx`
 - **Merged panel header**: Single bar with `[grip] [title] ... [maximize] [close]`. Title read from `content.props.title` (Tambo content block), fallback to formatted componentName.
+- **Panel ID deduplication**: Uses `Set<string>` to ensure unique panel IDs. `content.id` can collide across components in the same message — dedup appends `compIdx` suffix when needed.
 - **Desktop**: `react-grid-layout` with `draggableHandle: ".panel-drag-handle"`. Maps 8 rows (640px), graphs 5, tables 4.
 - **Touch/mobile**: `@dnd-kit/core` + `@dnd-kit/sortable` with `TouchSensor` (1.2s delay, 8px tolerance). Only the grip icon is the drag activator (`setActivatorNodeRef`). Content area (maps, charts) is fully interactive.
 - **During drag**: WebGL content hidden ("Moving..." placeholder) to avoid context errors.
@@ -90,6 +91,13 @@ All queryId components use `h-full flex flex-col` to fill their dashboard panel:
 - **Loading states**: `h-full min-h-[200px]`
 
 ## Chat UI
+
+### `message-input.tsx`
+- **Plain textarea only** — TipTap rich-text editor was removed entirely (no `text-editor.tsx`). All text input uses native `<textarea>`.
+- **Types defined inline**: `ImageItems`, `getImageItems()`, `TamboEditor`, `ResourceItem`, `PromptItem` — moved from deleted `text-editor.tsx`.
+- **Submit error recovery**: Detects `invalid_previous_run` errors (SDK run ID desync) and auto-calls `startNewThread()` to escape the error loop. User's text is preserved in the input for resend.
+- **Compound component**: `MessageInput`, `MessageInput.Textarea`, `MessageInput.SubmitButton`, `MessageInput.Toolbar`, etc.
+- **No TipTap dependencies**: All `@tiptap/*` packages and `use-debounce` have been removed from the project.
 
 ### `message.tsx`
 - **MessageRenderedComponentArea**: Checks `[data-canvas-space="true"]` in DOM. If found → "Rendered in dashboard". If not → renders inline.

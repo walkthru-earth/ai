@@ -35,6 +35,7 @@ Root layout. Loads Quicksand (local woff2 variable font) + DM Mono (Google). Set
 - Brand colors: `earth-blue`, `earth-cyan`, `earth-green` in `@theme inline`
 - Glass panels, scrollbar styling, animations
 - Dashboard grid: `.react-grid-item { touch-action: auto }`, `.panel-drag-handle { touch-action: none }`, `.panel-content { touch-action: auto }`
+- No TipTap/rich-text CSS — all text input uses plain native `<textarea>`
 
 ### `explore/page.tsx`
 Main dashboard page. Uses `tamboProviderConfig` (spread from `tambo.ts`) + `contextHelpers` + `userKey`.

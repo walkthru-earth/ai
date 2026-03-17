@@ -134,6 +134,7 @@ S3 base: `https://s3.us-west-2.amazonaws.com/us-west-2.opendata.source.coop/walk
 - **Available but not yet used**: `withTamboInteractable` (AI-controllable components), `useTamboComponentState` (bidirectional state sync), `useTamboStreamStatus` (per-prop streaming status), `useTamboVoice` (voice input)
 - Components receive `_tambo_*` props — never spread `{...props}` onto DOM elements
 - `content.props.title` on component content blocks exposes the component's title prop (used by dashboard panel headers)
+- **Run ID desync recovery**: If SDK's internal `previousRunId` gets out of sync with the server (e.g. stream disconnect), the client detects `invalid_previous_run` errors and auto-starts a new thread to escape the error loop
 
 ### Thread URLs
 - URL param `?thread=threadId` only set for real thread IDs (prefix `thr_`), never for `placeholder`.
