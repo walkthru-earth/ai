@@ -747,7 +747,10 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
   }
 
   return (
-    <div ref={ref} className="rounded-xl border overflow-hidden bg-card w-full h-full flex flex-col">
+    <div
+      ref={ref}
+      className={`rounded-xl border overflow-hidden bg-card w-full flex flex-col ${inPanel ? "h-full" : "h-[420px]"}`}
+    >
       {/* Header — hidden when inside dashboard panel */}
       {title && !inPanel && (
         <div className="px-3 py-1.5 border-b bg-muted/30 flex items-center gap-2 flex-shrink-0">

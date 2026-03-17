@@ -1,6 +1,8 @@
 import type { TamboThreadMessage } from "@tambo-ai/react";
 import * as React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { runQuery } from "@/services/duckdb-wasm";
+import { getQueryResult, storeQueryResultWithId } from "@/services/query-store";
 
 /**
  * Merges multiple refs into a single callback ref.
@@ -228,4 +230,74 @@ export function getMessageImages(
   return content
     .filter((item) => item?.type === "image_url" && item.image_url?.url)
     .map((item) => item.image_url?.url!);
+}
+
+/**
+ * Replay SQL queries from a restored thread to repopulate the query store.
+ * tool_use blocks (assistant) and tool_result blocks (user/tool) are in DIFFERENT messages,
+ * so we search across all messages to find the matching tool_result.
+ */
+export function useReplayQueries(messages: TamboThreadMessage[]) {
+  const replayedRef = useRef(new Set<string>());
+
+  useEffect(() => {
+    if (!messages.length) return;
+
+    // Build a flat index of all tool_result blocks across all messages
+    const toolResults = new Map<string, any>();
+    for (const msg of messages) {
+      for (const block of msg.content) {
+        if ((block as any).type === "tool_result" && (block as any).toolUseId) {
+          toolResults.set((block as any).toolUseId, block);
+        }
+      }
+    }
+
+    for (const msg of messages) {
+      for (const block of msg.content) {
+        if (block.type === "tool_use" && block.name === "runSQL" && block.input) {
+          const sql = (block.input as any).sql as string | undefined;
+          if (!sql) continue;
+
+          // Find matching tool_result across all messages
+          const resultBlock = toolResults.get(block.id) as any;
+
+          // Extract original queryId from tool_result content
+          let originalQueryId: string | null = null;
+          if (resultBlock) {
+            const text =
+              typeof resultBlock.content === "string"
+                ? resultBlock.content
+                : Array.isArray(resultBlock.content)
+                  ? (resultBlock.content.find((b: any) => b.type === "text")?.text ?? null)
+                  : null;
+            if (text) {
+              try {
+                originalQueryId = JSON.parse(text).queryId;
+              } catch {
+                /* not JSON */
+              }
+            }
+          }
+
+          const replayId = originalQueryId ?? `replay_${block.id}`;
+          if (replayedRef.current.has(replayId)) continue;
+          if (getQueryResult(replayId)) continue;
+          replayedRef.current.add(replayId);
+
+          // Re-run SQL in background, store under the original queryId
+          runQuery({ sql })
+            .then((result) => {
+              if (result.queryId && originalQueryId) {
+                const stored = getQueryResult(result.queryId);
+                if (stored) storeQueryResultWithId(originalQueryId, stored);
+              }
+            })
+            .catch(() => {
+              /* query replay failed — skip silently */
+            });
+        }
+      }
+    }
+  }, [messages]);
 }

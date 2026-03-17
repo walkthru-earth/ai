@@ -32,9 +32,9 @@ export const StatsGrid = React.forwardRef<HTMLDivElement, StatsGridProps>(({ tit
     <div ref={ref}>
       {title && <h3 className="font-semibold text-foreground mb-3">{title}</h3>}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-        {stats.map((stat) => (
+        {stats.map((stat, i) => (
           <StatsCard
-            key={stat.id}
+            key={stat.id || `stat-${i}`}
             title={stat.title}
             value={stat.value}
             subtitle={stat.subtitle}

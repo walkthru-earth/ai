@@ -38,10 +38,11 @@ import { ScrollableMessageContainer } from "@/components/tambo/scrollable-messag
 import { ThreadContent, ThreadContentMessages } from "@/components/tambo/thread-content";
 import { WalkthruLogo } from "@/components/walkthru-logo";
 import { tamboProviderConfig } from "@/lib/tambo";
+import { useReplayQueries } from "@/lib/thread-hooks";
 import { useAnonymousUserKey } from "@/lib/use-anonymous-user-key";
 import { cn } from "@/lib/utils";
-import { preloadDuckDB, runQuery } from "@/services/duckdb-wasm";
-import { getQueryResult, storeQueryResultWithId, useCrossFilterEnabled } from "@/services/query-store";
+import { preloadDuckDB } from "@/services/duckdb-wasm";
+import { useCrossFilterEnabled } from "@/services/query-store";
 
 /* ── Helper: extract thread preview name ──────────────────────────── */
 
@@ -355,72 +356,8 @@ function ExplorerLayout() {
     }
   }, [currentThreadId]);
 
-  // Replay SQL queries from restored thread to repopulate the query store.
-  // tool_use blocks (assistant) and tool_result blocks (user/tool) are in DIFFERENT messages,
-  // so we must search across all messages to find the matching tool_result.
-  const replayedRef = useRef(new Set<string>());
-  useEffect(() => {
-    if (!messages.length) return;
-
-    // Build a flat index of all tool_result blocks across all messages
-    const toolResults = new Map<string, any>(); // toolUseId → result block
-    for (const msg of messages) {
-      for (const block of msg.content) {
-        if ((block as any).type === "tool_result" && (block as any).toolUseId) {
-          toolResults.set((block as any).toolUseId, block);
-        }
-      }
-    }
-
-    for (const msg of messages) {
-      for (const block of msg.content) {
-        if (block.type === "tool_use" && block.name === "runSQL" && block.input) {
-          const sql = (block.input as any).sql as string | undefined;
-          if (!sql) continue;
-
-          // Find matching tool_result across all messages
-          const resultBlock = toolResults.get(block.id) as any;
-
-          // Extract original queryId from tool_result content
-          let originalQueryId: string | null = null;
-          if (resultBlock) {
-            // tool_result.content can be a string or array of content blocks
-            const text =
-              typeof resultBlock.content === "string"
-                ? resultBlock.content
-                : Array.isArray(resultBlock.content)
-                  ? (resultBlock.content.find((b: any) => b.type === "text")?.text ?? null)
-                  : null;
-            if (text) {
-              try {
-                originalQueryId = JSON.parse(text).queryId;
-              } catch {
-                /* not JSON */
-              }
-            }
-          }
-
-          // If we couldn't extract the original queryId, generate a deterministic one from the tool_use ID
-          const replayId = originalQueryId ?? `replay_${block.id}`;
-          if (replayedRef.current.has(replayId)) continue;
-          if (getQueryResult(replayId)) continue;
-          replayedRef.current.add(replayId);
-
-          // Re-run SQL in background, store under the original queryId
-          runQuery({ sql })
-            .then((result) => {
-              if (result.queryId && originalQueryId) {
-                const stored = getQueryResult(result.queryId);
-                if (stored) storeQueryResultWithId(originalQueryId, stored);
-              }
-            })
-            .catch(() => {
-              /* query replay failed — skip silently */
-            });
-        }
-      }
-    }
-  }, [messages]);
+  // Replay SQL queries from restored thread to repopulate the query store
+  useReplayQueries(messages);
 
   const isEmpty = useMemo(() => !messages || messages.filter((m) => m.role !== "system").length === 0, [messages]);
 
