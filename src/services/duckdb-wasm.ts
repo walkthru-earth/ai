@@ -73,6 +73,9 @@ async function initDuckDB(): Promise<any> {
             "SET s3_region = 'us-west-2'",
             "SET s3_url_style = 'path'",
             "SET geometry_always_xy = true",
+            // Disable auto GeoParquet→GEOMETRY conversion — triggers stoi crash in WASM on some files.
+            // Our detectGeometryColumns + wrapSqlForGeometry handles geometry extraction instead.
+            "SET enable_geoparquet_conversion = false",
           ]) {
             try {
               await conn.query(stmt);
@@ -151,17 +154,25 @@ function cleanSql(raw: string): string | null {
   return last || null;
 }
 
+/** Well-known geometry column names in geospatial Parquet files */
+const GEO_COLUMN_NAMES = new Set(["geometry", "geom", "wkb_geometry", "shape", "the_geom", "geo"]);
+
+interface GeomDetection {
+  geomColumn: string;
+  allColumns: string[];
+  /** Whether the column is native GEOMETRY (true) or WKB BLOB (false) */
+  isNativeGeometry: boolean;
+}
+
 /**
- * Detect GEOMETRY columns via DESCRIBE. Returns { geomColumn, allColumns } or null on failure.
- * DESCRIBE reads Parquet metadata (no data scan) — fast even for remote files.
+ * Detect geometry columns via DESCRIBE. Checks two paths:
+ * 1. Native GEOMETRY type (v1.5+: GEOMETRY, GEOMETRY('EPSG:4326'), etc.)
+ * 2. WKB BLOB columns with well-known geo names (geom, geometry, shape, etc.)
+ *    — needed when enable_geoparquet_conversion=false (avoids WASM stoi crash)
  *
- * DuckDB v1.5+ reports typed geometry as `GEOMETRY('EPSG:4326')` or `GEOMETRY('OGC:CRS84')`
- * instead of plain `GEOMETRY`, so we check with startsWith rather than exact match.
+ * DESCRIBE reads Parquet metadata (no data scan) — fast even for remote files.
  */
-async function detectGeometryColumns(
-  conn: any,
-  sql: string,
-): Promise<{ geomColumn: string; allColumns: string[] } | null> {
+async function detectGeometryColumns(conn: any, sql: string): Promise<GeomDetection | null> {
   try {
     const descResult = await conn.query(`DESCRIBE (${sql})`);
     const nameVec = descResult.getChild("column_name");
@@ -169,34 +180,61 @@ async function detectGeometryColumns(
     if (!nameVec || !typeVec) return null;
 
     let geomColumn: string | null = null;
+    let isNativeGeometry = false;
     const allColumns: string[] = [];
+
     for (let i = 0; i < descResult.numRows; i++) {
       const name = String(nameVec.get(i));
       const colType = String(typeVec.get(i) ?? "").toUpperCase();
       allColumns.push(name);
-      // v1.5+: GEOMETRY, GEOMETRY('EPSG:4326'), GEOMETRY('OGC:CRS84'), etc.
-      if (colType.startsWith("GEOMETRY") && !geomColumn) {
+
+      if (geomColumn) continue;
+
+      // Path 1: Native GEOMETRY type (v1.5+: GEOMETRY('EPSG:4326'), etc.)
+      if (colType.startsWith("GEOMETRY")) {
         geomColumn = name;
+        isNativeGeometry = true;
+      }
+      // Path 2: WKB BLOB with well-known geo column name
+      // (GeoParquet auto-conversion disabled to avoid WASM stoi crash)
+      else if (colType === "BLOB" && GEO_COLUMN_NAMES.has(name.toLowerCase())) {
+        geomColumn = name;
+        isNativeGeometry = false;
       }
     }
-    return geomColumn ? { geomColumn, allColumns } : null;
+    return geomColumn ? { geomColumn, allColumns, isNativeGeometry } : null;
   } catch {
     return null;
   }
 }
 
 /**
- * Wrap SQL to auto-extract coordinates + standard WKB from a GEOMETRY column.
- * Adds lat/lng (via ST_Centroid) only if they don't already exist.
- * Adds __geo_wkb for zero-copy GeoArrow rendering.
+ * Wrap SQL to auto-extract coordinates + standard WKB from a geometry column.
+ * Handles two column types:
+ * - Native GEOMETRY: ST_Centroid(col) for coords, ST_AsWKB(col) for WKB
+ * - WKB BLOB: ST_GeomFromWKB(col) → ST_Centroid for coords, col directly as WKB
+ * Adds lat/lng only if they don't already exist.
  */
-function wrapSqlForGeometry(sql: string, geomColumn: string, existingColumns: string[]): string {
+function wrapSqlForGeometry(
+  sql: string,
+  geomColumn: string,
+  existingColumns: string[],
+  isNativeGeometry: boolean,
+): string {
   const lowerCols = new Set(existingColumns.map((c) => c.toLowerCase()));
   const hasLat = lowerCols.has("lat") || lowerCols.has("latitude");
   const hasLng = lowerCols.has("lng") || lowerCols.has("longitude");
+
+  // For native GEOMETRY: use directly. For WKB BLOB: wrap with ST_GeomFromWKB first.
+  const geomExpr = isNativeGeometry ? `"${geomColumn}"` : `ST_GeomFromWKB("${geomColumn}")`;
+
   const coordCols =
-    !hasLat && !hasLng ? `, ST_Y(ST_Centroid("${geomColumn}")) AS lat, ST_X(ST_Centroid("${geomColumn}")) AS lng` : "";
-  return `SELECT __src.*${coordCols}, ST_AsWKB("${geomColumn}") AS __geo_wkb FROM (${sql}) __src`;
+    !hasLat && !hasLng ? `, ST_Y(ST_Centroid(${geomExpr})) AS lat, ST_X(ST_Centroid(${geomExpr})) AS lng` : "";
+
+  // For native GEOMETRY: ST_AsWKB converts to standard WKB. For BLOB: data is already WKB.
+  const wkbExpr = isNativeGeometry ? `ST_AsWKB("${geomColumn}")` : `"${geomColumn}"`;
+
+  return `SELECT __src.*${coordCols}, ${wkbExpr} AS __geo_wkb FROM (${sql}) __src`;
 }
 
 /**
@@ -234,10 +272,13 @@ export async function runQuery(input: { sql: string } | string): Promise<{
   const start = performance.now();
 
   try {
-    // Auto-detect GEOMETRY columns (fast DESCRIBE — reads Parquet metadata only)
+    // Auto-detect GEOMETRY/WKB columns (fast DESCRIBE — reads Parquet metadata only)
     const geomInfo = await detectGeometryColumns(conn, sql);
     const geomColumn = geomInfo?.geomColumn ?? null;
-    const finalSql = geomColumn ? wrapSqlForGeometry(sql, geomColumn, geomInfo!.allColumns) : sql;
+    const isNativeGeometry = geomInfo?.isNativeGeometry ?? false;
+    const finalSql = geomColumn
+      ? wrapSqlForGeometry(sql, geomColumn, geomInfo?.allColumns ?? [], isNativeGeometry)
+      : sql;
 
     const result = await conn.query(finalSql);
     const duration = Math.round(performance.now() - start);

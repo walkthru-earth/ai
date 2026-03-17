@@ -18,7 +18,7 @@ pnpm lint:fix     # biome auto-fix
 
 **queryId pattern** (zero-token data bridge): AI calls `runSQL` → DuckDB executes → full result stored in `query-store.ts` → only `queryId` returned to LLM (~10 tokens). Components read data from store via `useQueryResult(queryId)`.
 
-**Geometry auto-detection**: `runQuery()` auto-detects GEOMETRY columns via `DESCRIBE` (fast, metadata-only). When found, it wraps the SQL to extract lat/lng (via `ST_Centroid`) + standard WKB (via `ST_AsWKB`). WKB arrays are stored in query-store and piped to GeoArrow zero-copy rendering. The AI just writes `SELECT * FROM parquet_file` — no `ST_AsGeoJSON`, `ST_GeomFromWKB`, or manual coordinate extraction needed. DuckDB's internal geometry format (not standard WKB) is transparently converted.
+**Geometry auto-detection**: `runQuery()` auto-detects geometry columns via `DESCRIBE` (fast, metadata-only). Two paths: (1) native GEOMETRY type → `ST_AsWKB` + `ST_Centroid`, (2) WKB BLOB with well-known column name (geom, geometry, shape, etc.) → `ST_GeomFromWKB` + direct WKB passthrough. `enable_geoparquet_conversion = false` in init prevents WASM `stoi` crash on some GeoParquet files — our wrapping handles geometry instead. WKB arrays stored in query-store → GeoArrow zero-copy rendering. AI just writes `SELECT * FROM parquet_file`.
 
 **Cross-filter bus**: Lightweight pub/sub in `query-store.ts`. Components emit/consume `bbox` (map viewport) and `value` (click) filters. Requires shared `queryId` + `hex` column.
 
