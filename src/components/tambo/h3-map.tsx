@@ -1,5 +1,6 @@
 "use client";
 
+import { withTamboInteractable } from "@tambo-ai/react";
 import { Map } from "lucide-react";
 import dynamic from "next/dynamic";
 import * as React from "react";
@@ -261,3 +262,13 @@ export const H3Map = React.forwardRef<HTMLDivElement, H3MapProps>((props, ref) =
   );
 });
 H3Map.displayName = "H3Map";
+
+/** Interactable H3Map — AI can update props at runtime (zoom, center, colorScheme, etc.) */
+export const InteractableH3Map = withTamboInteractable(H3Map, {
+  componentName: "H3Map",
+  description:
+    "Interactive deck.gl H3 hex map. AI can update its view (latitude, longitude, zoom), color scheme, " +
+    "extruded mode, and other props at runtime without creating a new map. " +
+    "Use this to respond to requests like 'zoom into Cairo' or 'switch to viridis colors'.",
+  propsSchema: h3MapSchema,
+});

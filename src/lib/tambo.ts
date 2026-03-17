@@ -8,7 +8,7 @@ import { z } from "zod";
 import { DataTable, dataTableSchema } from "@/components/tambo/data-table";
 import { DatasetCard, datasetCardSchema } from "@/components/tambo/dataset-card";
 import { Graph, graphSchema } from "@/components/tambo/graph";
-import { H3Map, h3MapSchema } from "@/components/tambo/h3-map";
+import { h3MapSchema, InteractableH3Map } from "@/components/tambo/h3-map";
 import { InsightCard, insightCardSchema } from "@/components/tambo/insight-card";
 import { QueryDisplay, queryDisplaySchema } from "@/components/tambo/query-display";
 import { StatsCard, statsCardSchema } from "@/components/tambo/stats-card";
@@ -154,11 +154,12 @@ export const components: TamboComponent[] = [
   {
     name: "H3Map",
     description:
-      "deck.gl H3 hex map. Pass `queryId` from runSQL result — the component reads data directly from the store (zero token cost, instant render). " +
-      "The SQL query MUST have columns named `hex` (from h3_h3_to_string) and `value` (the metric). " +
-      "Example SQL: SELECT h3_h3_to_string(h3_index) AS hex, pop_2025 AS value FROM '...' LIMIT 500. " +
-      "Also set: latitude/longitude/zoom (map center), colorMetric (legend label), colorScheme, extruded (3D).",
-    component: H3Map,
+      "deck.gl H3 hex map. INTERACTABLE: AI can update existing map props (zoom, center, colorScheme) without creating a new map. " +
+      "Pass `queryId` from runSQL result — zero token cost, instant render. " +
+      "SQL MUST have `hex` (h3_h3_to_string) + `value` columns. " +
+      "When user says 'zoom into Cairo' or 'change colors to viridis', UPDATE the existing map props — do NOT create a new H3Map. " +
+      "Props: latitude/longitude/zoom (view), colorMetric (legend), colorScheme, extruded (3D).",
+    component: InteractableH3Map,
     propsSchema: h3MapSchema,
   },
   {

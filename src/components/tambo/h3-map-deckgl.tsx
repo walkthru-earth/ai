@@ -158,8 +158,10 @@ export default function DeckGLMap({
   const mapRef = useRef<maplibregl.Map | null>(null);
   const overlayRef = useRef<MapboxOverlay | null>(null);
   const isDark = useIsDark();
-  // Track whether we've done a data-driven fitBounds so we don't flyTo on top of it
-  const hasFitBoundsRef = useRef(false);
+  // Track hex count to detect first data load vs updates
+  const prevHexCountRef = useRef(0);
+  // Track latest lat/lng/zoom to detect AI-driven view changes
+  const prevViewRef = useRef({ latitude, longitude, zoom });
   // Store latest onBoundsChange in ref to avoid re-creating map when callback changes
   const onBoundsChangeRef = useRef(onBoundsChange);
   onBoundsChangeRef.current = onBoundsChange;
@@ -273,7 +275,6 @@ export default function DeckGLMap({
       map.remove();
       mapRef.current = null;
       overlayRef.current = null;
-      hasFitBoundsRef.current = false;
     };
     // Only run once on mount — all other updates handled by separate effects
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -300,12 +301,18 @@ export default function DeckGLMap({
     });
   }, [isDark, layers]);
 
-  // 4. Auto-fitBounds when hex data changes — dynamically fits all data
+  // 4. Auto-fitBounds ONLY on first data load (0→N hexagons), not on re-renders
+  const hexCount = hexagons?.length ?? 0;
   useEffect(() => {
-    if (!mapRef.current || !hexagons || hexagons.length === 0) return;
+    if (!mapRef.current || hexCount === 0) return;
+    // Only fitBounds when data first appears (was 0, now has data)
+    if (prevHexCountRef.current > 0) {
+      prevHexCountRef.current = hexCount;
+      return;
+    }
+    prevHexCountRef.current = hexCount;
     const map = mapRef.current;
 
-    // Use h3-js to compute bounding box from hex centroids
     import("h3-js")
       .then((h3) => {
         let minLat = 90;
@@ -313,7 +320,7 @@ export default function DeckGLMap({
         let minLng = 180;
         let maxLng = -180;
 
-        for (const hex of hexagons) {
+        for (const hex of hexagons!) {
           if (!hex.hex) continue;
           try {
             const [lat, lng] = h3.cellToLatLng(hex.hex);
@@ -322,13 +329,12 @@ export default function DeckGLMap({
             if (lng < minLng) minLng = lng;
             if (lng > maxLng) maxLng = lng;
           } catch {
-            // invalid hex — skip
+            /* invalid hex */
           }
         }
 
-        if (minLat > maxLat) return; // no valid coords
+        if (minLat > maxLat) return;
 
-        hasFitBoundsRef.current = true;
         map.fitBounds(
           [
             [minLng, minLat],
@@ -344,7 +350,6 @@ export default function DeckGLMap({
         );
       })
       .catch(() => {
-        // h3-js unavailable — fallback to flyTo
         map.flyTo({
           center: [longitude, latitude],
           zoom,
@@ -353,13 +358,16 @@ export default function DeckGLMap({
           duration: 1200,
         });
       });
-    // Re-fit when hex data identity changes (new query result)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hexagons]);
+  }, [hexCount]);
 
-  // 5. Fallback flyTo only when explicit lat/lng/zoom props change AND we haven't done fitBounds
+  // 5. FlyTo when AI explicitly changes lat/lng/zoom props (e.g., "zoom into Cairo")
   useEffect(() => {
-    if (!mapRef.current || hasFitBoundsRef.current) return;
+    if (!mapRef.current) return;
+    const prev = prevViewRef.current;
+    const changed = prev.latitude !== latitude || prev.longitude !== longitude || prev.zoom !== zoom;
+    prevViewRef.current = { latitude, longitude, zoom };
+    if (!changed) return;
     mapRef.current.flyTo({
       center: [longitude, latitude],
       zoom,

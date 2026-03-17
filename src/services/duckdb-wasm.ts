@@ -130,7 +130,7 @@ function arrowToJs(val: unknown): unknown {
   return val;
 }
 
-/** Strip INSTALL/LOAD/SET from AI-generated SQL, take last SELECT. */
+/** Strip INSTALL/LOAD/SET from AI-generated SQL, take last SELECT. Remove trailing semicolons. */
 function cleanSql(raw: string): string | null {
   const statements = raw
     .split(";")
@@ -140,7 +140,10 @@ function cleanSql(raw: string): string | null {
       const upper = s.toUpperCase();
       return !upper.startsWith("INSTALL") && !upper.startsWith("LOAD") && !upper.startsWith("SET ");
     });
-  return statements.length > 0 ? statements[statements.length - 1] : null;
+  if (statements.length === 0) return null;
+  // Strip any trailing semicolons — DuckDB-WASM parser treats them as empty second statement
+  const last = statements[statements.length - 1].replace(/;+\s*$/, "").trim();
+  return last || null;
 }
 
 /**
