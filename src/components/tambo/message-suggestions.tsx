@@ -3,7 +3,7 @@
 import type { Suggestion, TamboThreadMessage } from "@tambo-ai/react";
 import { useTambo, useTamboSuggestions } from "@tambo-ai/react";
 import * as React from "react";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { MessageGenerationStage } from "./message-generation-stage";
 import { Tooltip, TooltipProvider } from "./suggestions-tooltip";
@@ -25,6 +25,7 @@ interface MessageSuggestionsContextValue {
   error: Error | null;
   messages: TamboThreadMessage[];
   isStreaming: boolean;
+  isWaiting: boolean;
   isMac: boolean;
 }
 
@@ -75,7 +76,7 @@ export interface MessageSuggestionsProps extends React.HTMLAttributes<HTMLDivEle
  */
 const MessageSuggestions = React.forwardRef<HTMLDivElement, MessageSuggestionsProps>(
   ({ children, className, maxSuggestions = 3, initialSuggestions = [], ...props }, ref) => {
-    const { messages, isStreaming } = useTambo();
+    const { messages, isStreaming, isWaiting } = useTambo();
     const {
       suggestions: generatedSuggestions,
       selectedSuggestionId,
@@ -96,10 +97,6 @@ const MessageSuggestions = React.forwardRef<HTMLDivElement, MessageSuggestionsPr
 
     const isMac = typeof navigator !== "undefined" && navigator.platform.startsWith("Mac");
 
-    // Track the last AI message ID to detect new messages
-    const lastAiMessageIdRef = useRef<string | null>(null);
-    const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
     const contextValue = React.useMemo(
       () => ({
         suggestions,
@@ -109,33 +106,11 @@ const MessageSuggestions = React.forwardRef<HTMLDivElement, MessageSuggestionsPr
         error,
         messages,
         isStreaming,
+        isWaiting,
         isMac,
       }),
-      [suggestions, selectedSuggestionId, accept, isGenerating, error, messages, isStreaming, isMac],
+      [suggestions, selectedSuggestionId, accept, isGenerating, error, messages, isStreaming, isWaiting, isMac],
     );
-
-    // Find the last AI message
-    const lastAiMessage =
-      messages.length > 0 ? (messages.toReversed().find((msg) => msg.role === "assistant") ?? null) : null;
-
-    // When a new AI message appears, update the reference
-    useEffect(() => {
-      if (lastAiMessage && lastAiMessage.id !== lastAiMessageIdRef.current) {
-        lastAiMessageIdRef.current = lastAiMessage.id;
-
-        if (loadingTimeoutRef.current) {
-          clearTimeout(loadingTimeoutRef.current);
-        }
-
-        loadingTimeoutRef.current = setTimeout(() => {}, 5000);
-      }
-
-      return () => {
-        if (loadingTimeoutRef.current) {
-          clearTimeout(loadingTimeoutRef.current);
-        }
-      };
-    }, [lastAiMessage]);
 
     // Handle keyboard shortcuts for selecting suggestions
     useEffect(() => {
@@ -199,14 +174,14 @@ export type MessageSuggestionsStatusProps = React.HTMLAttributes<HTMLDivElement>
  */
 const MessageSuggestionsStatus = React.forwardRef<HTMLDivElement, MessageSuggestionsStatusProps>(
   ({ className, ...props }, ref) => {
-    const { error, isGenerating, isStreaming } = useMessageSuggestionsContext();
+    const { error, isGenerating, isStreaming, isWaiting } = useMessageSuggestionsContext();
 
     return (
       <div
         ref={ref}
         className={cn(
           "p-2 rounded-md text-sm bg-transparent",
-          !error && !isGenerating && !isStreaming ? "p-0 min-h-0 mb-0" : "",
+          !error && !isGenerating && !isStreaming && !isWaiting ? "p-0 min-h-0 mb-0" : "",
           className,
         )}
         data-slot="message-suggestions-status"
@@ -220,7 +195,7 @@ const MessageSuggestionsStatus = React.forwardRef<HTMLDivElement, MessageSuggest
         )}
 
         {/* Always render a container for generation stage to prevent layout shifts */}
-        <div className="generation-stage-container">{isStreaming && <MessageGenerationStage />}</div>
+        <div className="generation-stage-container">{(isStreaming || isWaiting) && <MessageGenerationStage />}</div>
       </div>
     );
   },

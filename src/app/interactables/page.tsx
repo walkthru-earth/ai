@@ -11,7 +11,7 @@ import {
 } from "@/components/tambo/message-input";
 import { ScrollableMessageContainer } from "@/components/tambo/scrollable-message-container";
 import { ThreadContent, ThreadContentMessages } from "@/components/tambo/thread-content";
-import { components, tools } from "@/lib/tambo";
+import { tamboProviderConfig } from "@/lib/tambo";
 import { useAnonymousUserKey } from "@/lib/use-anonymous-user-key";
 import { SettingsPanel } from "./components/settings-panel";
 
@@ -20,13 +20,7 @@ export default function InteractablesPage() {
   const userKey = useAnonymousUserKey();
 
   return (
-    <TamboProvider
-      apiKey={process.env.NEXT_PUBLIC_TAMBO_API_KEY!}
-      components={components}
-      tools={tools}
-      tamboUrl={process.env.NEXT_PUBLIC_TAMBO_URL}
-      userKey={userKey}
-    >
+    <TamboProvider {...tamboProviderConfig} userKey={userKey}>
       <div className="flex h-screen bg-gray-50">
         {/* Chat Sidebar */}
         <div

@@ -1,23 +1,32 @@
 # src/lib/
 
-Central configuration and utilities.
+Central configuration, utilities, and shared provider config.
 
 ```mermaid
 graph LR
   subgraph "tambo.ts (CENTRAL CONFIG)"
     Tools["tools: TamboTool[]\nrunSQL, listDatasets, buildParquetUrl,\ndescribeDataset, getCrossIndex, suggestAnalysis"]
     Components["components: TamboComponent[]\nH3Map, StatsCard, StatsGrid, DataTable,\nQueryDisplay, DatasetCard, InsightCard,\nGraph, DataCard"]
+    Config["tamboProviderConfig\napiKey, components, tools, tamboUrl,\nautoGenerateThreadName, autoGenerateNameThreshold"]
   end
-  Tools -->|registered in| Provider[TamboProvider]
-  Components -->|registered in| Provider
+  Config -->|spread into| Provider[TamboProvider]
+  Tools -->|part of| Config
+  Components -->|part of| Config
   Provider --> ChatPage["/chat"]
   Provider --> ExplorePage["/explore"]
+  Provider --> InteractablesPage["/interactables"]
 ```
 
 ## Files
 
 ### `tambo.ts`
-Central registration file. Imported by both `/chat` and `/explore` pages.
+Central registration file. All 3 pages import from here.
+
+**`tamboProviderConfig`** — shared base props for all `TamboProvider` instances:
+- `apiKey`, `components`, `tools`, `tamboUrl`
+- `autoGenerateThreadName: true` — SDK auto-names threads after 2 messages
+- `autoGenerateNameThreshold: 2`
+- Pages spread this config and add page-specific overrides (`contextHelpers`, `mcpServers`, `userKey`)
 
 **Tools** (6 total):
 | Tool | Input | Output | Key Rules in Description |
@@ -37,7 +46,8 @@ Central registration file. Imported by both `/chat` and `/explore` pages.
 Custom hook `useMergeRefs` — combines multiple refs into one (used by MessageThreadFull).
 
 ### `use-anonymous-user-key.ts`
-Generates persistent anonymous user key for Tambo sessions (localStorage).
+Generates persistent anonymous user key for Tambo sessions (localStorage key: `walkthru-user-key`). The SDK requires `userKey` for thread scoping but doesn't auto-generate one — this hook fills that gap. Uses `crypto.randomUUID()` with fallback for older browsers.
 
 ### `utils.ts`
-`cn()` — Tailwind class merger (clsx + tailwind-merge).
+- `cn()` — Tailwind class merger (clsx + tailwind-merge)
+- `basePath` — `NEXT_PUBLIC_BASE_PATH || "/ai"` for static asset URLs in static export

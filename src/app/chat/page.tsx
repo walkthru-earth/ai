@@ -5,7 +5,7 @@ import { useEffect } from "react";
 import { useMcpServers } from "@/components/tambo/mcp-config-modal";
 import { MessageThreadFull } from "@/components/tambo/message-thread-full";
 import { WalkthruLogo } from "@/components/walkthru-logo";
-import { components, tools } from "@/lib/tambo";
+import { tamboProviderConfig } from "@/lib/tambo";
 import { useAnonymousUserKey } from "@/lib/use-anonymous-user-key";
 import { preloadDuckDB } from "@/services/duckdb-wasm";
 
@@ -18,14 +18,7 @@ export default function Chat() {
   }, []);
 
   return (
-    <TamboProvider
-      apiKey={process.env.NEXT_PUBLIC_TAMBO_API_KEY!}
-      components={components}
-      tools={tools}
-      tamboUrl={process.env.NEXT_PUBLIC_TAMBO_URL}
-      mcpServers={mcpServers}
-      userKey={userKey}
-    >
+    <TamboProvider {...tamboProviderConfig} mcpServers={mcpServers} userKey={userKey}>
       <div className="h-screen flex flex-col">
         <header className="border-b border-border bg-background/95 backdrop-blur-sm px-4 py-3 flex items-center gap-3 flex-shrink-0">
           <WalkthruLogo size={20} />

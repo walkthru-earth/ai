@@ -38,7 +38,7 @@ export default function DictationButton() {
 
   return (
     <div className="flex flex-row items-center gap-2">
-      <span className="text-sm text-red-500">{transcriptionError}</span>
+      <span className="text-sm text-destructive">{transcriptionError}</span>
       {isRecording ? (
         <Tooltip content="Stop">
           <button
@@ -47,7 +47,7 @@ export default function DictationButton() {
             aria-label="Stop dictation"
             className="p-2 rounded-md cursor-pointer hover:bg-muted"
           >
-            <Square className="h-4 w-4 text-red-500 fill-current animate-pulse" />
+            <Square className="h-4 w-4 text-destructive fill-current animate-pulse" />
           </button>
         </Tooltip>
       ) : (

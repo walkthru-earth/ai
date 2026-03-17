@@ -37,7 +37,7 @@ import {
 import { ScrollableMessageContainer } from "@/components/tambo/scrollable-message-container";
 import { ThreadContent, ThreadContentMessages } from "@/components/tambo/thread-content";
 import { WalkthruLogo } from "@/components/walkthru-logo";
-import { components, tools } from "@/lib/tambo";
+import { tamboProviderConfig } from "@/lib/tambo";
 import { useAnonymousUserKey } from "@/lib/use-anonymous-user-key";
 import { cn } from "@/lib/utils";
 import { preloadDuckDB, runQuery } from "@/services/duckdb-wasm";
@@ -595,10 +595,7 @@ export default function ExplorePage() {
 
   return (
     <TamboProvider
-      apiKey={process.env.NEXT_PUBLIC_TAMBO_API_KEY!}
-      components={components}
-      tools={tools}
-      tamboUrl={process.env.NEXT_PUBLIC_TAMBO_URL}
+      {...tamboProviderConfig}
       userKey={userKey}
       contextHelpers={{
         walkthruContext: () => ({

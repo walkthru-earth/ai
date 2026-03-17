@@ -4,19 +4,18 @@ Next.js App Router pages.
 
 ```mermaid
 graph TD
-  Layout["layout.tsx\nQuicksand font + DM Mono\ndark mode, globals.css"] --> Chat
+  Layout["layout.tsx\nQuicksand + DM Mono\ncrypto.randomUUID polyfill\nmax-scale=1 viewport"] --> Chat
   Layout --> Explore
   Layout --> Home
   subgraph "/explore (main UI)"
-    Explore["explore/page.tsx"] --> TamboProvider1[TamboProvider + contextHelpers]
+    Explore["explore/page.tsx"] --> TamboProvider1["TamboProvider\n...tamboProviderConfig\n+ contextHelpers + userKey"]
     TamboProvider1 --> ExplorerLayout
-    ExplorerLayout --> ChatPanel["Chat Panel (400px glass sidebar)\nSessionHistory | ThreadContent | MessageInput\nSuggestions (when empty)"]
-    ExplorerLayout --> DashboardCanvas["DashboardCanvas\ndraggable/resizable panels"]
-    ExplorerLayout --> CrossFilterToggle["CrossFilterToggle (Link icon)"]
+    ExplorerLayout --> ChatPanel["Desktop: 400px glass sidebar\nMobile: bottom sheet (swipe drawer)"]
+    ExplorerLayout --> DashboardCanvas["DashboardCanvas\nDesktop: react-grid-layout\nTouch: dnd-kit sortable"]
     Explore -->|on mount| preloadDuckDB
   end
   subgraph "/chat"
-    Chat["chat/page.tsx"] --> TamboProvider2[TamboProvider + MCP]
+    Chat["chat/page.tsx"] --> TamboProvider2["TamboProvider\n...tamboProviderConfig\n+ mcpServers + userKey"]
     TamboProvider2 --> MessageThreadFull
     Chat -->|on mount| preloadDuckDB2[preloadDuckDB]
   end
@@ -26,37 +25,37 @@ graph TD
 ## Files
 
 ### `layout.tsx`
-Root layout. Loads Quicksand (local woff2 variable font) + DM Mono (Google). Sets `dark` class on `<html>`. Inline `<script>` detects system theme preference on first visit (no localStorage) and removes `dark` class if user prefers light — prevents flash of wrong theme.
+Root layout. Loads Quicksand (local woff2 variable font) + DM Mono (Google). Sets `dark` class on `<html>`. Inline `<script>` does:
+- Theme detection (prevents FOUC)
+- `crypto.randomUUID` polyfill for older iOS/Android WebViews
+- `<meta name="viewport" ... maximum-scale=1>` prevents iOS input zoom
 
 ### `globals.css`
-- Tailwind v4 theme: CSS variables for light + dark modes, `--font-sans` → Quicksand, `--font-mono` → DM Mono
-- Brand colors: `earth-blue`, `earth-cyan`, `earth-green` defined in `@theme inline` block
-- `*, *::before, *::after { font-family: inherit }` forces Quicksand everywhere
-- Body: 17px, font-weight 500
-- Glass panels: `backdrop-filter: blur(24px)` — separate light/dark variants
-- Scrollbar: theme-aware (dark thumb on light bg, light thumb on dark bg)
-- Dashboard grid: placeholder, resize handle styling
-- Animations: flash, thinking-gradient, fade-up
+- Tailwind v4 theme: CSS variables for light + dark modes
+- Brand colors: `earth-blue`, `earth-cyan`, `earth-green` in `@theme inline`
+- Glass panels, scrollbar styling, animations
+- Dashboard grid: `.react-grid-item { touch-action: auto }`, `.panel-drag-handle { touch-action: none }`, `.panel-content { touch-action: auto }`
 
 ### `explore/page.tsx`
-Main dashboard page. Key features:
-- **contextHelpers.behavior**: Tells AI to be decisive, not ask clarifying questions
-- **contextHelpers.duckdbWasmNotes**: DuckDB rules for AI
-- **contextHelpers.componentTips**: Instructs AI to use same queryId for linked components
-- **CrossFilterToggle**: Link2/Link2Off icon, calls `useCrossFilterEnabled()`
-- **SessionHistory**: Shows threads with `threadLabel()` (date + truncated ID, not "Untitled")
-- **Suggestions**: 3 starter suggestions shown when thread is empty
-- **DuckDB preload**: `preloadDuckDB()` on mount
-- **Shareable thread URLs**: `?thread=threadId` in URL. Only real `thr_`-prefixed IDs written to URL (never `placeholder`). On load, validates and calls `switchThread(urlThread)`. Invalid params cleaned from URL. Share button in session history copies link.
-- **Query replay**: When a thread loads from URL, scans messages for `tool_use` blocks with `runSQL`, extracts SQL from `tool_use.input.sql`, finds the matching `tool_result` across ALL messages (tool_use and tool_result are in DIFFERENT messages — assistant vs user/tool), extracts the original `queryId` from the tool_result JSON, re-executes the SQL via DuckDB-WASM in-browser, and stores the result under the original `queryId` via `storeQueryResultWithId()`. Components use the reactive `useQueryResult()` hook so they automatically re-render when the async replay completes.
-- **ThemeSwitcher**: Dark/Light/System cycle. Always starts "dark" to match server render, syncs from localStorage in effect (prevents hydration mismatch).
-- **No emojis**: All icons are Lucide components. Logo is `WalkthruLogo` (next/image from `/walkthru-icon.svg`).
+Main dashboard page. Uses `tamboProviderConfig` (spread from `tambo.ts`) + `contextHelpers` + `userKey`.
+
+**Key features:**
+- **TamboProvider**: `autoGenerateThreadName: true` (from shared config) — threads auto-named after 2 messages
+- **contextHelpers**: behavior rules, DuckDB notes, S3 paths, component tips
+- **MobileBottomSheet**: Swipeable drawer with drag handle pill. 2 states: collapsed (input bar) / expanded (full chat). Swipe up/down or tap pill to toggle.
+- **Auto-expand**: Mobile chat expands when user sends a message
+- **Auto-collapse**: Collapses when AI renders a dashboard component
+- **SessionHistory**: Thread list with auto-generated names, new thread button. Available in both desktop sidebar and mobile expanded header.
+- **CrossFilterToggle**: Link2/Link2Off, calls `useCrossFilterEnabled()`
+- **ThemeSwitcher**: Dark/Light/System cycle. Mobile: floats in top-right pill when collapsed.
+- **Query replay**: Replays `runSQL` tool calls from restored threads to repopulate query store.
+- **Thread URLs**: `?thread=threadId` — validates `thr_` prefix, syncs with Tambo.
 
 ### `page.tsx` (homepage)
-Landing page with hero, CTA buttons, dataset grid, analyses, how-it-works. Includes its own ThemeSwitcher + WalkthruLogo navbar. No user-visible tech branding (no "DuckDB", "Tambo", "H3" etc.).
+Landing page. No user-visible tech branding.
 
 ### `chat/page.tsx`
-Chat page with `MessageThreadFull`. No dashboard canvas → components render inline. Uses `WalkthruLogo` in header.
+Chat page with `MessageThreadFull`. Uses `tamboProviderConfig` + `mcpServers` + `userKey`. Components render inline (no dashboard canvas).
 
 ### `fonts.ts`
 Quicksand variable font config. Weight range 300-700.

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
-const STORAGE_KEY = "tambo-anonymous-user-key";
+const STORAGE_KEY = "walkthru-user-key";
 
 function generateUserKey(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -18,28 +18,17 @@ function generateUserKey(): string {
 }
 
 /**
- * Hook that returns a stable anonymous user key for TamboProvider.
- * Persists the key in localStorage so it survives page refreshes.
+ * Stable anonymous user key for Tambo — persisted to localStorage.
+ * The SDK requires a userKey for thread scoping but doesn't auto-generate one.
  */
 export function useAnonymousUserKey(): string {
   const [userKey] = useState<string>(() => {
-    if (typeof window === "undefined") {
-      return generateUserKey();
-    }
+    if (typeof window === "undefined") return generateUserKey();
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      return stored;
-    }
+    if (stored) return stored;
     const newKey = generateUserKey();
     localStorage.setItem(STORAGE_KEY, newKey);
     return newKey;
   });
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem(STORAGE_KEY, userKey);
-    }
-  }, [userKey]);
-
   return userKey;
 }

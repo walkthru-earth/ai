@@ -69,13 +69,17 @@ In-browser SQL engine. Preloaded on page mount. Extensions: httpfs (S3 access), 
 - ONE statement per call, always LIMIT 500, HTTPS URLs in FROM
 
 ### Dashboard Canvas
-`DashboardCanvas` uses `useMemo` (not useEffect+state) to derive panels from Tambo messages — ensures streamed prop updates always reflect. Panels are draggable/resizable via react-grid-layout (desktop only — disabled on touch devices). `data-canvas-space="true"` attribute tells chat sidebar to show "Rendered in dashboard" instead of inline component.
+Two rendering modes:
+- **Desktop**: `react-grid-layout` — draggable via header bar, resizable via corners. Maps 8 rows (640px), graphs 5, tables 4.
+- **Touch/mobile**: `@dnd-kit/sortable` with `TouchSensor` (1.2s hold delay, 8px tolerance). Only grip icon initiates drag. Content area fully interactive for maps/charts.
 
-Panel dragging: only via `.panel-drag-handle` grip icon (hidden on touch). Content area has `.panel-content` class with `draggableCancel` to prevent grid drag conflicts with map panning.
+**Merged panel header**: Single bar `[grip] [title] ... [maximize] [close]`. Title read from `content.props.title` (Tambo content block). Components hide their own headers via `PanelContext` / `useInDashboardPanel()`.
 
-**Component sizing**: All viz components use `h-full flex flex-col` to fill their panel. No fixed pixel heights — the panel controls size, header/footer use `flex-shrink-0`, content uses `flex-1 min-h-0`.
+**Panel order**: Persisted to `localStorage` per thread. Auto-scrolls to latest panel.
 
-**Mobile**: Separate `sm` layout (single column, shorter panels, tighter margins). Chat is a collapsible bottom sheet, dashboard fills the screen.
+**Component sizing**: All viz components use `h-full flex flex-col`. Header/footer `flex-shrink-0`, content `flex-1 min-h-0`.
+
+**Mobile chat**: `MobileBottomSheet` — swipeable drawer with drag handle pill. 2 states: collapsed (input bar) / expanded (full-screen chat). Auto-expands on send, auto-collapses when AI renders a dashboard component.
 
 ## Data Infrastructure
 
@@ -123,15 +127,20 @@ S3 base: `https://s3.us-west-2.amazonaws.com/us-west-2.opendata.source.coop/walk
 - **RTL text plugin**: Loaded once for Arabic/Hebrew map labels.
 - **All pages** must use theme-aware CSS variables (`bg-background`, `text-foreground`, etc.), never hardcoded colors.
 
-### Tambo internal props
-Components receive `_tambo_*` props from Tambo SDK. Never spread `{...props}` onto DOM elements — destructure known props only.
+### Tambo SDK (v1.2.2)
+- **Shared config**: `tamboProviderConfig` in `tambo.ts` — all 3 pages spread this + add page-specific overrides
+- **Auto thread naming**: `autoGenerateThreadName: true`, threshold 2 messages
+- **Anonymous user key**: `useAnonymousUserKey()` hook in `use-anonymous-user-key.ts` — SDK requires `userKey` for thread scoping but doesn't auto-generate
+- **Available but not yet used**: `withTamboInteractable` (AI-controllable components), `useTamboComponentState` (bidirectional state sync), `useTamboStreamStatus` (per-prop streaming status), `useTamboVoice` (voice input)
+- Components receive `_tambo_*` props — never spread `{...props}` onto DOM elements
+- `content.props.title` on component content blocks exposes the component's title prop (used by dashboard panel headers)
 
 ### Thread URLs
 - URL param `?thread=threadId` only set for real thread IDs (prefix `thr_`), never for `placeholder`.
 - On shared link load: validates thread ID, switches thread, replays SQL queries.
 
 ### No user-visible branding
-Never show "Tambo", "DuckDB", "H3", "Parquet", "deck.gl" etc. in the UI. These are internal implementation details. Use generic terms like "interactive maps" and "real-time queries".
+Never show "Tambo", "DuckDB", "H3", "Parquet", "deck.gl" etc. in the UI. These are internal implementation details.
 
 ## Tambo CLI
 

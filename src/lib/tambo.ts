@@ -1,6 +1,6 @@
 /**
  * @file tambo.ts
- * @description Central configuration for Walkthru Earth AI — components + tools
+ * @description Central configuration for Walkthru Earth AI — components, tools, and shared provider config
  */
 
 import type { TamboComponent, TamboTool } from "@tambo-ai/react";
@@ -218,3 +218,15 @@ export const components: TamboComponent[] = [
     propsSchema: dataCardSchema,
   },
 ];
+
+/* ── Shared provider config ───────────────────────────────────────── */
+
+/** Base props shared by all TamboProvider instances across pages. */
+export const tamboProviderConfig = {
+  apiKey: process.env.NEXT_PUBLIC_TAMBO_API_KEY!,
+  components,
+  tools,
+  tamboUrl: process.env.NEXT_PUBLIC_TAMBO_URL,
+  autoGenerateThreadName: true,
+  autoGenerateNameThreshold: 2,
+} as const;
