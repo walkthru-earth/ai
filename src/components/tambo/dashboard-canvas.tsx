@@ -158,26 +158,25 @@ export function DashboardCanvas({ className }: DashboardCanvasProps) {
     }
   }, [panelOrder, orderKey]);
 
-  // Reset on thread change
-  if (prevThreadRef.current !== currentThreadId) {
+  // Reset on thread change — must be in useEffect to avoid setState during render
+  useEffect(() => {
+    if (prevThreadRef.current === currentThreadId) return;
     prevThreadRef.current = currentThreadId;
-    if (dismissedIds.size > 0) setDismissedIds(new Set());
-    if (Object.keys(savedLayouts).length > 0) setSavedLayouts({});
-    if (maximizedId) setMaximizedId(null);
-    // Load order for new thread
+    setDismissedIds(new Set());
+    setSavedLayouts({});
+    setMaximizedId(null);
     if (orderKey) {
       try {
         const stored = localStorage.getItem(orderKey);
         const parsed = stored ? JSON.parse(stored) : [];
-        if (parsed.length > 0) setPanelOrder(parsed);
-        else setPanelOrder([]);
+        setPanelOrder(parsed.length > 0 ? parsed : []);
       } catch {
         setPanelOrder([]);
       }
     } else {
       setPanelOrder([]);
     }
-  }
+  }, [currentThreadId, orderKey]);
 
   // Derive panels from messages
   const panels: PanelInfo[] = useMemo(() => {

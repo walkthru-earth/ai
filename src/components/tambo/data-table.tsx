@@ -3,7 +3,7 @@
 import { withTamboInteractable } from "@tambo-ai/react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import * as React from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import { cn } from "@/lib/utils";
 import { setCrossFilter, useCrossFilter, useQueryResult } from "@/services/query-store";
@@ -109,11 +109,13 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
       return { resolvedColumns: columns ?? null, resolvedRows: rows ?? null };
     }, [queryId, queryResult, visibleColumns, columns, rows, crossFilter]);
 
-    // Reset page when data changes
+    // Reset page when data changes — useEffect to avoid setState during render
     const totalRows = resolvedRows?.length ?? 0;
     const totalPages = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
     const safePage = Math.min(page, totalPages - 1);
-    if (safePage !== page) setPage(safePage);
+    useEffect(() => {
+      if (safePage !== page) setPage(safePage);
+    }, [safePage, page]);
 
     const pageRows = resolvedRows?.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE) ?? [];
 
