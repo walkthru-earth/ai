@@ -3,6 +3,7 @@
 import { usePathname, useSearchParams } from "next/navigation";
 import posthog from "posthog-js";
 import { useEffect } from "react";
+import { basePath } from "@/lib/utils";
 
 let initialized = false;
 
@@ -30,7 +31,7 @@ export function PostHogPageView(): null {
 
   useEffect(() => {
     if (!pathname || !initialized) return;
-    let url = window.origin + pathname;
+    let url = window.origin + basePath + pathname;
     if (searchParams?.toString()) {
       url += `?${searchParams.toString()}`;
     }
