@@ -295,6 +295,9 @@ export function buildContextHelpers(geo: GeoIP | null) {
         "Render MULTIPLE components per response: a map + a table + an insight card for rich analysis.",
         "NEVER output markdown tables, ASCII art, or separator characters like +#+#+ in chat text. Use InsightCard or DataTable components instead.",
         "Keep chat text SHORT — 1-2 sentences max. All data goes into components, not into chat text.",
+        "NEVER render checkboxes, radio buttons, or selectable lists in chat — users cannot submit selections back to the AI. " +
+          "Instead, show DatasetCard components for dataset info and let the auto-generated follow-up suggestion chips handle the next action. " +
+          "The suggestion chips at the bottom are clickable buttons that submit instantly — users don't need to type.",
       ],
       duckdbWasmNotes: [
         "H3 extension pre-loaded. NO INSTALL/LOAD in SQL. ONE statement per call.",
