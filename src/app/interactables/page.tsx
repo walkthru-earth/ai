@@ -1,5 +1,8 @@
 "use client";
 
+import { TamboProvider } from "@tambo-ai/react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useState } from "react";
 import {
   MessageInput,
   MessageInputSubmitButton,
@@ -7,15 +10,9 @@ import {
   MessageInputToolbar,
 } from "@/components/tambo/message-input";
 import { ScrollableMessageContainer } from "@/components/tambo/scrollable-message-container";
-import {
-  ThreadContent,
-  ThreadContentMessages,
-} from "@/components/tambo/thread-content";
+import { ThreadContent, ThreadContentMessages } from "@/components/tambo/thread-content";
 import { components, tools } from "@/lib/tambo";
 import { useAnonymousUserKey } from "@/lib/use-anonymous-user-key";
-import { TamboProvider } from "@tambo-ai/react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useState } from "react";
 import { SettingsPanel } from "./components/settings-panel";
 
 export default function InteractablesPage() {
@@ -40,9 +37,7 @@ export default function InteractablesPage() {
           {isChatOpen && (
             <>
               <div className="p-4 border-b border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-900">
-                  Chat Assistant
-                </h2>
+                <h2 className="text-lg font-semibold text-gray-900">Chat Assistant</h2>
               </div>
 
               <ScrollableMessageContainer className="flex-1 p-4">
@@ -67,11 +62,7 @@ export default function InteractablesPage() {
             onClick={() => setIsChatOpen(!isChatOpen)}
             className="absolute -right-10 top-1/2 -translate-y-1/2 bg-white border border-gray-200 rounded-r-lg p-2 hover:bg-gray-50"
           >
-            {isChatOpen ? (
-              <ChevronLeft className="w-4 h-4" />
-            ) : (
-              <ChevronRight className="w-4 h-4" />
-            )}
+            {isChatOpen ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
           </button>
         </div>
 

@@ -6,8 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint .",
-    "lint:fix": "eslint --fix .",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
     "init": "npx tambo init"
   },
   "dependencies": {
@@ -75,9 +76,15 @@
       "@tiptap/extension-floating-menu": "3.20.2",
       "@tiptap/react": "3.20.2",
       "@tiptap/suggestion": "3.20.2"
-    }
+    },
+    "onlyBuiltDependencies": [
+      "core-js",
+      "lefthook",
+      "protobufjs"
+    ]
   },
   "devDependencies": {
+    "@biomejs/biome": "2.4.7",
     "@tailwindcss/postcss": "^4.2.1",
     "@types/dompurify": "^3.2.0",
     "@types/leaflet": "^1.9.21",
@@ -88,8 +95,7 @@
     "@types/react-dom": "^19.2.3",
     "autoprefixer": "^10.4.27",
     "clsx": "^2.1.1",
-    "eslint": "^9.39.4",
-    "eslint-config-next": "^16.1.6",
+    "lefthook": "2.1.4",
     "postcss": "^8.5.8",
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "^4.2.1",

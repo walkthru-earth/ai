@@ -1,10 +1,10 @@
 "use client";
 
-import { cn } from "@/lib/utils";
-import { setCrossFilter, useCrossFilter, useQueryResult } from "@/services/query-store";
 import * as React from "react";
 import { useMemo } from "react";
 import { z } from "zod";
+import { cn } from "@/lib/utils";
+import { setCrossFilter, useCrossFilter, useQueryResult } from "@/services/query-store";
 
 /* ── Schema ────────────────────────────────────────────────────────── */
 
@@ -12,24 +12,38 @@ export const dataTableSchema = z.object({
   title: z.string().describe("Table title describing the data shown"),
 
   // PREFERRED: queryId mode (zero tokens — reads from query store)
-  queryId: z.string().optional().describe(
-    "ID from runSQL result. Table auto-derives columns and rows from the query store (zero token cost). " +
-    "Optionally pass visibleColumns to limit displayed columns.",
-  ),
-  visibleColumns: z.array(z.string()).optional().describe(
-    "Optional subset of columns to display from the query result. If omitted, shows all columns.",
-  ),
+  queryId: z
+    .string()
+    .optional()
+    .describe(
+      "ID from runSQL result. Table auto-derives columns and rows from the query store (zero token cost). " +
+        "Optionally pass visibleColumns to limit displayed columns.",
+    ),
+  visibleColumns: z
+    .array(z.string())
+    .optional()
+    .describe("Optional subset of columns to display from the query result. If omitted, shows all columns."),
 
   // LEGACY: inline data (backward compat)
-  columns: z.array(z.object({
-    id: z.string().describe("Column identifier matching row keys"),
-    label: z.string().describe("Display label for column header"),
-    align: z.enum(["left", "center", "right"]).optional().describe("Text alignment"),
-  })).optional().describe("Column definitions (auto-derived when using queryId)"),
-  rows: z.array(z.object({
-    id: z.string().describe("Unique row identifier"),
-    cells: z.array(z.string()).describe("Cell values in the same order as columns"),
-  })).optional().describe("Data rows (auto-derived when using queryId)"),
+  columns: z
+    .array(
+      z.object({
+        id: z.string().describe("Column identifier matching row keys"),
+        label: z.string().describe("Display label for column header"),
+        align: z.enum(["left", "center", "right"]).optional().describe("Text alignment"),
+      }),
+    )
+    .optional()
+    .describe("Column definitions (auto-derived when using queryId)"),
+  rows: z
+    .array(
+      z.object({
+        id: z.string().describe("Unique row identifier"),
+        cells: z.array(z.string()).describe("Cell values in the same order as columns"),
+      }),
+    )
+    .optional()
+    .describe("Data rows (auto-derived when using queryId)"),
 
   caption: z.string().optional().describe("Optional caption below the table"),
   highlight: z.enum(["none", "alternating", "hover"]).optional().describe("Row highlighting style"),
@@ -52,7 +66,6 @@ function formatCell(val: unknown): string {
 
 export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
   ({ title, queryId, visibleColumns, columns, rows, caption, highlight = "alternating" }, ref) => {
-
     const crossFilter = useCrossFilter();
     const queryResult = useQueryResult(queryId);
 
@@ -95,16 +108,19 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
         <div ref={ref} className="rounded-xl border p-4 animate-pulse bg-muted/30 h-48">
           <div className="h-4 bg-muted rounded w-1/3 mb-4" />
           <div className="space-y-2">
-            {[...Array(4)].map((_, i) => <div key={i} className="h-3 bg-muted rounded" />)}
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-3 bg-muted rounded" />
+            ))}
           </div>
         </div>
       );
     }
 
     // Cross-filter: which rows are highlighted?
-    const filterColIdx = crossFilter && crossFilter.sourceComponent !== "DataTable"
-      ? resolvedColumns.findIndex((c) => c.id === crossFilter.column)
-      : -1;
+    const filterColIdx =
+      crossFilter && crossFilter.sourceComponent !== "DataTable"
+        ? resolvedColumns.findIndex((c) => c.id === crossFilter.column)
+        : -1;
 
     const handleRowClick = (rowIdx: number) => {
       if (!queryId || !resolvedColumns.length) return;
@@ -147,9 +163,8 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
             </thead>
             <tbody>
               {resolvedRows.map((row, rowIdx) => {
-                const isFilterMatch = filterColIdx >= 0 && crossFilter
-                  ? crossFilter.values.includes(row.cells[filterColIdx])
-                  : false;
+                const isFilterMatch =
+                  filterColIdx >= 0 && crossFilter ? crossFilter.values.includes(row.cells[filterColIdx]) : false;
 
                 return (
                   <tr
@@ -168,7 +183,11 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
                           key={`${row.id ?? rowIdx}-${cellIdx}`}
                           className={cn(
                             "px-4 py-2 text-foreground whitespace-nowrap text-sm",
-                            col?.align === "right" ? "text-right" : col?.align === "center" ? "text-center" : "text-left",
+                            col?.align === "right"
+                              ? "text-right"
+                              : col?.align === "center"
+                                ? "text-center"
+                                : "text-left",
                           )}
                         >
                           {cell}

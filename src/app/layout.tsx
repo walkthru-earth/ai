@@ -1,6 +1,6 @@
 import { DM_Mono } from "next/font/google";
-import { quicksand } from "./fonts";
 import { Analytics } from "@/components/analytics";
+import { quicksand } from "./fonts";
 import "./globals.css";
 
 const dmMono = DM_Mono({
@@ -11,8 +11,7 @@ const dmMono = DM_Mono({
 
 export const metadata = {
   title: "walkthru.earth — AI Urban Intelligence",
-  description:
-    "Talk to the world's data. Explore cities, climate, terrain, and population with AI + DuckDB.",
+  description: "Talk to the world's data. Explore cities, climate, terrain, and population with AI + DuckDB.",
   icons: {
     icon: "/favicon.png",
   },
@@ -26,7 +25,9 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: `
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
           (function(){
             try {
               var t = localStorage.getItem('theme');
@@ -36,11 +37,11 @@ export default function RootLayout({
               else if (!t && !prefersDark) document.documentElement.classList.remove('dark');
             } catch(e){}
           })();
-        `}} />
+        `,
+          }}
+        />
       </head>
-      <body
-        className={`${quicksand.variable} ${dmMono.variable} antialiased`}
-      >
+      <body className={`${quicksand.variable} ${dmMono.variable} antialiased`}>
         {children}
         <Analytics />
       </body>

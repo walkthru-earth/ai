@@ -16,7 +16,7 @@ import { storeQueryResult } from "./query-store";
 
 let db: any = null;
 let initPromise: Promise<any> | null = null;
-let initAttempts = 0;
+let _initAttempts = 0;
 const MAX_INIT_RETRIES = 3;
 
 /** Initialize DuckDB-WASM singleton with retry on chunk load failure. */
@@ -29,7 +29,7 @@ async function initDuckDB(): Promise<any> {
 
     for (let attempt = 1; attempt <= MAX_INIT_RETRIES; attempt++) {
       try {
-        initAttempts = attempt;
+        _initAttempts = attempt;
         const duckdb = await import("@duckdb/duckdb-wasm");
 
         const JSDELIVR_BUNDLES = duckdb.getJsDelivrBundles();
@@ -53,19 +53,27 @@ async function initDuckDB(): Promise<any> {
             if (typeof (instance as any).loadExtension === "function") {
               await (instance as any).loadExtension(ext);
             }
-          } catch { /* fallback below */ }
+          } catch {
+            /* fallback below */
+          }
         }
 
         // SQL-level setup (all best-effort)
         const conn = await instance.connect();
         try {
           for (const stmt of [
-            "INSTALL httpfs", "LOAD httpfs",
-            "INSTALL h3 FROM community", "LOAD h3",
+            "INSTALL httpfs",
+            "LOAD httpfs",
+            "INSTALL h3 FROM community",
+            "LOAD h3",
             "SET s3_region = 'us-west-2'",
             "SET s3_url_style = 'path'",
           ]) {
-            try { await conn.query(stmt); } catch { /* ignore */ }
+            try {
+              await conn.query(stmt);
+            } catch {
+              /* ignore */
+            }
           }
         } finally {
           await conn.close();
@@ -88,7 +96,7 @@ async function initDuckDB(): Promise<any> {
     initPromise = null;
     throw new Error(
       `DuckDB failed to initialize after ${MAX_INIT_RETRIES} attempts: ${lastError?.message ?? "unknown error"}. ` +
-      `Try refreshing the page.`,
+        `Try refreshing the page.`,
     );
   })();
 
@@ -112,8 +120,7 @@ export async function preloadDuckDB(): Promise<boolean> {
 function arrowToJs(val: unknown): unknown {
   if (val == null) return null;
   if (typeof val === "bigint") return Number(val);
-  if (val instanceof Uint8Array)
-    return `0x${[...val].map((b) => b.toString(16).padStart(2, "0")).join("")}`;
+  if (val instanceof Uint8Array) return `0x${[...val].map((b) => b.toString(16).padStart(2, "0")).join("")}`;
   // Arrow Struct → plain object
   if (val && typeof val === "object" && "toJSON" in val && typeof (val as any).toJSON === "function") {
     return (val as any).toJSON();
@@ -131,11 +138,7 @@ function cleanSql(raw: string): string | null {
     .filter((s) => {
       if (!s) return false;
       const upper = s.toUpperCase();
-      return (
-        !upper.startsWith("INSTALL") &&
-        !upper.startsWith("LOAD") &&
-        !upper.startsWith("SET ")
-      );
+      return !upper.startsWith("INSTALL") && !upper.startsWith("LOAD") && !upper.startsWith("SET ");
     });
   return statements.length > 0 ? statements[statements.length - 1] : null;
 }
@@ -146,9 +149,7 @@ function cleanSql(raw: string): string | null {
  *
  * On init failure, retries DuckDB initialization automatically.
  */
-export async function runQuery(
-  input: { sql: string } | string,
-): Promise<{
+export async function runQuery(input: { sql: string } | string): Promise<{
   queryId: string;
   columns: string[];
   rowCount: number;

@@ -1,16 +1,52 @@
 "use client";
 
-import { ApiKeyCheck } from "@/components/ApiKeyCheck";
-import { WalkthruLogo } from "@/components/walkthru-logo";
-import { ArrowRight, Cloud, Mountain, Building2, Users, Zap, MessageSquare, Map, Sun, Moon, Monitor } from "lucide-react";
+import {
+  ArrowRight,
+  Building2,
+  Cloud,
+  Map,
+  MessageSquare,
+  Monitor,
+  Moon,
+  Mountain,
+  Sun,
+  Users,
+  Zap,
+} from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { ApiKeyCheck } from "@/components/ApiKeyCheck";
+import { WalkthruLogo } from "@/components/walkthru-logo";
 
 const DATASETS = [
-  { id: "weather", icon: Cloud, name: "Weather", cells: "GraphCast AI", color: "from-blue-500/20 to-cyan-500/10 border-blue-500/20" },
-  { id: "terrain", icon: Mountain, name: "Terrain", cells: "10.5B cells", color: "from-emerald-500/20 to-green-500/10 border-emerald-500/20" },
-  { id: "building", icon: Building2, name: "Buildings", cells: "2.75B", color: "from-amber-500/20 to-orange-500/10 border-amber-500/20" },
-  { id: "population", icon: Users, name: "Population", cells: "SSP2 to 2100", color: "from-rose-500/20 to-pink-500/10 border-rose-500/20" },
+  {
+    id: "weather",
+    icon: Cloud,
+    name: "Weather",
+    cells: "GraphCast AI",
+    color: "from-blue-500/20 to-cyan-500/10 border-blue-500/20",
+  },
+  {
+    id: "terrain",
+    icon: Mountain,
+    name: "Terrain",
+    cells: "10.5B cells",
+    color: "from-emerald-500/20 to-green-500/10 border-emerald-500/20",
+  },
+  {
+    id: "building",
+    icon: Building2,
+    name: "Buildings",
+    cells: "2.75B",
+    color: "from-amber-500/20 to-orange-500/10 border-amber-500/20",
+  },
+  {
+    id: "population",
+    icon: Users,
+    name: "Population",
+    cells: "SSP2 to 2100",
+    color: "from-rose-500/20 to-pink-500/10 border-rose-500/20",
+  },
 ];
 
 const ANALYSES = [
@@ -110,8 +146,8 @@ export default function Home() {
           </h1>
 
           <p className="text-sm sm:text-base text-muted-foreground max-w-xl mx-auto leading-relaxed px-4">
-            Ask questions about cities, climate, terrain, and population.
-            Get instant answers as interactive maps, charts, and tables.
+            Ask questions about cities, climate, terrain, and population. Get instant answers as interactive maps,
+            charts, and tables.
           </p>
         </div>
 
@@ -143,7 +179,9 @@ export default function Home() {
         {/* Datasets Grid */}
         <div className="mb-12 sm:mb-16">
           <div className="flex items-center gap-3 mb-4 sm:mb-6">
-            <span className="font-[family-name:var(--font-mono)] text-xs text-muted-foreground tracking-widest uppercase">01</span>
+            <span className="font-[family-name:var(--font-mono)] text-xs text-muted-foreground tracking-widest uppercase">
+              01
+            </span>
             <div className="h-px flex-1 bg-border" />
             <span className="text-sm text-muted-foreground">Datasets</span>
           </div>
@@ -168,7 +206,9 @@ export default function Home() {
         {/* Cross-Indices */}
         <div className="mb-12 sm:mb-16">
           <div className="flex items-center gap-3 mb-4 sm:mb-6">
-            <span className="font-[family-name:var(--font-mono)] text-xs text-muted-foreground tracking-widest uppercase">02</span>
+            <span className="font-[family-name:var(--font-mono)] text-xs text-muted-foreground tracking-widest uppercase">
+              02
+            </span>
             <div className="h-px flex-1 bg-border" />
             <span className="text-sm text-muted-foreground">Cross-Index Analyses</span>
           </div>
@@ -188,7 +228,9 @@ export default function Home() {
         {/* How it works */}
         <div className="mb-12 sm:mb-16">
           <div className="flex items-center gap-3 mb-4 sm:mb-6">
-            <span className="font-[family-name:var(--font-mono)] text-xs text-muted-foreground tracking-widest uppercase">03</span>
+            <span className="font-[family-name:var(--font-mono)] text-xs text-muted-foreground tracking-widest uppercase">
+              03
+            </span>
             <div className="h-px flex-1 bg-border" />
             <span className="text-sm text-muted-foreground">How it works</span>
           </div>
@@ -197,7 +239,11 @@ export default function Home() {
             {[
               { step: "Ask", desc: "Natural language questions about cities, climate, terrain", icon: MessageSquare },
               { step: "Query", desc: "AI queries billions of geospatial records in real time", icon: Zap },
-              { step: "Visualize", desc: "Results rendered as interactive maps, charts, tables, and insights", icon: Map },
+              {
+                step: "Visualize",
+                desc: "Results rendered as interactive maps, charts, tables, and insights",
+                icon: Map,
+              },
             ].map((item) => {
               const Icon = item.icon;
               return (
@@ -216,9 +262,10 @@ export default function Home() {
         {/* Footer */}
         <footer className="pt-8 border-t border-border text-center">
           <p className="text-xs text-muted-foreground">
-            <a href="https://walkthru.earth" className="hover:text-foreground transition-colors">walkthru.earth</a>
-            {" "}&middot;{" "}
-            CC BY 4.0
+            <a href="https://walkthru.earth" className="hover:text-foreground transition-colors">
+              walkthru.earth
+            </a>{" "}
+            &middot; CC BY 4.0
           </p>
         </footer>
       </div>

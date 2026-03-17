@@ -1,7 +1,7 @@
 "use client";
 
-import posthog from "posthog-js";
 import { usePathname, useSearchParams } from "next/navigation";
+import posthog from "posthog-js";
 import { useEffect } from "react";
 
 let initialized = false;

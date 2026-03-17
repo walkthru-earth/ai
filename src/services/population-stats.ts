@@ -9,13 +9,7 @@ interface GlobalPopulation {
 interface CountryPopulation {
   countryCode: string;
   countryName: string;
-  continent:
-    | "Asia"
-    | "Africa"
-    | "Europe"
-    | "North America"
-    | "South America"
-    | "Oceania";
+  continent: "Asia" | "Africa" | "Europe" | "North America" | "South America" | "Oceania";
   population: number; // in millions
   year: number;
   growthRate: number;
@@ -131,38 +125,28 @@ const mockCountryPopulation: CountryPopulation[] = [
   },
 ];
 
-export const getGlobalPopulationTrend = async (
-  filter?: GlobalPopulationFilter,
-): Promise<GlobalPopulation[]> => {
+export const getGlobalPopulationTrend = async (filter?: GlobalPopulationFilter): Promise<GlobalPopulation[]> => {
   let filteredData = [...mockGlobalPopulation];
 
   if (filter) {
     if (filter.startYear) {
-      filteredData = filteredData.filter(
-        (data) => data.year >= filter.startYear!,
-      );
+      filteredData = filteredData.filter((data) => data.year >= filter.startYear!);
     }
     if (filter.endYear) {
-      filteredData = filteredData.filter(
-        (data) => data.year <= filter.endYear!,
-      );
+      filteredData = filteredData.filter((data) => data.year <= filter.endYear!);
     }
   }
 
   return filteredData.sort((a, b) => b.year - a.year);
 };
 
-export const getCountryPopulations = async (
-  filter?: CountryPopulationFilter,
-): Promise<CountryPopulation[]> => {
+export const getCountryPopulations = async (filter?: CountryPopulationFilter): Promise<CountryPopulation[]> => {
   let filteredData = [...mockCountryPopulation];
 
   if (filter) {
     // Filter by continent
     if (filter.continent) {
-      filteredData = filteredData.filter(
-        (country) => country.continent === filter.continent,
-      );
+      filteredData = filteredData.filter((country) => country.continent === filter.continent);
     }
 
     // Sort data if sortBy is specified
@@ -182,9 +166,4 @@ export const getCountryPopulations = async (
   return filteredData;
 };
 
-export type {
-  CountryPopulation,
-  CountryPopulationFilter,
-  GlobalPopulation,
-  GlobalPopulationFilter,
-};
+export type { CountryPopulation, CountryPopulationFilter, GlobalPopulation, GlobalPopulationFilter };

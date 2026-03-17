@@ -27,7 +27,9 @@ let nextId = 1;
 /* ── Query Store Listeners (for reactive hooks) ──────────────────── */
 
 const queryListeners = new Set<() => void>();
-function emitQuery() { for (const fn of queryListeners) fn(); }
+function emitQuery() {
+  for (const fn of queryListeners) fn();
+}
 function subscribeQuery(cb: () => void): () => void {
   queryListeners.add(cb);
   return () => queryListeners.delete(cb);
@@ -35,7 +37,9 @@ function subscribeQuery(cb: () => void): () => void {
 
 /** Reactive version counter — increments on every store write so useSyncExternalStore detects changes. */
 let queryVersion = 0;
-function getQueryVersion() { return queryVersion; }
+function _getQueryVersion() {
+  return queryVersion;
+}
 
 export function storeQueryResult(result: Omit<StoredQuery, "timestamp">): string {
   const id = `qr_${nextId++}`;
@@ -50,10 +54,7 @@ export function storeQueryResult(result: Omit<StoredQuery, "timestamp">): string
 }
 
 /** Store a result under a specific ID (for restoring shared threads). */
-export function storeQueryResultWithId(
-  id: string,
-  result: Omit<StoredQuery, "timestamp">,
-): void {
+export function storeQueryResultWithId(id: string, result: Omit<StoredQuery, "timestamp">): void {
   store.set(id, { ...result, timestamp: Date.now() });
   queryVersion++;
   emitQuery();
@@ -100,7 +101,9 @@ let crossFilterEnabled = true;
 let currentFilter: CrossFilter | null = null;
 const listeners = new Set<() => void>();
 
-function emit() { for (const fn of listeners) fn(); }
+function emit() {
+  for (const fn of listeners) fn();
+}
 
 export function setCrossFilter(filter: CrossFilter): void {
   if (!crossFilterEnabled) return;
@@ -128,7 +131,9 @@ export function useCrossFilter(): CrossFilter | null {
 
 // ── Global toggle ──
 const toggleListeners = new Set<() => void>();
-function emitToggle() { for (const fn of toggleListeners) fn(); }
+function emitToggle() {
+  for (const fn of toggleListeners) fn();
+}
 
 export function setCrossFilterEnabled(enabled: boolean): void {
   crossFilterEnabled = enabled;

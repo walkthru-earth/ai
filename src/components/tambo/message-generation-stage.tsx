@@ -1,9 +1,9 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import { useTambo } from "@tambo-ai/react";
 import { Loader2Icon } from "lucide-react";
-import * as React from "react";
+import type * as React from "react";
+import { cn } from "@/lib/utils";
 
 /**
  * Represents the generation stage of a message
@@ -15,11 +15,7 @@ export interface GenerationStageProps extends React.HTMLAttributes<HTMLDivElemen
   showLabel?: boolean;
 }
 
-export function MessageGenerationStage({
-  className,
-  showLabel = true,
-  ...props
-}: GenerationStageProps) {
+export function MessageGenerationStage({ className, showLabel = true, ...props }: GenerationStageProps) {
   const { isStreaming, isWaiting, isIdle } = useTambo();
 
   if (isIdle) {

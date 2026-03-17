@@ -1,7 +1,7 @@
 "use client";
 
-import * as React from "react";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
+import * as React from "react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -61,12 +61,7 @@ function Tooltip({
   className,
 }: TooltipProps) {
   return (
-    <TooltipRoot
-      open={open}
-      defaultOpen={defaultOpen}
-      onOpenChange={onOpenChange}
-      delayDuration={delayDuration}
-    >
+    <TooltipRoot open={open} defaultOpen={defaultOpen} onOpenChange={onOpenChange} delayDuration={delayDuration}>
       <TooltipTrigger asChild>{children}</TooltipTrigger>
       <TooltipContent side={side} align={align} className={className}>
         {content}
@@ -75,10 +70,4 @@ function Tooltip({
   );
 }
 
-export {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipRoot,
-  TooltipTrigger,
-};
+export { Tooltip, TooltipContent, TooltipProvider, TooltipRoot, TooltipTrigger };

@@ -1,31 +1,15 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import * as React from "react";
 import { z } from "zod";
 
 export const queryDisplaySchema = z.object({
   sql: z.string().describe("SQL query string to display with syntax highlighting"),
-  title: z
-    .string()
-    .optional()
-    .describe("Title describing what this query does"),
-  dataset: z
-    .string()
-    .optional()
-    .describe("Which dataset this query targets (e.g. 'weather', 'terrain')"),
-  parquetUrl: z
-    .string()
-    .optional()
-    .describe("Direct URL to the Parquet file being queried"),
-  rowCount: z
-    .number()
-    .optional()
-    .describe("Number of rows returned by this query"),
-  duration: z
-    .string()
-    .optional()
-    .describe("Query execution duration (e.g. '1.2s')"),
+  title: z.string().optional().describe("Title describing what this query does"),
+  dataset: z.string().optional().describe("Which dataset this query targets (e.g. 'weather', 'terrain')"),
+  parquetUrl: z.string().optional().describe("Direct URL to the Parquet file being queried"),
+  rowCount: z.number().optional().describe("Number of rows returned by this query"),
+  duration: z.string().optional().describe("Query execution duration (e.g. '1.2s')"),
 });
 
 type QueryDisplayProps = z.infer<typeof queryDisplaySchema>;
@@ -118,9 +102,7 @@ export const QueryDisplay = React.forwardRef<HTMLDivElement, QueryDisplayProps>(
     const [copied, setCopied] = React.useState(false);
 
     if (!sql) {
-      return (
-        <div ref={ref} className="rounded-xl border p-4 animate-pulse bg-muted/30 h-32" />
-      );
+      return <div ref={ref} className="rounded-xl border p-4 animate-pulse bg-muted/30 h-32" />;
     }
 
     const handleCopy = () => {
@@ -133,14 +115,8 @@ export const QueryDisplay = React.forwardRef<HTMLDivElement, QueryDisplayProps>(
       <div ref={ref} className="rounded-xl border overflow-hidden bg-card">
         <div className="flex items-center justify-between px-4 py-2.5 border-b bg-muted/30">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="text-xs font-mono px-2 py-0.5 rounded bg-primary/10 text-primary flex-shrink-0">
-              SQL
-            </span>
-            {title && (
-              <span className="text-sm font-medium text-foreground truncate">
-                {title}
-              </span>
-            )}
+            <span className="text-xs font-mono px-2 py-0.5 rounded bg-primary/10 text-primary flex-shrink-0">SQL</span>
+            {title && <span className="text-sm font-medium text-foreground truncate">{title}</span>}
             {dataset && (
               <span className="text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground flex-shrink-0">
                 {dataset}
@@ -163,11 +139,7 @@ export const QueryDisplay = React.forwardRef<HTMLDivElement, QueryDisplayProps>(
 
         {(rowCount !== undefined || duration || parquetUrl) && (
           <div className="flex flex-wrap items-center gap-3 px-4 py-2 border-t bg-muted/10 text-xs text-muted-foreground">
-            {rowCount != null && (
-              <span>
-                {rowCount.toLocaleString()} rows
-              </span>
-            )}
+            {rowCount != null && <span>{rowCount.toLocaleString()} rows</span>}
             {duration && <span>{duration}</span>}
             {parquetUrl && (
               <a

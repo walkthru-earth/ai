@@ -1,9 +1,9 @@
 "use client";
 
 import { useTambo } from "@tambo-ai/react";
-import { cn } from "@/lib/utils";
-import * as React from "react";
+import type * as React from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
 
 /**
  * Props for the CanvasSpace component
@@ -64,9 +64,7 @@ export function CanvasSpace({ className }: CanvasSpaceProps) {
    * Allows external triggers to update the rendered component
    */
   useEffect(() => {
-    const handleShowComponent = (
-      event: CustomEvent<{ messageId: string; component: React.ReactNode }>,
-    ) => {
+    const handleShowComponent = (event: CustomEvent<{ messageId: string; component: React.ReactNode }>) => {
       try {
         setEventComponent({
           threadId: currentThreadId,
@@ -81,16 +79,10 @@ export function CanvasSpace({ className }: CanvasSpaceProps) {
       }
     };
 
-    window.addEventListener(
-      "tambo:showComponent",
-      handleShowComponent as EventListener,
-    );
+    window.addEventListener("tambo:showComponent", handleShowComponent as EventListener);
 
     return () => {
-      window.removeEventListener(
-        "tambo:showComponent",
-        handleShowComponent as EventListener,
-      );
+      window.removeEventListener("tambo:showComponent", handleShowComponent as EventListener);
     };
   }, [currentThreadId]);
 
@@ -140,9 +132,7 @@ export function CanvasSpace({ className }: CanvasSpaceProps) {
           ) : (
             <div className="flex-1 flex items-center justify-center text-center p-6">
               <div className="space-y-2">
-                <p className="text-muted-foreground font-medium">
-                  Canvas is empty
-                </p>
+                <p className="text-muted-foreground font-medium">Canvas is empty</p>
                 <p className="text-sm text-muted-foreground">
                   Interactive components will appear here as they are generated
                 </p>

@@ -1,7 +1,7 @@
 "use client";
 
+import { AlertTriangle, Check, Copy } from "lucide-react";
 import { useState } from "react";
-import { AlertTriangle, Copy, Check } from "lucide-react";
 
 interface ApiKeyCheckProps {
   children: React.ReactNode;
@@ -38,8 +38,7 @@ const ApiKeyMissingAlert = () => (
       <CopyButton text="npx tambo init" />
     </div>
     <p className="text-xs text-muted-foreground">
-      Set your API key in{" "}
-      <code className="bg-muted px-1.5 py-0.5 rounded text-foreground">.env.local</code>
+      Set your API key in <code className="bg-muted px-1.5 py-0.5 rounded text-foreground">.env.local</code>
     </p>
   </div>
 );

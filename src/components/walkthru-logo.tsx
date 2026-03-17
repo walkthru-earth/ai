@@ -7,13 +7,6 @@ interface WalkthruLogoProps {
 
 export function WalkthruLogo({ size = 20, className }: WalkthruLogoProps) {
   return (
-    <Image
-      src="/walkthru-icon.svg"
-      alt="walkthru.earth"
-      width={size}
-      height={size}
-      className={className}
-      priority
-    />
+    <Image src="/walkthru-icon.svg" alt="walkthru.earth" width={size} height={size} className={className} priority />
   );
 }

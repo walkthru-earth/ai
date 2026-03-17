@@ -1,41 +1,29 @@
 "use client";
 
-import { cn } from "@/lib/utils";
 import {
-  Thermometer, Wind, Mountain, Building2, Users, Droplets,
-  Compass, Globe, AlertTriangle, BarChart3,
+  AlertTriangle,
+  BarChart3,
+  Building2,
+  Compass,
+  Droplets,
+  Globe,
+  Mountain,
+  Thermometer,
+  Users,
+  Wind,
 } from "lucide-react";
 import * as React from "react";
 import { z } from "zod";
+import { cn } from "@/lib/utils";
 
 export const statsCardSchema = z.object({
   title: z.string().describe("Metric name or label"),
   value: z.string().describe("Formatted metric value (e.g. '28.5°C', '1.2M', '45%')"),
-  subtitle: z
-    .string()
-    .optional()
-    .describe("Additional context like unit or source"),
-  change: z
-    .number()
-    .optional()
-    .describe("Percentage change from baseline or previous period"),
-  trend: z
-    .enum(["up", "down", "flat"])
-    .optional()
-    .describe("Direction of the trend"),
+  subtitle: z.string().optional().describe("Additional context like unit or source"),
+  change: z.number().optional().describe("Percentage change from baseline or previous period"),
+  trend: z.enum(["up", "down", "flat"]).optional().describe("Direction of the trend"),
   icon: z
-    .enum([
-      "thermometer",
-      "wind",
-      "mountain",
-      "building",
-      "users",
-      "droplets",
-      "compass",
-      "globe",
-      "alert",
-      "chart",
-    ])
+    .enum(["thermometer", "wind", "mountain", "building", "users", "droplets", "compass", "globe", "alert", "chart"])
     .optional()
     .describe("Icon to display"),
   color: z
@@ -70,23 +58,14 @@ const COLOR_CLASSES: Record<string, string> = {
 };
 
 export const StatsCard = React.forwardRef<HTMLDivElement, StatsCardProps>(
-  (
-    { title, value, subtitle, change, trend = "flat", icon, color = "blue" },
-    ref,
-  ) => {
+  ({ title, value, subtitle, change, trend = "flat", icon, color = "blue" }, ref) => {
     if (!title) {
-      return (
-        <div ref={ref} className="rounded-xl border p-4 animate-pulse bg-muted/30 h-28" />
-      );
+      return <div ref={ref} className="rounded-xl border p-4 animate-pulse bg-muted/30 h-28" />;
     }
 
     const trendIcon = trend === "up" ? "↑" : trend === "down" ? "↓" : "→";
     const trendColor =
-      trend === "up"
-        ? "text-emerald-500"
-        : trend === "down"
-          ? "text-red-500"
-          : "text-muted-foreground";
+      trend === "up" ? "text-emerald-500" : trend === "down" ? "text-red-500" : "text-muted-foreground";
 
     return (
       <div
@@ -98,18 +77,15 @@ export const StatsCard = React.forwardRef<HTMLDivElement, StatsCardProps>(
       >
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-muted-foreground truncate">
-              {title}
-            </p>
+            <p className="text-sm font-medium text-muted-foreground truncate">{title}</p>
             <p className="text-2xl font-bold mt-1 text-foreground">{value}</p>
-            {subtitle && (
-              <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>
-            )}
+            {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
           </div>
-          {icon && (() => {
-            const Icon = ICONS[icon] ?? BarChart3;
-            return <Icon className="w-5 h-5 ml-2 flex-shrink-0 text-muted-foreground" />;
-          })()}
+          {icon &&
+            (() => {
+              const Icon = ICONS[icon] ?? BarChart3;
+              return <Icon className="w-5 h-5 ml-2 flex-shrink-0 text-muted-foreground" />;
+            })()}
         </div>
         {change !== undefined && (
           <div className={cn("flex items-center gap-1 mt-2 text-sm", trendColor)}>

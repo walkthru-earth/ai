@@ -1,15 +1,11 @@
 "use client";
 
-import { cn } from "@/lib/utils";
-import {
-  type TamboElicitationRequest,
-  type TamboElicitationResponse,
-} from "@tambo-ai/react/mcp";
+import type { TamboElicitationRequest, TamboElicitationResponse } from "@tambo-ai/react/mcp";
 import * as React from "react";
 import { useMemo, useState } from "react";
+import { cn } from "@/lib/utils";
 
-type FieldSchema =
-  TamboElicitationRequest["requestedSchema"]["properties"][string];
+type FieldSchema = TamboElicitationRequest["requestedSchema"]["properties"][string];
 
 /**
  * Props for individual field components
@@ -27,14 +23,7 @@ interface FieldProps {
 /**
  * Boolean field component - renders yes/no buttons
  */
-const BooleanField: React.FC<FieldProps> = ({
-  name,
-  schema,
-  value,
-  onChange,
-  required,
-  autoFocus,
-}) => {
+const BooleanField: React.FC<FieldProps> = ({ name, schema, value, onChange, required, autoFocus }) => {
   const boolValue = value as boolean | undefined;
 
   return (
@@ -46,7 +35,6 @@ const BooleanField: React.FC<FieldProps> = ({
       <div className="flex gap-2">
         <button
           type="button"
-          autoFocus={autoFocus}
           onClick={() => onChange(true)}
           className={cn(
             "flex-1 px-4 py-2 rounded-lg border transition-colors",
@@ -77,20 +65,12 @@ const BooleanField: React.FC<FieldProps> = ({
 /**
  * Enum field component - renders button for each choice
  */
-const EnumField: React.FC<FieldProps> = ({
-  name,
-  schema,
-  value,
-  onChange,
-  required,
-  autoFocus,
-}) => {
+const EnumField: React.FC<FieldProps> = ({ name, schema, value, onChange, required, autoFocus }) => {
   if (schema.type !== "string" || !("enum" in schema)) {
     return null;
   }
   const options = schema.enum ?? [];
-  const optionNames =
-    "enumNames" in schema ? (schema.enumNames ?? []) : options;
+  const optionNames = "enumNames" in schema ? (schema.enumNames ?? []) : options;
   const stringValue = value as string | undefined;
 
   return (
@@ -104,7 +84,6 @@ const EnumField: React.FC<FieldProps> = ({
           <button
             key={option}
             type="button"
-            autoFocus={autoFocus && index === 0}
             onClick={() => onChange(option)}
             className={cn(
               "px-4 py-2 rounded-lg border transition-colors",
@@ -124,15 +103,7 @@ const EnumField: React.FC<FieldProps> = ({
 /**
  * String field component - renders text input with validation
  */
-const StringField: React.FC<FieldProps> = ({
-  name,
-  schema,
-  value,
-  onChange,
-  required,
-  autoFocus,
-  validationError,
-}) => {
+const StringField: React.FC<FieldProps> = ({ name, schema, value, onChange, required, autoFocus, validationError }) => {
   const inputId = React.useId();
 
   if (schema.type !== "string") {
@@ -170,14 +141,11 @@ const StringField: React.FC<FieldProps> = ({
       <input
         id={inputId}
         type={inputType}
-        autoFocus={autoFocus}
         value={stringValue}
         onChange={(e) => onChange(e.target.value)}
         className={cn(
           "w-full px-3 py-2 rounded-lg border bg-background text-foreground focus:outline-none focus:ring-2",
-          hasError
-            ? "border-destructive focus:ring-destructive"
-            : "border-border focus:ring-accent",
+          hasError ? "border-destructive focus:ring-destructive" : "border-border focus:ring-accent",
         )}
         placeholder={schema.description ?? name}
         minLength={"minLength" in schema ? schema.minLength : undefined}
@@ -198,15 +166,7 @@ const StringField: React.FC<FieldProps> = ({
 /**
  * Number field component - renders number input with validation
  */
-const NumberField: React.FC<FieldProps> = ({
-  name,
-  schema,
-  value,
-  onChange,
-  required,
-  autoFocus,
-  validationError,
-}) => {
+const NumberField: React.FC<FieldProps> = ({ name, schema, value, onChange, required, autoFocus, validationError }) => {
   const inputId = React.useId();
 
   if (schema.type !== "number" && schema.type !== "integer") {
@@ -226,21 +186,14 @@ const NumberField: React.FC<FieldProps> = ({
       <input
         id={inputId}
         type="number"
-        autoFocus={autoFocus}
         value={numberValue ?? ""}
         onChange={(e) => {
           const { value, valueAsNumber } = e.currentTarget;
-          onChange(
-            value === "" || Number.isNaN(valueAsNumber)
-              ? undefined
-              : valueAsNumber,
-          );
+          onChange(value === "" || Number.isNaN(valueAsNumber) ? undefined : valueAsNumber);
         }}
         className={cn(
           "w-full px-3 py-2 rounded-lg border bg-background text-foreground focus:outline-none focus:ring-2",
-          hasError
-            ? "border-destructive focus:ring-destructive"
-            : "border-border focus:ring-accent",
+          hasError ? "border-destructive focus:ring-destructive" : "border-border focus:ring-accent",
         )}
         placeholder={schema.description ?? name}
         min={numberSchema.minimum}
@@ -297,9 +250,7 @@ function isSingleEntryMode(request: TamboElicitationRequest): boolean {
 
   const [, schema] = fields[0];
 
-  return (
-    schema.type === "boolean" || (schema.type === "string" && "enum" in schema)
-  );
+  return schema.type === "boolean" || (schema.type === "string" && "enum" in schema);
 }
 
 /**
@@ -393,20 +344,14 @@ function validateField(
       return { valid: false, error: "Please enter a valid number" };
     }
 
-    if (
-      numberSchema.minimum !== undefined &&
-      numberValue < numberSchema.minimum
-    ) {
+    if (numberSchema.minimum !== undefined && numberValue < numberSchema.minimum) {
       return {
         valid: false,
         error: `Minimum value is ${numberSchema.minimum}`,
       };
     }
 
-    if (
-      numberSchema.maximum !== undefined &&
-      numberValue > numberSchema.maximum
-    ) {
+    if (numberSchema.maximum !== undefined && numberValue > numberSchema.maximum) {
       return {
         valid: false,
         error: `Maximum value is ${numberSchema.maximum}`,
@@ -422,11 +367,7 @@ function validateField(
 }
 
 // Backwards-compatible helpers that delegate to the unified validator
-function getValidationError(
-  value: unknown,
-  schema: FieldSchema,
-  required: boolean,
-): string | null {
+function getValidationError(value: unknown, schema: FieldSchema, required: boolean): string | null {
   return validateField(value, schema, required).error;
 }
 
@@ -443,20 +384,13 @@ export interface ElicitationUIProps {
  * Main elicitation UI component
  * Handles both single-entry and multiple-entry modes
  */
-export const ElicitationUI: React.FC<ElicitationUIProps> = ({
-  request,
-  onResponse,
-  className,
-}) => {
+export const ElicitationUI: React.FC<ElicitationUIProps> = ({ request, onResponse, className }) => {
   const singleEntry = isSingleEntryMode(request);
   const fields = useMemo(
     () => Object.entries(request.requestedSchema.properties),
     [request.requestedSchema.properties],
   );
-  const requiredFields = useMemo(
-    () => request.requestedSchema.required ?? [],
-    [request.requestedSchema.required],
-  );
+  const requiredFields = useMemo(() => request.requestedSchema.required ?? [], [request.requestedSchema.required]);
   const [formData, setFormData] = useState<Record<string, unknown>>(() => {
     const initial: Record<string, unknown> = {};
     fields.forEach(([name, schema]) => {
@@ -514,23 +448,12 @@ export const ElicitationUI: React.FC<ElicitationUIProps> = ({
   if (singleEntry) {
     const [fieldName, fieldSchema] = fields[0];
     const validationError = touchedFields.has(fieldName)
-      ? getValidationError(
-          formData[fieldName],
-          fieldSchema,
-          requiredFields.includes(fieldName),
-        )
+      ? getValidationError(formData[fieldName], fieldSchema, requiredFields.includes(fieldName))
       : null;
 
     return (
-      <div
-        className={cn(
-          "flex flex-col rounded-xl bg-background border border-border p-4 space-y-3",
-          className,
-        )}
-      >
-        <div className="text-base font-semibold text-foreground mb-2">
-          {request.message}
-        </div>
+      <div className={cn("flex flex-col rounded-xl bg-background border border-border p-4 space-y-3", className)}>
+        <div className="text-base font-semibold text-foreground mb-2">{request.message}</div>
         <Field
           name={fieldName}
           schema={fieldSchema}
@@ -562,23 +485,12 @@ export const ElicitationUI: React.FC<ElicitationUIProps> = ({
 
   // Multiple-entry mode
   return (
-    <div
-      className={cn(
-        "flex flex-col rounded-xl bg-background border border-border p-4 space-y-4",
-        className,
-      )}
-    >
-      <div className="text-base font-semibold text-foreground">
-        {request.message}
-      </div>
+    <div className={cn("flex flex-col rounded-xl bg-background border border-border p-4 space-y-4", className)}>
+      <div className="text-base font-semibold text-foreground">{request.message}</div>
       <div className="space-y-3">
         {fields.map(([name, schema], index) => {
           const validationError = touchedFields.has(name)
-            ? getValidationError(
-                formData[name],
-                schema,
-                requiredFields.includes(name),
-              )
+            ? getValidationError(formData[name], schema, requiredFields.includes(name))
             : null;
 
           return (

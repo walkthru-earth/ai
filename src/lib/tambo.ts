@@ -3,37 +3,25 @@
  * @description Central configuration for Walkthru Earth AI — components + tools
  */
 
+import type { TamboComponent, TamboTool } from "@tambo-ai/react";
+import { z } from "zod";
+import { DataTable, dataTableSchema } from "@/components/tambo/data-table";
+import { DatasetCard, datasetCardSchema } from "@/components/tambo/dataset-card";
 import { Graph, graphSchema } from "@/components/tambo/graph";
-import { DataCard, dataCardSchema } from "@/components/ui/card-data";
+import { H3Map, h3MapSchema } from "@/components/tambo/h3-map";
+import { InsightCard, insightCardSchema } from "@/components/tambo/insight-card";
+import { QueryDisplay, queryDisplaySchema } from "@/components/tambo/query-display";
 import { StatsCard, statsCardSchema } from "@/components/tambo/stats-card";
 import { StatsGrid, statsGridSchema } from "@/components/tambo/stats-grid";
-import { DataTable, dataTableSchema } from "@/components/tambo/data-table";
+import { DataCard, dataCardSchema } from "@/components/ui/card-data";
+import { runQuery } from "@/services/duckdb-wasm";
 import {
-  QueryDisplay,
-  queryDisplaySchema,
-} from "@/components/tambo/query-display";
-import {
-  DatasetCard,
-  datasetCardSchema,
-} from "@/components/tambo/dataset-card";
-import {
-  InsightCard,
-  insightCardSchema,
-} from "@/components/tambo/insight-card";
-import { H3Map, h3MapSchema } from "@/components/tambo/h3-map";
-
-import {
-  listDatasets,
   buildParquetUrl,
   describeDataset,
   getCrossIndex,
+  listDatasets,
   suggestAnalysis,
 } from "@/services/walkthru-data";
-import { runQuery } from "@/services/duckdb-wasm";
-
-import type { TamboComponent } from "@tambo-ai/react";
-import { TamboTool } from "@tambo-ai/react";
-import { z } from "zod";
 
 /* ── Tools ─────────────────────────────────────────────────────────── */
 
@@ -48,7 +36,7 @@ export const tools: TamboTool[] = [
         .string()
         .describe(
           "DuckDB SQL query. Use HTTPS Parquet URLs in FROM. Include LIMIT 500. " +
-          "For maps: SELECT h3_h3_to_string(h3_index) AS hex, <metric> AS value FROM ...",
+            "For maps: SELECT h3_h3_to_string(h3_index) AS hex, <metric> AS value FROM ...",
         ),
     }),
     outputSchema: z.object({
@@ -175,15 +163,13 @@ export const components: TamboComponent[] = [
   },
   {
     name: "StatsCard",
-    description:
-      "A single metric card. Use for one key value like temperature, population count, building density.",
+    description: "A single metric card. Use for one key value like temperature, population count, building density.",
     component: StatsCard,
     propsSchema: statsCardSchema,
   },
   {
     name: "StatsGrid",
-    description:
-      "A responsive grid of multiple metric cards. Use when comparing several metrics at once.",
+    description: "A responsive grid of multiple metric cards. Use when comparing several metrics at once.",
     component: StatsGrid,
     propsSchema: statsGridSchema,
   },
@@ -206,15 +192,13 @@ export const components: TamboComponent[] = [
   },
   {
     name: "DatasetCard",
-    description:
-      "Shows metadata about a Walkthru Earth dataset. Use when the user asks about available data.",
+    description: "Shows metadata about a Walkthru Earth dataset. Use when the user asks about available data.",
     component: DatasetCard,
     propsSchema: datasetCardSchema,
   },
   {
     name: "InsightCard",
-    description:
-      "Highlights a key finding with supporting details and severity level. Use for analysis conclusions.",
+    description: "Highlights a key finding with supporting details and severity level. Use for analysis conclusions.",
     component: InsightCard,
     propsSchema: insightCardSchema,
   },
@@ -229,8 +213,7 @@ export const components: TamboComponent[] = [
   },
   {
     name: "DataCard",
-    description:
-      "Selectable option cards with descriptions and links. Use for navigation choices.",
+    description: "Selectable option cards with descriptions and links. Use for navigation choices.",
     component: DataCard,
     propsSchema: dataCardSchema,
   },

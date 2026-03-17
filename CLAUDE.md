@@ -30,10 +30,19 @@ graph LR
 
 ```bash
 # Package manager: pnpm (NOT npm)
-pnpm dev             # localhost:3000
-pnpm build           # Production build
-pnpm lint            # ESLint (config has a known circular ref issue)
+pnpm dev             # localhost:3000/ai
+pnpm build           # Production build (basePath: /ai)
+pnpm lint            # Biome check (lint + format + imports)
+pnpm lint:fix        # Biome auto-fix
+pnpm format          # Biome format only
 ```
+
+### Linting & Formatting
+- **Biome** (not ESLint) — single tool for linting, formatting, and import sorting
+- Config: `biome.json` — 2-space indent, double quotes, semicolons, 120 char line width
+- **Pre-commit hook**: `lefthook` runs `biome check --write --staged` on commit
+- `globals.css` is excluded from Biome (Tailwind v4 `@theme inline` syntax unsupported)
+- a11y rules are warnings (not errors) to avoid blocking development
 
 ## Core Architecture
 

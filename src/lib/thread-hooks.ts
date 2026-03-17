@@ -12,7 +12,7 @@ import { useEffect, useState } from "react";
 export function useMergeRefs<Instance>(
   ...refs: (React.Ref<Instance> | undefined)[]
 ): null | React.RefCallback<Instance> {
-  const cleanupRef = React.useRef<void | (() => void)>(undefined);
+  const cleanupRef = React.useRef<undefined | (() => void)>(undefined);
 
   const refEffect = React.useCallback((instance: Instance | null) => {
     const cleanups = refs.map((ref) => {
@@ -22,7 +22,7 @@ export function useMergeRefs<Instance>(
 
       if (typeof ref === "function") {
         const refCallback = ref;
-        const refCleanup: void | (() => void) = refCallback(instance);
+        const refCleanup = refCallback(instance) as undefined | (() => void);
         return typeof refCleanup === "function"
           ? refCleanup
           : () => {
@@ -50,26 +50,22 @@ export function useMergeRefs<Instance>(
     return (value) => {
       if (cleanupRef.current) {
         cleanupRef.current();
-        (cleanupRef as React.MutableRefObject<void | (() => void)>).current =
-          undefined;
+        (cleanupRef as React.MutableRefObject<undefined | (() => void)>).current = undefined;
       }
 
       if (value != null) {
-        (cleanupRef as React.MutableRefObject<void | (() => void)>).current =
-          refEffect(value);
+        (cleanupRef as React.MutableRefObject<undefined | (() => void)>).current = refEffect(value);
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refEffect, ...refs]);
+  }, [refEffect, ...refs, refs.every]);
 }
 /**
  * Custom hook to detect canvas space presence and position
  * @param elementRef - Reference to the component to compare position with
  * @returns Object containing hasCanvasSpace and canvasIsOnLeft
  */
-export function useCanvasDetection(
-  elementRef: React.RefObject<HTMLElement | null>,
-) {
+export function useCanvasDetection(elementRef: React.RefObject<HTMLElement | null>) {
   const [hasCanvasSpace, setHasCanvasSpace] = useState(false);
   const [canvasIsOnLeft, setCanvasIsOnLeft] = useState(false);
 
@@ -117,11 +113,7 @@ export function hasRightClass(className?: string): boolean {
  * @param canvasIsOnLeft - Whether the canvas is on the left
  * @returns Object with isLeftPanel and historyPosition values
  */
-export function usePositioning(
-  className?: string,
-  canvasIsOnLeft = false,
-  hasCanvasSpace = false,
-) {
+export function usePositioning(className?: string, canvasIsOnLeft = false, hasCanvasSpace = false) {
   const isRightClass = hasRightClass(className);
   const isLeftPanel = !isRightClass;
 
@@ -213,9 +205,7 @@ function hasContentInItem(item: unknown): boolean {
  * @param content - The message content (string, element, array, etc.)
  * @returns True if there is content, false otherwise.
  */
-export function checkHasContent(
-  content: TamboThreadMessage["content"] | React.ReactNode | undefined | null,
-): boolean {
+export function checkHasContent(content: TamboThreadMessage["content"] | React.ReactNode | undefined | null): boolean {
   if (!content) return false;
   if (typeof content === "string") return content.trim().length > 0;
   if (React.isValidElement(content)) return true; // Assume elements have content
@@ -237,5 +227,5 @@ export function getMessageImages(
 
   return content
     .filter((item) => item?.type === "image_url" && item.image_url?.url)
-    .map((item) => item.image_url!.url!);
+    .map((item) => item.image_url?.url!);
 }

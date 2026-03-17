@@ -1,10 +1,12 @@
 "use client";
 
-import { initPostHog, PostHogPageView } from "@/lib/posthog";
 import { Suspense, useEffect } from "react";
+import { initPostHog, PostHogPageView } from "@/lib/posthog";
 
 export function Analytics() {
-  useEffect(() => { initPostHog(); }, []);
+  useEffect(() => {
+    initPostHog();
+  }, []);
   return (
     <Suspense fallback={null}>
       <PostHogPageView />

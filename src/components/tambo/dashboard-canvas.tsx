@@ -1,16 +1,13 @@
 "use client";
 
 import { useTambo } from "@tambo-ai/react";
+import type * as React from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ResponsiveGridLayout, useContainerWidth } from "react-grid-layout";
 import { cn } from "@/lib/utils";
-import * as React from "react";
-import { useMemo, useRef, useState, useCallback, useEffect } from "react";
-import {
-  ResponsiveGridLayout,
-  useContainerWidth,
-} from "react-grid-layout";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
-import { X, Maximize2, Minimize2, GripVertical } from "lucide-react";
+import { GripVertical, Maximize2, Minimize2, X } from "lucide-react";
 import Image from "next/image";
 
 interface DashboardCanvasProps {
@@ -21,10 +18,7 @@ interface DashboardCanvasProps {
 function useIsTouchDevice(): boolean {
   const [isTouch, setIsTouch] = useState(false);
   useEffect(() => {
-    setIsTouch(
-      window.matchMedia("(pointer: coarse)").matches ||
-      "ontouchstart" in window,
-    );
+    setIsTouch(window.matchMedia("(pointer: coarse)").matches || "ontouchstart" in window);
   }, []);
   return isTouch;
 }
@@ -169,7 +163,7 @@ export function DashboardCanvas({ className }: DashboardCanvasProps) {
     });
 
     return { lg, md, sm };
-  }, [panels, savedLayouts]);
+  }, [panels, savedLayouts, panelHeight]);
 
   const handleLayoutChange = useCallback((...args: any[]) => {
     const all = args[1] ?? {};
@@ -182,10 +176,7 @@ export function DashboardCanvas({ className }: DashboardCanvasProps) {
       <div
         ref={containerRef}
         data-canvas-space="true"
-        className={cn(
-          "h-full flex-1 flex flex-col items-center justify-center",
-          className,
-        )}
+        className={cn("h-full flex-1 flex flex-col items-center justify-center", className)}
       >
         <div className="text-center space-y-6 px-8 flex flex-col items-center">
           <Image src="/walkthru-icon.svg" alt="walkthru.earth" width={48} height={48} className="opacity-20" />
@@ -234,7 +225,7 @@ export function DashboardCanvas({ className }: DashboardCanvasProps) {
     >
       {width > 0 && (
         <ResponsiveGridLayout
-          {...{
+          {...({
             width,
             layouts,
             breakpoints: { lg: 900, md: 600, sm: 0 },
@@ -248,7 +239,7 @@ export function DashboardCanvas({ className }: DashboardCanvasProps) {
             isResizable: !isTouch,
             isDraggable: !isTouch,
             useCSSTransforms: true,
-          } as any}
+          } as any)}
         >
           {panels.map((panel) => (
             <div

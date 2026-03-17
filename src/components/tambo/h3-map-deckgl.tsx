@@ -1,11 +1,11 @@
 "use client";
 
-import { MapboxOverlay } from "@deck.gl/mapbox";
 import { H3HexagonLayer } from "@deck.gl/geo-layers";
 import { ScatterplotLayer } from "@deck.gl/layers";
+import { MapboxOverlay } from "@deck.gl/mapbox";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import React, { useEffect, useRef, useMemo } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 
 interface HexData {
   id?: string;
@@ -40,12 +40,50 @@ interface DeckGLMapProps {
 
 /** Color ramps — each is an array of [R,G,B] stops evenly distributed 0→1 */
 const SCHEMES: Record<string, [number, number, number][]> = {
-  "blue-red": [[5,113,176],[84,174,173],[166,217,106],[254,224,139],[252,141,89],[215,48,39]],
-  viridis: [[68,1,84],[59,82,139],[33,145,140],[94,201,98],[253,231,37]],
-  plasma: [[13,8,135],[126,3,168],[204,71,120],[248,149,64],[240,249,33]],
-  warm: [[254,224,139],[253,174,97],[244,109,67],[215,48,39],[165,0,38]],
-  cool: [[247,252,253],[204,236,230],[102,194,164],[35,139,69],[0,68,27]],
-  spectral: [[94,79,162],[50,136,189],[102,194,165],[254,224,139],[244,109,67],[158,1,66]],
+  "blue-red": [
+    [5, 113, 176],
+    [84, 174, 173],
+    [166, 217, 106],
+    [254, 224, 139],
+    [252, 141, 89],
+    [215, 48, 39],
+  ],
+  viridis: [
+    [68, 1, 84],
+    [59, 82, 139],
+    [33, 145, 140],
+    [94, 201, 98],
+    [253, 231, 37],
+  ],
+  plasma: [
+    [13, 8, 135],
+    [126, 3, 168],
+    [204, 71, 120],
+    [248, 149, 64],
+    [240, 249, 33],
+  ],
+  warm: [
+    [254, 224, 139],
+    [253, 174, 97],
+    [244, 109, 67],
+    [215, 48, 39],
+    [165, 0, 38],
+  ],
+  cool: [
+    [247, 252, 253],
+    [204, 236, 230],
+    [102, 194, 164],
+    [35, 139, 69],
+    [0, 68, 27],
+  ],
+  spectral: [
+    [94, 79, 162],
+    [50, 136, 189],
+    [102, 194, 165],
+    [254, 224, 139],
+    [244, 109, 67],
+    [158, 1, 66],
+  ],
 };
 
 function valueToColor(
@@ -136,9 +174,7 @@ export default function DeckGLMap({
           coverage: 0.92,
           getHexagon: (d: HexData) => d.hex ?? "",
           getFillColor: (d: HexData) =>
-            d.value != null
-              ? valueToColor(d.value, minVal, maxVal, colorScheme)
-              : [100, 150, 255, 120],
+            d.value != null ? valueToColor(d.value, minVal, maxVal, colorScheme) : [100, 150, 255, 120],
           getElevation: (d: HexData) => {
             if (!extruded || d.value == null) return 0;
             const range = maxVal - minVal || 1;
@@ -175,9 +211,7 @@ export default function DeckGLMap({
             return 3000 + ((d.value - minVal) / range) * 30000;
           },
           getFillColor: (d: MarkerData) =>
-            d.value != null
-              ? valueToColor(d.value, minVal, maxVal, colorScheme)
-              : [100, 150, 255, 150],
+            d.value != null ? valueToColor(d.value, minVal, maxVal, colorScheme) : [100, 150, 255, 150],
           getLineColor: [255, 255, 255, 40],
           lineWidthMinPixels: 1,
           radiusMinPixels: 3,
@@ -191,7 +225,7 @@ export default function DeckGLMap({
     }
 
     return result;
-  }, [hexagons, markers, extruded, minVal, maxVal, colorScheme]);
+  }, [hexagons, markers, extruded, minVal, maxVal, colorScheme, onHexClick]);
 
   // Initialize MapLibre + deck.gl overlay once
   useEffect(() => {
@@ -236,7 +270,7 @@ export default function DeckGLMap({
       overlayRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [extruded, isDark, latitude, layers, longitude, onBoundsChange, zoom]);
 
   // Switch basemap style when theme changes
   useEffect(() => {
@@ -249,7 +283,7 @@ export default function DeckGLMap({
         overlayRef.current.setProps({ layers });
       }
     });
-  }, [isDark]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isDark, layers]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Update layers when data changes
   useEffect(() => {
@@ -268,10 +302,5 @@ export default function DeckGLMap({
     });
   }, [latitude, longitude, zoom, extruded]);
 
-  return (
-    <div
-      ref={containerRef}
-      style={{ width: "100%", height: "100%", position: "absolute", inset: 0 }}
-    />
-  );
+  return <div ref={containerRef} style={{ width: "100%", height: "100%", position: "absolute", inset: 0 }} />;
 }

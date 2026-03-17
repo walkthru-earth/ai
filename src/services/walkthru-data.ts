@@ -9,8 +9,7 @@
 
 /* ── Constants ───────────────────────────────────────────────────── */
 
-export const S3_BUCKET =
-  "https://s3.us-west-2.amazonaws.com/us-west-2.opendata.source.coop";
+export const S3_BUCKET = "https://s3.us-west-2.amazonaws.com/us-west-2.opendata.source.coop";
 export const S3_BASE = `${S3_BUCKET}/walkthru-earth`;
 const PROBE_BASE = "https://data.source.coop/walkthru-earth";
 const WEATHER_BASE = `${S3_BASE}/indices/weather/model=GraphCast_GFS`;
@@ -51,8 +50,7 @@ export const DATASETS: DatasetInfo[] = [
   {
     id: "terrain",
     name: "Global Terrain (GEDTM 30m)",
-    description:
-      "Global elevation, slope, aspect, and terrain ruggedness from GEDTM 30m DEM. 10.5 billion cells.",
+    description: "Global elevation, slope, aspect, and terrain ruggedness from GEDTM 30m DEM. 10.5 billion cells.",
     columns: ["h3_index", "elev", "slope", "aspect", "tri"],
     urlPattern: `${S3_BASE}/dem-terrain/v2/h3/h3_res={h3_res}/data.parquet`,
     h3ResRange: [1, 10],
@@ -62,8 +60,7 @@ export const DATASETS: DatasetInfo[] = [
   {
     id: "building",
     name: "Global Building Atlas",
-    description:
-      "2.75 billion buildings worldwide. Count, density, height, volume, footprint, coverage per H3 cell.",
+    description: "2.75 billion buildings worldwide. Count, density, height, volume, footprint, coverage per H3 cell.",
     columns: [
       "h3_index",
       "building_count",
@@ -82,8 +79,7 @@ export const DATASETS: DatasetInfo[] = [
   {
     id: "population",
     name: "WorldPop SSP2 Population Projections",
-    description:
-      "Population estimates and projections for 2025, 2050, 2100 under SSP2 scenario.",
+    description: "Population estimates and projections for 2025, 2050, 2100 under SSP2 scenario.",
     columns: ["h3_index", "pop_2025", "pop_2050", "pop_2100"],
     urlPattern: `${S3_BASE}/indices/population/v2/scenario=SSP2/h3_res={h3_res}/data.parquet`,
     h3ResRange: [1, 8],
@@ -110,10 +106,7 @@ export function resolveWeatherPrefix(): Promise<string> {
   if (_weatherPrefixPromise) return _weatherPrefixPromise;
 
   _weatherPrefixPromise = (async () => {
-    const probe = async (
-      date: string,
-      hour: number,
-    ): Promise<string | null> => {
+    const probe = async (date: string, hour: number): Promise<string | null> => {
       try {
         const probeUrl = `${PROBE_BASE}/indices/weather/model=GraphCast_GFS/date=${date}/hour=${hour}/h3_res=2/data.parquet`;
         const res = await fetch(probeUrl, { method: "HEAD" });
@@ -142,9 +135,7 @@ export interface ListDatasetsInput {
   category?: string;
 }
 
-export async function listDatasets(
-  input?: ListDatasetsInput,
-): Promise<DatasetInfo[]> {
+export async function listDatasets(input?: ListDatasetsInput): Promise<DatasetInfo[]> {
   if (input?.category) {
     return DATASETS.filter((d) => d.category === input.category);
   }
@@ -165,14 +156,10 @@ export interface BuildUrlOutput {
   sql: string;
 }
 
-export async function buildParquetUrl(
-  input: BuildUrlInput,
-): Promise<BuildUrlOutput> {
+export async function buildParquetUrl(input: BuildUrlInput): Promise<BuildUrlOutput> {
   const ds = DATASETS.find((d) => d.id === input.dataset);
   if (!ds) {
-    throw new Error(
-      `Unknown dataset: ${input.dataset}. Available: ${DATASETS.map((d) => d.id).join(", ")}`,
-    );
+    throw new Error(`Unknown dataset: ${input.dataset}. Available: ${DATASETS.map((d) => d.id).join(", ")}`);
   }
 
   const h3Res = input.h3Res ?? ds.defaultH3Res;
@@ -183,9 +170,7 @@ export async function buildParquetUrl(
     const parts = prefix.split("/");
     const datePart = parts.find((p) => p.startsWith("date="))?.split("=")[1];
     const hourPart = parts.find((p) => p.startsWith("hour="))?.split("=")[1];
-    url = url
-      .replace("{date}", datePart ?? "latest")
-      .replace("{hour}", hourPart ?? "12");
+    url = url.replace("{date}", datePart ?? "latest").replace("{hour}", hourPart ?? "12");
   }
 
   const sql = `SELECT ${ds.columns.join(", ")}\nFROM '${url}'`;
@@ -233,14 +218,10 @@ const COLUMN_DESCRIPTIONS: Record<string, string> = {
   pop_2100: "Projected population in 2100 (SSP2)",
 };
 
-export async function describeDataset(
-  input: DescribeDatasetInput,
-): Promise<DatasetDescription> {
+export async function describeDataset(input: DescribeDatasetInput): Promise<DatasetDescription> {
   const ds = DATASETS.find((d) => d.id === input.dataset);
   if (!ds) {
-    throw new Error(
-      `Unknown dataset: ${input.dataset}. Available: ${DATASETS.map((d) => d.id).join(", ")}`,
-    );
+    throw new Error(`Unknown dataset: ${input.dataset}. Available: ${DATASETS.map((d) => d.id).join(", ")}`);
   }
 
   const { url, sql } = await buildParquetUrl({ dataset: ds.id });
@@ -284,8 +265,7 @@ export interface CrossIndexOutput {
 const CROSS_INDICES: Record<string, CrossIndexOutput> = {
   "urban-density": {
     name: "Urban Density Index",
-    description:
-      "Buildings + population combined. Shows density of built environment relative to population.",
+    description: "Buildings + population combined. Shows density of built environment relative to population.",
     datasets: ["building", "population"],
     joinColumn: "h3_index",
     computedColumns: [],
@@ -312,8 +292,7 @@ const CROSS_INDICES: Record<string, CrossIndexOutput> = {
   },
   "landslide-risk": {
     name: "Buildings on Unstable Ground",
-    description:
-      "Terrain slope × building count. Highlights areas where buildings exist on steep terrain.",
+    description: "Terrain slope × building count. Highlights areas where buildings exist on steep terrain.",
     datasets: ["terrain", "building"],
     joinColumn: "h3_index",
     computedColumns: [],
@@ -327,13 +306,10 @@ const CROSS_INDICES: Record<string, CrossIndexOutput> = {
   },
   "vertical-living": {
     name: "Vertical Living Index",
-    description:
-      "Buildings per person — reveals how vertically people live. High values = dense high-rises.",
+    description: "Buildings per person — reveals how vertically people live. High values = dense high-rises.",
     datasets: ["building", "population"],
     joinColumn: "h3_index",
-    computedColumns: [
-      { name: "bldg_per_person", formula: "building_count / pop_2025" },
-    ],
+    computedColumns: [{ name: "bldg_per_person", formula: "building_count / pop_2025" }],
     equivalentSQL: `FROM building b JOIN population p USING (h3_index)\nSELECT b.h3_index, b.building_count, b.avg_height_m, p.pop_2025,\n  b.building_count / p.pop_2025 AS bldg_per_person\nWHERE p.pop_2025 > 0 AND b.building_count > 0`,
     focusRegion: {
       name: "Pearl River Delta, China",
@@ -344,13 +320,10 @@ const CROSS_INDICES: Record<string, CrossIndexOutput> = {
   },
   "population-growth": {
     name: "Population Growth 2025-2100",
-    description:
-      "Where population is projected to grow most under SSP2 scenario. Growth ratio = pop_2100 / pop_2025.",
+    description: "Where population is projected to grow most under SSP2 scenario. Growth ratio = pop_2100 / pop_2025.",
     datasets: ["population"],
     joinColumn: "h3_index",
-    computedColumns: [
-      { name: "growth_ratio", formula: "pop_2100 / pop_2025" },
-    ],
+    computedColumns: [{ name: "growth_ratio", formula: "pop_2100 / pop_2025" }],
     equivalentSQL: `FROM population\nSELECT h3_index, pop_2025, pop_2050, pop_2100,\n  pop_2100 / NULLIF(pop_2025, 0) AS growth_ratio\nWHERE pop_2025 >= 10`,
     focusRegion: {
       name: "Sub-Saharan Africa",
@@ -361,26 +334,19 @@ const CROSS_INDICES: Record<string, CrossIndexOutput> = {
   },
   "shrinking-cities": {
     name: "Shrinking Cities (Population Decline)",
-    description:
-      "Areas where population is projected to decline by 2100. Growth ratio < 1.",
+    description: "Areas where population is projected to decline by 2100. Growth ratio < 1.",
     datasets: ["population"],
     joinColumn: "h3_index",
-    computedColumns: [
-      { name: "growth_ratio", formula: "pop_2100 / pop_2025" },
-    ],
+    computedColumns: [{ name: "growth_ratio", formula: "pop_2100 / pop_2025" }],
     equivalentSQL: `FROM population\nSELECT h3_index, pop_2025, pop_2100,\n  pop_2100 / NULLIF(pop_2025, 0) AS growth_ratio\nWHERE pop_2025 >= 10 AND pop_2100 < pop_2025`,
     focusRegion: { name: "East Asia", lat: 36, lng: 128, zoom: 3 },
   },
 };
 
-export async function getCrossIndex(
-  input: CrossIndexInput,
-): Promise<CrossIndexOutput> {
+export async function getCrossIndex(input: CrossIndexInput): Promise<CrossIndexOutput> {
   const result = CROSS_INDICES[input.analysis];
   if (!result) {
-    throw new Error(
-      `Unknown analysis: ${input.analysis}. Available: ${Object.keys(CROSS_INDICES).join(", ")}`,
-    );
+    throw new Error(`Unknown analysis: ${input.analysis}. Available: ${Object.keys(CROSS_INDICES).join(", ")}`);
   }
   return result;
 }
@@ -400,29 +366,16 @@ export interface AnalysisSuggestion {
   focusRegion: { name: string; lat: number; lng: number; zoom: number } | null;
 }
 
-export async function suggestAnalysis(
-  input: SuggestAnalysisInput,
-): Promise<AnalysisSuggestion> {
+export async function suggestAnalysis(input: SuggestAnalysisInput): Promise<AnalysisSuggestion> {
   const q = input.question.toLowerCase();
 
   // Keyword matching for cross-indices
-  if (
-    q.includes("housing") ||
-    q.includes("pressure") ||
-    q.includes("overcrowd")
-  ) {
+  if (q.includes("housing") || q.includes("pressure") || q.includes("overcrowd")) {
     const ci = CROSS_INDICES["housing-pressure"];
     return {
       suggestedDatasets: ci.datasets,
       suggestedCrossIndex: "housing-pressure",
-      columns: [
-        "h3_index",
-        "pop_2025",
-        "pop_2100",
-        "building_count",
-        "growth_ratio",
-        "bldg_per_person",
-      ],
+      columns: ["h3_index", "pop_2025", "pop_2100", "building_count", "growth_ratio", "bldg_per_person"],
       explanation: ci.description,
       sampleSQL: ci.equivalentSQL,
       focusRegion: ci.focusRegion,
@@ -434,36 +387,19 @@ export async function suggestAnalysis(
     return {
       suggestedDatasets: ci.datasets,
       suggestedCrossIndex: "landslide-risk",
-      columns: [
-        "h3_index",
-        "slope",
-        "tri",
-        "building_count",
-        "avg_height_m",
-      ],
+      columns: ["h3_index", "slope", "tri", "building_count", "avg_height_m"],
       explanation: ci.description,
       sampleSQL: ci.equivalentSQL,
       focusRegion: ci.focusRegion,
     };
   }
 
-  if (
-    q.includes("vertical") ||
-    q.includes("highrise") ||
-    q.includes("high-rise") ||
-    q.includes("dense")
-  ) {
+  if (q.includes("vertical") || q.includes("highrise") || q.includes("high-rise") || q.includes("dense")) {
     const ci = CROSS_INDICES["vertical-living"];
     return {
       suggestedDatasets: ci.datasets,
       suggestedCrossIndex: "vertical-living",
-      columns: [
-        "h3_index",
-        "building_count",
-        "avg_height_m",
-        "pop_2025",
-        "bldg_per_person",
-      ],
+      columns: ["h3_index", "building_count", "avg_height_m", "pop_2025", "bldg_per_person"],
       explanation: ci.description,
       sampleSQL: ci.equivalentSQL,
       focusRegion: ci.focusRegion,
@@ -525,8 +461,7 @@ export async function suggestAnalysis(
       suggestedDatasets: ["terrain"],
       suggestedCrossIndex: null,
       columns: DATASETS[1].columns,
-      explanation:
-        "Global terrain data from GEDTM 30m. Elevation, slope, aspect, and terrain ruggedness.",
+      explanation: "Global terrain data from GEDTM 30m. Elevation, slope, aspect, and terrain ruggedness.",
       sampleSQL: `SELECT h3_index, elev, slope, tri\nFROM terrain\nWHERE h3_res = 3`,
       focusRegion: {
         name: "Himalayas",
@@ -537,12 +472,7 @@ export async function suggestAnalysis(
     };
   }
 
-  if (
-    q.includes("building") ||
-    q.includes("urban") ||
-    q.includes("city") ||
-    q.includes("construction")
-  ) {
+  if (q.includes("building") || q.includes("urban") || q.includes("city") || q.includes("construction")) {
     return {
       suggestedDatasets: ["building"],
       suggestedCrossIndex: null,
@@ -564,8 +494,7 @@ export async function suggestAnalysis(
       suggestedDatasets: ["population"],
       suggestedCrossIndex: null,
       columns: DATASETS[3].columns,
-      explanation:
-        "WorldPop SSP2 population projections for 2025, 2050, and 2100.",
+      explanation: "WorldPop SSP2 population projections for 2025, 2050, and 2100.",
       sampleSQL: `SELECT h3_index, pop_2025, pop_2050, pop_2100\nFROM population\nWHERE h3_res = 3`,
       focusRegion: null,
     };

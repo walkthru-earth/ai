@@ -118,19 +118,35 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: var(--font-quicksand, var(--font-sans)), 'Quicksand', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: var(--font-quicksand, var(--font-sans)), "Quicksand", -apple-system, BlinkMacSystemFont, sans-serif;
     font-size: 17px;
     font-weight: 500;
     letter-spacing: -0.01em;
   }
   /* Force Quicksand on all elements — prevents Tambo/library components from resetting to browser default */
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     font-family: inherit;
   }
-  h1 { font-size: clamp(2rem, 5vw, 3.5rem); line-height: 1.1; font-weight: 700; }
-  h2 { font-size: clamp(1.5rem, 3vw, 2rem); line-height: 1.15; font-weight: 700; }
-  h3 { font-size: 1.125rem; line-height: 1.3; font-weight: 700; }
-  p { line-height: 1.6; }
+  h1 {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    line-height: 1.1;
+    font-weight: 700;
+  }
+  h2 {
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    line-height: 1.15;
+    font-weight: 700;
+  }
+  h3 {
+    font-size: 1.125rem;
+    line-height: 1.3;
+    font-weight: 700;
+  }
+  p {
+    line-height: 1.6;
+  }
 }
 
 /* ── Glass panels ──────────────────────────────────────────── */
@@ -159,24 +175,48 @@
 
 /* ── Scrollbar ─────────────────────────────────────────────── */
 
-::-webkit-scrollbar { width: 5px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: hsl(0 0% 0% / 0.15); border-radius: 99px; }
-::-webkit-scrollbar-thumb:hover { background: hsl(0 0% 0% / 0.25); }
-.dark ::-webkit-scrollbar-thumb { background: hsl(0 0% 100% / 0.1); }
-.dark ::-webkit-scrollbar-thumb:hover { background: hsl(0 0% 100% / 0.2); }
+::-webkit-scrollbar {
+  width: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(0 0% 0% / 0.15);
+  border-radius: 99px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(0 0% 0% / 0.25);
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: hsl(0 0% 100% / 0.1);
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: hsl(0 0% 100% / 0.2);
+}
 
 /* ── Animations ────────────────────────────────────────────── */
 
 @keyframes flash {
-  0%, 100% { background-color: transparent; }
-  50% { background-color: hsl(158 64% 42% / 0.15); }
+  0%,
+  100% {
+    background-color: transparent;
+  }
+  50% {
+    background-color: hsl(158 64% 42% / 0.15);
+  }
 }
-.animate-flash { animation: flash 1s ease-in-out; }
+.animate-flash {
+  animation: flash 1s ease-in-out;
+}
 
 @keyframes thinking-gradient {
-  0% { background-position: -200% center; }
-  100% { background-position: 200% center; }
+  0% {
+    background-position: -200% center;
+  }
+  100% {
+    background-position: 200% center;
+  }
 }
 .animate-thinking-gradient {
   background: linear-gradient(90deg, hsl(0 0% 60%) 0%, hsl(158 64% 42%) 50%, hsl(0 0% 60%) 100%);
@@ -188,26 +228,34 @@
 }
 
 @keyframes fade-up {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
-.animate-fade-up { animation: fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+.animate-fade-up {
+  animation: fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
 
 /* ── Dashboard Grid ────────────────────────────────────────── */
 
 .react-grid-item.react-grid-placeholder {
-  background: hsl(158 64% 42% / 0.12) !important;
-  border: 1px dashed hsl(158 64% 42% / 0.3) !important;
-  border-radius: 0.75rem !important;
-  opacity: 1 !important;
+  background: hsl(158 64% 42% / 0.12);
+  border: 1px dashed hsl(158 64% 42% / 0.3);
+  border-radius: 0.75rem;
+  opacity: 1;
 }
 
 .react-grid-item > .react-resizable-handle::after {
-  border-color: hsl(0 0% 100% / 0.15) !important;
+  border-color: hsl(0 0% 100% / 0.15);
 }
 
 .react-grid-item > .react-resizable-handle:hover::after {
-  border-color: hsl(158 64% 42% / 0.5) !important;
+  border-color: hsl(158 64% 42% / 0.5);
 }
 
 /* Prevent grid drag from stealing map/scroll interactions */

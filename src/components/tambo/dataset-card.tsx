@@ -1,16 +1,14 @@
 "use client";
 
-import { cn } from "@/lib/utils";
-import { Cloud, Mountain, Building2, Users, Database } from "lucide-react";
+import { Building2, Cloud, Database, Mountain, Users } from "lucide-react";
 import * as React from "react";
 import { z } from "zod";
+import { cn } from "@/lib/utils";
 
 export const datasetCardSchema = z.object({
   name: z.string().describe("Dataset name"),
   description: z.string().describe("Brief description of what this dataset contains"),
-  category: z
-    .enum(["weather", "terrain", "building", "population", "cross-index"])
-    .describe("Dataset category"),
+  category: z.enum(["weather", "terrain", "building", "population", "cross-index"]).describe("Dataset category"),
   columns: z
     .array(
       z.object({
@@ -20,18 +18,9 @@ export const datasetCardSchema = z.object({
       }),
     )
     .describe("Available columns in this dataset"),
-  h3ResRange: z
-    .array(z.number())
-    .optional()
-    .describe("Min and max H3 resolution supported"),
-  totalRows: z
-    .string()
-    .optional()
-    .describe("Human-readable total row count (e.g. '10.5 billion')"),
-  sourceUrl: z
-    .string()
-    .optional()
-    .describe("URL to the data source"),
+  h3ResRange: z.array(z.number()).optional().describe("Min and max H3 resolution supported"),
+  totalRows: z.string().optional().describe("Human-readable total row count (e.g. '10.5 billion')"),
+  sourceUrl: z.string().optional().describe("URL to the data source"),
 });
 
 type DatasetCardProps = z.infer<typeof datasetCardSchema>;
@@ -45,35 +34,26 @@ const CATEGORY_STYLES: Record<string, { icon: React.ComponentType<{ className?: 
 };
 
 export const DatasetCard = React.forwardRef<HTMLDivElement, DatasetCardProps>(
-  (
-    { name, description, category, columns, h3ResRange, totalRows, sourceUrl },
-    ref,
-  ) => {
+  ({ name, description, category, columns, h3ResRange, totalRows, sourceUrl }, ref) => {
     const [expanded, setExpanded] = React.useState(false);
     const style = CATEGORY_STYLES[category] ?? CATEGORY_STYLES["cross-index"];
 
     if (!name) {
-      return (
-        <div ref={ref} className="rounded-xl border p-4 animate-pulse bg-muted/30 h-36" />
-      );
+      return <div ref={ref} className="rounded-xl border p-4 animate-pulse bg-muted/30 h-36" />;
     }
 
     return (
       <div ref={ref} className="rounded-xl border bg-card overflow-hidden">
         <div className="p-4">
           <div className="flex items-start gap-3">
-            {(() => { const Icon = style.icon; return <Icon className="w-5 h-5 flex-shrink-0" />; })()}
+            {(() => {
+              const Icon = style.icon;
+              return <Icon className="w-5 h-5 flex-shrink-0" />;
+            })()}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="font-semibold text-foreground">{name}</h3>
-                <span
-                  className={cn(
-                    "text-xs px-2 py-0.5 rounded-full border",
-                    style.color,
-                  )}
-                >
-                  {category}
-                </span>
+                <span className={cn("text-xs px-2 py-0.5 rounded-full border", style.color)}>{category}</span>
               </div>
               <p className="text-sm text-muted-foreground mt-1">{description}</p>
 
@@ -84,9 +64,7 @@ export const DatasetCard = React.forwardRef<HTMLDivElement, DatasetCardProps>(
                     H3 res {h3ResRange[0]}-{h3ResRange[1]}
                   </span>
                 )}
-                {columns && (
-                  <span>{columns.length} columns</span>
-                )}
+                {columns && <span>{columns.length} columns</span>}
               </div>
             </div>
           </div>
@@ -102,16 +80,11 @@ export const DatasetCard = React.forwardRef<HTMLDivElement, DatasetCardProps>(
               {expanded && (
                 <div className="mt-2 space-y-1">
                   {columns.map((col) => (
-                    <div
-                      key={col.id}
-                      className="flex items-start gap-2 text-xs"
-                    >
+                    <div key={col.id} className="flex items-start gap-2 text-xs">
                       <code className="font-mono text-blue-500 bg-blue-500/5 px-1.5 py-0.5 rounded flex-shrink-0">
                         {col.name}
                       </code>
-                      <span className="text-muted-foreground">
-                        {col.description}
-                      </span>
+                      <span className="text-muted-foreground">{col.description}</span>
                     </div>
                   ))}
                 </div>

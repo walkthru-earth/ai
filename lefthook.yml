@@ -1,0 +1,6 @@
+pre-commit:
+  commands:
+    biome:
+      glob: "*.{js,ts,jsx,tsx,json,css}"
+      run: pnpx @biomejs/biome check --write --staged --no-errors-on-unmatched {staged_files}
+      stage_fixed: true

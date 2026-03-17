@@ -1,9 +1,9 @@
 "use client";
 
-import { cn } from "@/lib/utils";
-import { Info, AlertTriangle, AlertOctagon, CheckCircle2, MapPin } from "lucide-react";
+import { AlertOctagon, AlertTriangle, CheckCircle2, Info, MapPin } from "lucide-react";
 import * as React from "react";
 import { z } from "zod";
+import { cn } from "@/lib/utils";
 
 export const insightCardSchema = z.object({
   title: z.string().describe("Insight headline"),
@@ -18,27 +18,18 @@ export const insightCardSchema = z.object({
     )
     .optional()
     .describe("Supporting data points for this insight"),
-  severity: z
-    .enum(["info", "warning", "critical", "positive"])
-    .optional()
-    .describe("Severity or tone of the insight"),
-  region: z
-    .string()
-    .optional()
-    .describe("Geographic region this insight applies to"),
-  datasets: z
-    .array(z.string())
-    .optional()
-    .describe("Datasets used to derive this insight"),
-  sql: z
-    .string()
-    .optional()
-    .describe("SQL query that would produce this insight"),
+  severity: z.enum(["info", "warning", "critical", "positive"]).optional().describe("Severity or tone of the insight"),
+  region: z.string().optional().describe("Geographic region this insight applies to"),
+  datasets: z.array(z.string()).optional().describe("Datasets used to derive this insight"),
+  sql: z.string().optional().describe("SQL query that would produce this insight"),
 });
 
 type InsightCardProps = z.infer<typeof insightCardSchema>;
 
-const SEVERITY_STYLES: Record<string, { border: string; bg: string; icon: React.ComponentType<{ className?: string }> }> = {
+const SEVERITY_STYLES: Record<
+  string,
+  { border: string; bg: string; icon: React.ComponentType<{ className?: string }> }
+> = {
   info: {
     border: "border-blue-500/30",
     bg: "bg-blue-500/5",
@@ -67,19 +58,17 @@ export const InsightCard = React.forwardRef<HTMLDivElement, InsightCardProps>(
     const style = SEVERITY_STYLES[severity ?? "info"] ?? SEVERITY_STYLES.info;
 
     if (!title) {
-      return (
-        <div ref={ref} className="rounded-xl border p-4 animate-pulse bg-muted/30 h-32" />
-      );
+      return <div ref={ref} className="rounded-xl border p-4 animate-pulse bg-muted/30 h-32" />;
     }
 
     return (
-      <div
-        ref={ref}
-        className={cn("rounded-xl border-2 overflow-hidden", style.border, style.bg)}
-      >
+      <div ref={ref} className={cn("rounded-xl border-2 overflow-hidden", style.border, style.bg)}>
         <div className="p-4">
           <div className="flex items-start gap-2">
-            {(() => { const Icon = style.icon; return <Icon className="w-5 h-5 flex-shrink-0 text-current" />; })()}
+            {(() => {
+              const Icon = style.icon;
+              return <Icon className="w-5 h-5 flex-shrink-0 text-current" />;
+            })()}
             <div className="flex-1 min-w-0">
               <h3 className="font-semibold text-foreground">{title}</h3>
               {region && (
@@ -90,21 +79,14 @@ export const InsightCard = React.forwardRef<HTMLDivElement, InsightCardProps>(
             </div>
           </div>
 
-          <p className="text-sm text-foreground/90 mt-3 leading-relaxed">
-            {insight}
-          </p>
+          <p className="text-sm text-foreground/90 mt-3 leading-relaxed">{insight}</p>
 
           {details && details.length > 0 && (
             <div className="grid grid-cols-2 gap-2 mt-3">
               {details.map((d, i) => (
-                <div
-                  key={d.id ?? i}
-                  className="bg-background/50 rounded-lg px-3 py-2"
-                >
+                <div key={d.id ?? i} className="bg-background/50 rounded-lg px-3 py-2">
                   <p className="text-xs text-muted-foreground">{d.label}</p>
-                  <p className="text-sm font-semibold text-foreground">
-                    {d.value}
-                  </p>
+                  <p className="text-sm font-semibold text-foreground">{d.value}</p>
                 </div>
               ))}
             </div>
@@ -112,10 +94,7 @@ export const InsightCard = React.forwardRef<HTMLDivElement, InsightCardProps>(
 
           <div className="flex flex-wrap items-center gap-2 mt-3">
             {datasets?.map((ds) => (
-              <span
-                key={ds}
-                className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground"
-              >
+              <span key={ds} className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
                 {ds}
               </span>
             ))}

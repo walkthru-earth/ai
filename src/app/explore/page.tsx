@@ -1,5 +1,23 @@
 "use client";
 
+import { type Suggestion, TamboProvider, useTambo, useTamboThreadList } from "@tambo-ai/react";
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  Clock,
+  Link2,
+  Link2Off,
+  MessageSquare,
+  Monitor,
+  Moon,
+  Plus,
+  Share2,
+  Sun,
+} from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { DashboardCanvas } from "@/components/tambo/dashboard-canvas";
 import {
   MessageInput,
   MessageInputError,
@@ -17,36 +35,10 @@ import {
   MessageSuggestionsStatus,
 } from "@/components/tambo/message-suggestions";
 import { ScrollableMessageContainer } from "@/components/tambo/scrollable-message-container";
-import {
-  ThreadContent,
-  ThreadContentMessages,
-} from "@/components/tambo/thread-content";
-import { DashboardCanvas } from "@/components/tambo/dashboard-canvas";
+import { ThreadContent, ThreadContentMessages } from "@/components/tambo/thread-content";
 import { WalkthruLogo } from "@/components/walkthru-logo";
 import { components, tools } from "@/lib/tambo";
 import { useAnonymousUserKey } from "@/lib/use-anonymous-user-key";
-import {
-  TamboProvider,
-  useTambo,
-  useTamboThreadList,
-  type Suggestion,
-} from "@tambo-ai/react";
-import {
-  ChevronLeft,
-  ChevronRight,
-  ChevronUp,
-  ChevronDown,
-  Plus,
-  Clock,
-  MessageSquare,
-  Link2,
-  Share2,
-  Link2Off,
-  Sun,
-  Moon,
-  Monitor,
-} from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { preloadDuckDB, runQuery } from "@/services/duckdb-wasm";
 import { getQueryResult, storeQueryResultWithId, useCrossFilterEnabled } from "@/services/query-store";
 
@@ -54,7 +46,7 @@ import { getQueryResult, storeQueryResultWithId, useCrossFilterEnabled } from "@
 
 function threadLabel(thread: { id: string; name?: string; createdAt: string }): string {
   // Use thread name if Tambo populates it
-  if (thread.name && thread.name.trim()) return thread.name;
+  if (thread.name?.trim()) return thread.name;
   // Fallback: short date + truncated ID
   const date = new Date(thread.createdAt);
   const dateStr = date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
@@ -71,11 +63,12 @@ function SessionHistory({ onClose }: { onClose: () => void }) {
     <div className="flex flex-col h-full animate-fade-up">
       <div className="px-4 py-3 flex items-center gap-2.5">
         <Clock className="w-3.5 h-3.5 text-earth-cyan" />
-        <span className="text-xs font-semibold text-foreground tracking-wide uppercase">
-          Sessions
-        </span>
+        <span className="text-xs font-semibold text-foreground tracking-wide uppercase">Sessions</span>
         <button
-          onClick={() => { startNewThread(); onClose(); }}
+          onClick={() => {
+            startNewThread();
+            onClose();
+          }}
           className="ml-auto p-1.5 rounded-lg hover:bg-muted/50 transition-colors"
           title="New session"
         >
@@ -97,8 +90,16 @@ function SessionHistory({ onClose }: { onClose: () => void }) {
                 key={thread.id}
                 role="button"
                 tabIndex={0}
-                onClick={() => { switchThread(thread.id); onClose(); }}
-                onKeyDown={(e) => { if (e.key === "Enter") { switchThread(thread.id); onClose(); } }}
+                onClick={() => {
+                  switchThread(thread.id);
+                  onClose();
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    switchThread(thread.id);
+                    onClose();
+                  }
+                }}
                 className={`group w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all cursor-pointer ${
                   thread.id === currentThreadId
                     ? "bg-earth-blue/10 text-earth-cyan border border-earth-blue/20"
@@ -108,9 +109,7 @@ function SessionHistory({ onClose }: { onClose: () => void }) {
                 <div className="flex items-center gap-2">
                   <MessageSquare className="w-3 h-3 flex-shrink-0 opacity-50" />
                   <div className="flex-1 min-w-0">
-                    <span className="block truncate font-semibold text-sm">
-                      {threadLabel(thread)}
-                    </span>
+                    <span className="block truncate font-semibold text-sm">{threadLabel(thread)}</span>
                     <span className="block text-[10px] text-muted-foreground/60 mt-0.5">
                       {new Date(thread.createdAt).toLocaleString(undefined, {
                         hour: "numeric",
@@ -173,9 +172,7 @@ function CrossFilterToggle() {
     <button
       onClick={() => setEnabled(!enabled)}
       className={`p-1.5 rounded-lg transition-all ${
-        enabled
-          ? "bg-earth-blue/15 text-earth-cyan"
-          : "text-muted-foreground hover:bg-muted/50"
+        enabled ? "bg-earth-blue/15 text-earth-cyan" : "text-muted-foreground hover:bg-muted/50"
       }`}
       title={enabled ? "Cross-filter ON — click to disable" : "Cross-filter OFF — click to enable"}
     >
@@ -251,13 +248,15 @@ function ExplorerLayout() {
   const { messages, currentThreadId, switchThread } = useTambo();
 
   // Preload DuckDB on mount so it's warm before the first query
-  useEffect(() => { preloadDuckDB(); }, []);
+  useEffect(() => {
+    preloadDuckDB();
+  }, []);
 
   // Sync thread ID from URL → Tambo on initial load (for shared links)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const urlThread = params.get("thread");
-    if (urlThread && urlThread.startsWith("thr_") && urlThread !== currentThreadId) {
+    if (urlThread?.startsWith("thr_") && urlThread !== currentThreadId) {
       switchThread(urlThread);
     } else if (urlThread && !urlThread.startsWith("thr_")) {
       // Invalid thread param — clean URL
@@ -265,7 +264,7 @@ function ExplorerLayout() {
       const qs = params.toString();
       window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentThreadId, switchThread]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Update URL when thread changes (without full navigation).
   // Skip placeholder/temporary IDs — only set URL for real thread IDs (e.g. "thr_...")
@@ -308,13 +307,18 @@ function ExplorerLayout() {
           let originalQueryId: string | null = null;
           if (resultBlock) {
             // tool_result.content can be a string or array of content blocks
-            const text = typeof resultBlock.content === "string"
-              ? resultBlock.content
-              : Array.isArray(resultBlock.content)
-                ? resultBlock.content.find((b: any) => b.type === "text")?.text ?? null
-                : null;
+            const text =
+              typeof resultBlock.content === "string"
+                ? resultBlock.content
+                : Array.isArray(resultBlock.content)
+                  ? (resultBlock.content.find((b: any) => b.type === "text")?.text ?? null)
+                  : null;
             if (text) {
-              try { originalQueryId = JSON.parse(text).queryId; } catch { /* not JSON */ }
+              try {
+                originalQueryId = JSON.parse(text).queryId;
+              } catch {
+                /* not JSON */
+              }
             }
           }
 
@@ -325,21 +329,22 @@ function ExplorerLayout() {
           replayedRef.current.add(replayId);
 
           // Re-run SQL in background, store under the original queryId
-          runQuery({ sql }).then((result) => {
-            if (result.queryId && originalQueryId) {
-              const stored = getQueryResult(result.queryId);
-              if (stored) storeQueryResultWithId(originalQueryId, stored);
-            }
-          }).catch(() => { /* query replay failed — skip silently */ });
+          runQuery({ sql })
+            .then((result) => {
+              if (result.queryId && originalQueryId) {
+                const stored = getQueryResult(result.queryId);
+                if (stored) storeQueryResultWithId(originalQueryId, stored);
+              }
+            })
+            .catch(() => {
+              /* query replay failed — skip silently */
+            });
         }
       }
     }
   }, [messages]);
 
-  const isEmpty = useMemo(
-    () => !messages || messages.filter((m) => m.role !== "system").length === 0,
-    [messages],
-  );
+  const isEmpty = useMemo(() => !messages || messages.filter((m) => m.role !== "system").length === 0, [messages]);
 
   return (
     <div className="flex h-screen bg-background relative grain">
@@ -358,18 +363,14 @@ function ExplorerLayout() {
             <div className="px-4 py-3 flex items-center gap-2.5 border-b border-border/30">
               <WalkthruLogo size={20} />
               <div className="flex-1 min-w-0">
-                <h1 className="text-sm font-bold text-foreground leading-none">
-                  walkthru.earth
-                </h1>
+                <h1 className="text-sm font-bold text-foreground leading-none">walkthru.earth</h1>
               </div>
               <CrossFilterToggle />
               <ThemeSwitcher />
               <button
                 onClick={() => setShowHistory(!showHistory)}
                 className={`p-1.5 rounded-lg transition-all ${
-                  showHistory
-                    ? "bg-earth-blue/15 text-earth-cyan"
-                    : "text-muted-foreground hover:bg-muted/50"
+                  showHistory ? "bg-earth-blue/15 text-earth-cyan" : "text-muted-foreground hover:bg-muted/50"
                 }`}
                 title="Sessions"
               >
@@ -533,33 +534,33 @@ export default function ExplorePage() {
             "NEVER do latlng.lat or latlng.lng — h3_cell_to_latlng() returns DOUBLE[2] list, not struct. Use list_extract() if needed. But for maps, just use hex strings.",
             "Use h3_grid_ring() NOT h3_k_ring() (deprecated). Use h3_grid_disk() NOT h3_k_ring_distances().",
           ],
-          s3Base:
-            "https://s3.us-west-2.amazonaws.com/us-west-2.opendata.source.coop/walkthru-earth",
+          s3Base: "https://s3.us-west-2.amazonaws.com/us-west-2.opendata.source.coop/walkthru-earth",
           datasets: {
             terrain: "dem-terrain/v2/h3/h3_res={1-10}/data.parquet",
             building: "indices/building/v2/h3/h3_res={3-8}/data.parquet",
             population: "indices/population/v2/scenario=SSP2/h3_res={1-8}/data.parquet",
-            weather: "indices/weather/model=GraphCast_GFS/date=YYYY-MM-DD/hour={0,12}/h3_res=5/data.parquet (only res 5)",
+            weather:
+              "indices/weather/model=GraphCast_GFS/date=YYYY-MM-DD/hour={0,12}/h3_res=5/data.parquet (only res 5)",
           },
           componentTips: [
             "ALL viz components use queryId from runSQL — ZERO token cost for data. Never pass inline data arrays.",
             "H3Map: queryId + hexColumn='hex' + valueColumn='value' + lat/lng/zoom + colorMetric. deck.gl renders from hex strings.",
             "Graph: queryId + xColumn + yColumns + chartType.",
             "CHART X-AXIS RULE: NEVER use raw H3 hex IDs as chart labels — they are meaningless to users. " +
-            "Instead, create meaningful labels in the SQL query: " +
-            "Use CASE/WHEN to bucket values (e.g. '0-1000m', '1000-3000m'), " +
-            "use NTILE or ROUND for numeric ranges, " +
-            "use ROW_NUMBER() for rank labels (e.g. 'Rank 1', 'Rank 2'), " +
-            "or GROUP BY a meaningful column. " +
-            "Example: SELECT CASE WHEN elev < 1000 THEN '0-1k' WHEN elev < 3000 THEN '1k-3k' ELSE '3k+' END AS label, COUNT(*) AS count ... GROUP BY label",
+              "Instead, create meaningful labels in the SQL query: " +
+              "Use CASE/WHEN to bucket values (e.g. '0-1000m', '1000-3000m'), " +
+              "use NTILE or ROUND for numeric ranges, " +
+              "use ROW_NUMBER() for rank labels (e.g. 'Rank 1', 'Rank 2'), " +
+              "or GROUP BY a meaningful column. " +
+              "Example: SELECT CASE WHEN elev < 1000 THEN '0-1k' WHEN elev < 3000 THEN '1k-3k' ELSE '3k+' END AS label, COUNT(*) AS count ... GROUP BY label",
             "DataTable: queryId only (auto-derives columns/rows). Optional: visibleColumns to limit columns shown.",
             "H3Map colorScheme: 'blue-red', 'viridis', 'plasma', 'warm', 'cool', 'spectral'.",
             "Cross-filtering: zooming/panning the map filters Graph and DataTable to only show visible hexes.",
             "IMPORTANT: Reuse the SAME queryId across H3Map + Graph + DataTable for linked cross-filtering. " +
-            "Include 'hex' column in the query so spatial filtering works. " +
-            "Example: run ONE query with hex + value + other columns, then pass the same queryId to all 3 components.",
+              "Include 'hex' column in the query so spatial filtering works. " +
+              "Example: run ONE query with hex + value + other columns, then pass the same queryId to all 3 components.",
             "For charts linked with maps via cross-filter, 'hex' can be in the query for filtering but use a DIFFERENT column as xColumn (not hex). " +
-            "If no meaningful label column exists, add one in SQL: ROW_NUMBER() OVER (ORDER BY value DESC) as rank, then use xColumn='rank'.",
+              "If no meaningful label column exists, add one in SQL: ROW_NUMBER() OVER (ORDER BY value DESC) as rank, then use xColumn='rank'.",
           ],
         }),
       }}
