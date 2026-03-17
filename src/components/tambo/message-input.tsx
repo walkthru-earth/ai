@@ -267,7 +267,7 @@ const getValueFromSessionStorage = (key: string): string => {
 const MessageInputInternal = React.forwardRef<HTMLFormElement, MessageInputProps>(
   ({ children, className, variant, inputRef, ...props }, ref) => {
     const { value, setValue, submit, isPending, error, images, addImages, removeImage } = useTamboThreadInput();
-    const { cancelRun, currentThreadId } = useTambo();
+    const { cancelRun, currentThreadId, startNewThread } = useTambo();
     const [displayValue, setDisplayValue] = React.useState("");
     const [submitError, setSubmitError] = React.useState<string | null>(null);
     const [imageError, setImageError] = React.useState<string | null>(null);
@@ -326,9 +326,19 @@ const MessageInputInternal = React.forwardRef<HTMLFormElement, MessageInputProps
         } catch (error) {
           console.error("Failed to submit message:", error);
           setDisplayValue(value);
-          // On submit failure, also clear image error
           setImageError(null);
-          setSubmitError(error instanceof Error ? error.message : "Failed to send message. Please try again.");
+
+          const errorMsg = error instanceof Error ? error.message : String(error);
+
+          // Detect stale previousRunId — the SDK's internal run tracking is permanently
+          // out of sync with the server (e.g. stream disconnected before RUN_FINISHED).
+          // Only recovery is starting a fresh thread.
+          if (errorMsg.includes("invalid_previous_run") || errorMsg.includes("does not match last completed run")) {
+            startNewThread();
+            setSubmitError("Connection lost — started a new conversation. Please resend your message.");
+          } else {
+            setSubmitError(errorMsg || "Failed to send message. Please try again.");
+          }
 
           // Cancel the run to reset loading state
           await cancelRun();
@@ -337,7 +347,7 @@ const MessageInputInternal = React.forwardRef<HTMLFormElement, MessageInputProps
           setIsSubmitting(false);
         }
       },
-      [value, submit, setValue, cancelRun, isSubmitting, images, removeImage, currentThreadId],
+      [value, submit, setValue, cancelRun, startNewThread, isSubmitting, images, removeImage, currentThreadId],
     );
 
     const handleDragEnter = React.useCallback((e: React.DragEvent) => {
