@@ -4,7 +4,7 @@ import { useTambo } from "@tambo-ai/react";
 import type * as React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ResponsiveGridLayout, useContainerWidth } from "react-grid-layout";
-import { cn } from "@/lib/utils";
+import { basePath, cn } from "@/lib/utils";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import { GripVertical, Maximize2, Minimize2, X } from "lucide-react";
@@ -179,7 +179,13 @@ export function DashboardCanvas({ className }: DashboardCanvasProps) {
         className={cn("h-full flex-1 flex flex-col items-center justify-center", className)}
       >
         <div className="text-center space-y-6 px-8 flex flex-col items-center">
-          <Image src="/walkthru-icon.svg" alt="walkthru.earth" width={48} height={48} className="opacity-20" />
+          <Image
+            src={`${basePath}/walkthru-icon.svg`}
+            alt="walkthru.earth"
+            width={48}
+            height={48}
+            className="opacity-20"
+          />
           <h1 className="text-4xl sm:text-5xl tracking-tight text-muted-foreground/30 leading-[1.05]">
             Walkthru
             <br />

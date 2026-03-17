@@ -14,7 +14,7 @@ export const metadata = {
   description:
     "Talk to the world's data. Explore cities, climate, terrain, and population with AI-powered maps, charts, and real-time queries.",
   icons: {
-    icon: "/favicon.png",
+    icon: `${process.env.NEXT_PUBLIC_BASE_PATH || "/ai"}/favicon.png`,
   },
 };
 

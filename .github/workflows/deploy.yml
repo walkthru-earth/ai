@@ -39,6 +39,7 @@ jobs:
         run: pnpm build
         env:
           BASE_PATH: /ai
+          NEXT_PUBLIC_BASE_PATH: /ai
           NEXT_PUBLIC_TAMBO_API_KEY: ${{ secrets.NEXT_PUBLIC_TAMBO_API_KEY }}
           NEXT_PUBLIC_POSTHOG_KEY: ${{ secrets.NEXT_PUBLIC_POSTHOG_KEY }}
           NEXT_PUBLIC_POSTHOG_HOST: ${{ secrets.NEXT_PUBLIC_POSTHOG_HOST }}
