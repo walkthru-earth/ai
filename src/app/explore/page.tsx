@@ -424,15 +424,15 @@ function ExplorerLayout({ geo }: { geo: GeoIP | null }) {
       </div>
 
       {/* Dashboard — all AI components become draggable/resizable panels */}
-      <DashboardCanvas className="bg-muted/30" />
-
-      {/* ── Mobile: small toolbar on dashboard (theme + cross-filter) ── */}
-      {mobileChat === "collapsed" && (
-        <div className="sm:hidden fixed top-2 right-2 z-20 flex items-center gap-1 rounded-lg glass-panel-subtle px-1.5 py-1">
-          <CrossFilterToggle />
-          <ThemeSwitcher />
-        </div>
-      )}
+      {/* Floating toolbar passed as children — hidden when a panel is maximized */}
+      <DashboardCanvas className="bg-muted/30">
+        {mobileChat === "collapsed" && (
+          <div className="sm:hidden fixed top-2 right-2 z-20 flex items-center gap-1 rounded-lg glass-panel-subtle px-1.5 py-1">
+            <CrossFilterToggle />
+            <ThemeSwitcher />
+          </div>
+        )}
+      </DashboardCanvas>
 
       {/* ── Mobile: bottom sheet chat (2 states: collapsed / expanded) ── */}
       <MobileBottomSheet

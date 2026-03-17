@@ -24,6 +24,8 @@ import { PanelContext } from "./panel-context";
 
 interface DashboardCanvasProps {
   className?: string;
+  /** Overlay content (e.g. floating toolbar) — hidden when a panel is maximized */
+  children?: React.ReactNode;
 }
 
 function useIsTouchDevice(): boolean {
@@ -125,7 +127,7 @@ function SortablePanel({
 
 /* ── Main component ──────────────────────────────────────────────── */
 
-export function DashboardCanvas({ className }: DashboardCanvasProps) {
+export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
   const { messages, currentThreadId } = useTambo();
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const [savedLayouts, setSavedLayouts] = useState<Record<string, any[]>>({});
@@ -422,6 +424,7 @@ export function DashboardCanvas({ className }: DashboardCanvasProps) {
             </div>
           </SortableContext>
         </DndContext>
+        {!maximizedId && children}
       </div>
     );
   }
@@ -483,6 +486,7 @@ export function DashboardCanvas({ className }: DashboardCanvasProps) {
           ))}
         </ResponsiveGridLayout>
       )}
+      {!maximizedId && children}
     </div>
   );
 }
