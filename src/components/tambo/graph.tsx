@@ -235,6 +235,7 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
                   dataKey={d.label}
                   fill={d.color ?? defaultColors[i % defaultColors.length]}
                   radius={[4, 4, 0, 0]}
+                  isAnimationActive={false}
                 />
               ))}
             </RechartsCore.BarChart>
@@ -261,6 +262,7 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
                   stroke={d.color ?? defaultColors[i % defaultColors.length]}
                   dot={false}
                   strokeWidth={2}
+                  isAnimationActive={false}
                 />
               ))}
             </RechartsCore.LineChart>
@@ -282,6 +284,7 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
                 cy="50%"
                 outerRadius={80}
                 labelLine={false}
+                isAnimationActive={false}
               />
               <RechartsCore.Tooltip contentStyle={tooltipStyle} />
               {showLegend && <RechartsCore.Legend wrapperStyle={{ color: "var(--foreground)" }} />}
@@ -299,7 +302,7 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
           <div className="p-4 h-full">
             {title && !inPanel && <h3 className="text-sm font-semibold mb-3 text-foreground">{title}</h3>}
             <div className="w-full h-[calc(100%-2rem)]">
-              <RechartsCore.ResponsiveContainer width="100%" height="100%">
+              <RechartsCore.ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                 {renderChart() ?? <></>}
               </RechartsCore.ResponsiveContainer>
             </div>
