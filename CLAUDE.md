@@ -113,8 +113,10 @@ export const InteractableMyComponent = withTamboInteractable(MyComponent, {
 - **`_tambo_*` props**: Components receive hidden props (`_tambo_componentId`, etc.) — never spread `{...props}` onto DOM elements
 - **Zod constraints**: No `z.record()`, `z.map()`, `z.set()`. Always `.describe()` every field. Array items need `id` field.
 - **`useQueryResult(queryId)`** (reactive via `useSyncExternalStore`) — NOT `getQueryResult()` (won't re-render on thread replay)
+- **`_tambo_*` props**: Components receive hidden props (`_tambo_componentId`, etc.) — never spread `{...props}` onto DOM elements
 - **DO NOT use `useTamboComponentState`** with `withTamboInteractable` — causes "setState during render" error. Use `propsSchema` for all AI-controlled state.
 - **DO NOT use `useTamboInteractable()` or `useTamboCurrentComponent()`** inside a `withTamboInteractable`-wrapped component — same setState conflict.
+- **NEVER call setState during render** in components wrapped with `withTamboInteractable` or in components that mount/unmount interactable children (e.g. DashboardCanvas). Always use `useEffect` or `queueMicrotask` for state updates triggered by prop/data changes. Direct setState in render body causes "Cannot update TamboRegistryProvider while rendering TamboInteractableProvider" because re-registration runs during the same render cycle.
 - **`useInDashboardPanel()`**: Components check if they're in a dashboard panel to hide redundant headers.
 - **Run ID desync**: `invalid_previous_run` error → auto `startNewThread()` to escape error loop
 

@@ -19,7 +19,12 @@ paths:
 
 All use `useQueryResult(queryId)`, `withTamboInteractable` (propsSchema only), `useInDashboardPanel()`.
 
-**Note**: `useTamboComponentState` causes "setState during render" errors with `withTamboInteractable` — do NOT use it in interactable components. Use `propsSchema` for AI control instead.
+**setState rules for interactable components**:
+- Do NOT use `useTamboComponentState`, `useTamboInteractable()`, or `useTamboCurrentComponent()` — all cause "setState during render" errors with `withTamboInteractable`.
+- NEVER call setState directly in render body — always use `useEffect` or callbacks. Example: data-table pagination reset uses `useEffect(safePage)`, not inline `if (safePage !== page) setPage()`.
+- Dashboard toggleMaximize uses `queueMicrotask()` to defer setState.
+- Thread reset in DashboardCanvas uses `useEffect(currentThreadId)` not render-body setState.
+- Root cause: `withTamboInteractable` re-registers with `TamboRegistryProvider` during render; any setState that triggers mount/unmount of wrapped components during that cycle causes the React warning.
 
 ## Inline props (AI sends values directly)
 
@@ -27,14 +32,21 @@ StatsCard, StatsGrid, InsightCard, DatasetCard, QueryDisplay, DataCard.
 
 ## Sizing
 
-All viz components: `h-full flex flex-col`. Header/footer `flex-shrink-0`, content `flex-1 min-h-0`. Map canvas `min-h-[200px]`. GeoMap: `h-[420px]` in chat (inline), `h-full` in dashboard panels — uses `useInDashboardPanel()` to detect context.
+All viz components use `useInDashboardPanel()` to detect context:
+- **In dashboard panels**: `h-full` — fills the panel container (definite height from grid layout or touch `h-[280px]`/`h-[420px]`)
+- **In chat (inline)**: fixed height — GeoMap `h-[420px]`, Graph `h-[320px]`
+- Inner layout: `flex flex-col`, header/footer `flex-shrink-0`, content `flex-1 min-h-0`
+- Graph: compact `p-2 sm:p-4` padding, smart X-axis (auto-rotate at >10 points), pie `outerRadius="70%"`, legend only for multi-dataset
+- Textarea: `min-h-[44px]` on mobile, `sm:min-h-[82px]` on desktop
 
 ## Dashboard (`dashboard-canvas.tsx`)
 
 - Panel header: `[grip] [title] ... [maximize] [close]`. Title from `content.props.title`.
 - Panel ID dedup: `Set<string>` with `compIdx` suffix for collisions.
-- Desktop: `react-grid-layout`. Maps 8 rows, graphs 5, tables 4.
-- Touch: `@dnd-kit/sortable`, TouchSensor (1.2s delay). Grip-only drag. WebGL hidden during drag.
+- Desktop: `react-grid-layout`, rowHeight 80px. Maps 8 rows, graphs 5, tables 4.
+- Touch: `@dnd-kit/sortable`, TouchSensor (1.2s delay). Grip-only drag. Maps `h-[420px]`, others `h-[280px]`.
+- Maximized panel: `fixed inset-0 z-40 bg-background` — covers all floating UI. Minimize via `queueMicrotask` to avoid setState-during-render.
+- Thread reset: `useEffect(currentThreadId)` clears dismissed/layouts/order. NEVER in render body.
 - Panel order persisted to localStorage. Auto-scrolls to latest.
 
 ## Message Input (`message-input.tsx`)
@@ -48,5 +60,12 @@ All viz components: `h-full flex flex-col`. Header/footer `flex-shrink-0`, conte
 
 - `message.tsx`: checks `[data-canvas-space="true"]` → "Rendered in dashboard" or inline.
 - `thread-content.tsx`: `isGenerating = !isIdle` (covers isWaiting + isStreaming).
-- `message-suggestions.tsx`: `useTamboSuggestions()` + initial suggestions when thread empty. Chips are clickable buttons with arrow icon — auto-submit on click (no typing needed). `MessageThreadFull` accepts `initialSuggestions` prop for geo-personalized chips.
+- `message-suggestions.tsx`: `useTamboSuggestions()` + initial suggestions when thread empty. Chips: single horizontal row with `overflow-x-auto scrollbar-none`, `whitespace-nowrap shrink-0` per chip, arrow icon for click affordance. Auto-submit on click. Positioned ABOVE input in both `/chat` and `/explore`.
+- `message-thread-full.tsx`: accepts `initialSuggestions` prop for geo-personalized chips.
 - `elicitation-ui.tsx`: Tambo elicitation for human-in-the-loop forms. Single-entry mode (boolean/enum) auto-submits on click. Multi-entry mode shows Submit button.
+
+## Mobile Bottom Sheet (`explore/page.tsx`)
+
+- `MobileBottomSheet`: `fixed inset-x-0 bottom-0 z-30`. No hardcoded `max-h` when collapsed — sizes to content dynamically. `top-0` when expanded (full screen).
+- Suggestion chips above input bar, always visible in collapsed state.
+- Floating toolbar (`fixed top-2 right-2 z-20`): CrossFilterToggle + ThemeSwitcher. Hidden by maximized panels (`z-40`).
