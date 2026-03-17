@@ -2,24 +2,18 @@
 
 import { MessageThreadFull } from "@/components/tambo/message-thread-full";
 import { useMcpServers } from "@/components/tambo/mcp-config-modal";
+import { WalkthruLogo } from "@/components/walkthru-logo";
 import { components, tools } from "@/lib/tambo";
 import { useAnonymousUserKey } from "@/lib/use-anonymous-user-key";
 import { TamboProvider } from "@tambo-ai/react";
+import { useEffect } from "react";
+import { preloadDuckDB } from "@/services/duckdb-wasm";
 
-/**
- * Home page component that renders the Tambo chat interface.
- *
- * @remarks
- * The `NEXT_PUBLIC_TAMBO_URL` environment variable specifies the URL of the Tambo server.
- * You do not need to set it if you are using the default Tambo server.
- * It is only required if you are running the API server locally.
- *
- * @see {@link https://github.com/tambo-ai/tambo/blob/main/CONTRIBUTING.md} for instructions on running the API server locally.
- */
-export default function Home() {
-  // Load MCP server configurations
+export default function Chat() {
   const mcpServers = useMcpServers();
   const userKey = useAnonymousUserKey();
+
+  useEffect(() => { preloadDuckDB(); }, []);
 
   return (
     <TamboProvider
@@ -30,8 +24,17 @@ export default function Home() {
       mcpServers={mcpServers}
       userKey={userKey}
     >
-      <div className="h-screen">
-        <MessageThreadFull className="max-w-4xl mx-auto"/>
+      <div className="h-screen flex flex-col">
+        <header className="border-b border-border bg-background/95 backdrop-blur-sm px-4 py-3 flex items-center gap-3 flex-shrink-0">
+          <WalkthruLogo size={20} />
+          <h1 className="font-bold text-sm text-foreground">walkthru.earth</h1>
+          <span className="text-xs text-muted-foreground hidden sm:inline">
+            AI-powered urban intelligence
+          </span>
+        </header>
+        <div className="flex-1 min-h-0">
+          <MessageThreadFull className="max-w-4xl mx-auto h-full" />
+        </div>
       </div>
     </TamboProvider>
   );

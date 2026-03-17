@@ -626,7 +626,7 @@ const ReasoningInfo = React.forwardRef<HTMLDivElement, ReasoningInfoProps>(
       <div
         ref={ref}
         className={cn(
-          "flex flex-col items-start text-xs opacity-50",
+          "flex flex-col items-start text-sm opacity-90",
           className,
         )}
         data-slot="reasoning-info"
@@ -672,8 +672,8 @@ const ReasoningInfo = React.forwardRef<HTMLDivElement, ReasoningInfoProps>(
                   </span>
                 )}
                 {reasoningStep ? (
-                  <div className="bg-muted/50 rounded-md p-3 text-xs overflow-x-auto overflow-y-auto max-w-full">
-                    <div className="whitespace-pre-wrap break-words">
+                  <div className="bg-muted/40 rounded-md p-3 text-sm text-foreground/80 overflow-x-auto overflow-y-auto max-w-full">
+                    <div className="whitespace-pre-wrap break-words leading-relaxed">
                       <Streamdown components={markdownComponents}>
                         {reasoningStep}
                       </Streamdown>
@@ -959,26 +959,11 @@ const MessageRenderedComponentArea = React.forwardRef<
     >
       {children ??
         (canvasExists ? (
-          <div className="flex justify-start pl-4">
-            <button
-              onClick={() => {
-                if (typeof window !== "undefined") {
-                  window.dispatchEvent(
-                    new CustomEvent("tambo:showComponent", {
-                      detail: {
-                        messageId: message.id,
-                        component: renderedComponent,
-                      },
-                    }),
-                  );
-                }
-              }}
-              className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors duration-200 cursor-pointer group"
-              aria-label="View component in canvas"
-            >
-              View component
-              <ExternalLink className="w-3.5 h-3.5" />
-            </button>
+          <div className="flex justify-start pl-2 py-1">
+            <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground/70">
+              <ExternalLink className="w-3 h-3" />
+              Rendered in dashboard
+            </span>
           </div>
         ) : (
           <div className="w-full pt-2 px-2">{renderedComponent}</div>

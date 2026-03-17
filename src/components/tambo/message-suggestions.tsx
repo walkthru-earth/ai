@@ -257,7 +257,7 @@ const MessageSuggestionsStatus = React.forwardRef<
     >
       {/* Error state */}
       {error && (
-        <div className="p-2 rounded-md text-sm bg-red-50 text-red-500">
+        <div className="p-2 rounded-md text-sm bg-destructive/10 text-destructive">
           <p>{error.message}</p>
         </div>
       )}
@@ -299,22 +299,22 @@ const MessageSuggestionsList = React.forwardRef<
   const modKey = isMac ? "⌘" : "Ctrl";
   const altKey = isMac ? "⌥" : "Alt";
 
-  // Create placeholder suggestions when there are no real suggestions
-  const placeholders = Array(3).fill(null);
+  // Hide entirely while generating or when no suggestions
+  if (isGenerating || suggestions.length === 0) {
+    return null;
+  }
 
   return (
     <div
       ref={ref}
       className={cn(
         "flex space-x-2 overflow-x-auto pb-2 rounded-md bg-transparent min-h-[2.5rem]",
-        isGenerating ? "opacity-70" : "",
         className,
       )}
       data-slot="message-suggestions-list"
       {...props}
     >
-      {suggestions.length > 0
-        ? suggestions.map((suggestion, index) => (
+      {suggestions.map((suggestion, index) => (
             <Tooltip
               key={suggestion.id}
               content={
@@ -343,16 +343,6 @@ const MessageSuggestionsList = React.forwardRef<
                 <span className="font-medium">{suggestion.title}</span>
               </button>
             </Tooltip>
-          ))
-        : // Render placeholder buttons when no suggestions are available
-          placeholders.map((_, index) => (
-            <div
-              key={`placeholder-${index}`}
-              className="py-2 px-2.5 rounded-2xl text-xs border border-flat bg-muted/20 text-transparent animate-pulse"
-              data-placeholder-index={index}
-            >
-              <span className="invisible">Placeholder</span>
-            </div>
           ))}
     </div>
   );

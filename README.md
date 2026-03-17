@@ -1,245 +1,78 @@
-# Tambo Template
+# walkthru.earth — AI Explorer
 
-A starter Next.js app with [Tambo AI](https://tambo.co) integration for building generative UI/UX applications. Tambo enables AI to dynamically generate and control React components in real time.
+Part of [walkthru.earth](https://walkthru.earth) — people-first urban intelligence. We reveal hidden patterns in cities and turn them into solutions that support wellbeing everywhere.
 
-## Get Started
+The AI Explorer lets you talk to the world's geospatial data using natural language. Ask questions about cities, climate, terrain, and population — get instant answers as interactive maps, charts, and tables. All computation runs in your browser.
 
-1. Create a new project:
-
-```bash
-npm create-tambo@latest my-tambo-app
-```
-
-2. Install dependencies:
+## Quick Start
 
 ```bash
-npm install
+pnpm install
+cp example.env.local .env.local   # add your API keys
+pnpm dev                           # localhost:3000
 ```
-
-3. Initialize Tambo (sets up your API key):
-
-```bash
-npx tambo init
-```
-
-Or rename `example.env.local` to `.env.local` and add your Tambo API key (get one free at [tambo.co/dashboard](https://tambo.co/dashboard)).
-
-4. Start the dev server:
-
-```bash
-npm run dev
-```
-
-Open [localhost:3000](http://localhost:3000) to use the app.
 
 ## Routes
 
 | Route | Description |
 |-------|-------------|
-| `/` | Home page with setup checklist and links to demos |
-| `/chat` | Full chat interface with MCP support, voice input, and generative components |
-| `/interactables` | Interactive demo with a chat sidebar controlling a settings panel |
+| `/explore` | Main dashboard — chat sidebar + draggable/resizable map, chart, and table panels |
+| `/chat` | Full chat interface with inline component rendering |
 
-## Project Structure
+## How It Works
 
 ```
-src/
-├── app/
-│   ├── page.tsx                 # Home page with setup checklist
-│   ├── layout.tsx               # Root layout (Geist fonts, global styles)
-│   ├── globals.css              # Global styles and CSS variables
-│   ├── chat/
-│   │   └── page.tsx             # Chat page with TamboProvider and MCP
-│   └── interactables/
-│       ├── page.tsx             # Interactables demo page
-│       └── components/
-│           └── settings-panel.tsx  # AI-controlled settings form
-├── components/
-│   ├── ApiKeyCheck.tsx          # API key validation UI
-│   ├── tambo/                   # Tambo-specific components
-│   │   ├── message-thread-full.tsx  # Full chat layout
-│   │   ├── message-input.tsx        # Input with toolbar, file upload, MCP
-│   │   ├── message.tsx              # Single message display
-│   │   ├── graph.tsx                # Generative chart component (bar/line/pie)
-│   │   ├── mcp-components.tsx       # MCP prompt and resource UI
-│   │   ├── mcp-config-modal.tsx     # MCP server configuration modal
-│   │   ├── dictation-button.tsx     # Voice input button
-│   │   ├── elicitation-ui.tsx       # MCP elicitation forms
-│   │   ├── message-suggestions.tsx  # AI-powered suggestions
-│   │   ├── thread-history.tsx       # Thread history sidebar
-│   │   └── ...                      # Additional UI components
-│   └── ui/
-│       └── card-data.tsx        # Generative DataCard component
-├── lib/
-│   ├── tambo.ts                 # Central config: component and tool registration
-│   ├── thread-hooks.ts          # Custom thread management hooks
-│   ├── use-anonymous-user-key.ts  # Anonymous user ID persistence
-│   └── utils.ts                 # Utility functions
-└── services/
-    └── population-stats.ts      # Demo data service (population statistics)
+User → AI Agent → runSQL tool → DuckDB-WASM (in-browser)
+                                    ↓
+                              Query Store (queryId)
+                                    ↓
+                        H3Map / Graph / DataTable
+                              ↕ Cross-Filter Bus
 ```
+
+- **Zero-token data bridge**: AI returns only a `queryId` (~10 tokens). Components read full query results directly from the client-side store — no data passes through the LLM.
+- **DuckDB-WASM**: Full SQL engine runs entirely in the browser, querying S3-hosted Parquet files via HTTP. No backend needed.
+- **Cross-filtering**: Pan/zoom the map → chart and table filter to visible hexes. Click a chart bar → map and table highlight. Toggle on/off globally.
+- **Shareable threads**: Each conversation gets a URL (`?thread=thr_...`). Opening a shared link replays all SQL queries in DuckDB to restore the dashboard state.
+- **Static export**: Fully client-side — deploys to any CDN, S3, or GitHub Pages.
+
+## Datasets
+
+All data is open and hosted on S3 as H3-indexed Parquet files.
+
+| Dataset | Description | H3 Resolutions |
+|---------|-------------|-----------------|
+| Weather | GraphCast AI global forecast | Res 5 |
+| Terrain | GEDTM 30m elevation, slope, aspect (10.5B cells) | Res 1–10 |
+| Buildings | 2.75B buildings — count, height, footprint, density | Res 3–8 |
+| Population | SSP2 projections 2025–2100 | Res 1–8 |
 
 ## Features
 
-### Generative Components
+- **Interactive H3 hex maps** — deck.gl + MapLibre with 6 color schemes, 3D extrusion, light/dark basemap
+- **Charts** — Bar, line, pie via Recharts with smart axis labels (no raw hex IDs)
+- **Data tables** — Auto-derived columns with sorting and cross-filter highlighting
+- **Insight cards** — AI-generated analysis summaries with severity levels
+- **Mobile responsive** — Bottom sheet chat on mobile, touch-optimized dashboard (no drag on touch devices)
+- **Theme** — Dark/light/system with full CSS variable theming
+- **RTL support** — MapLibre RTL text plugin for Arabic, Hebrew labels
 
-AI dynamically renders registered React components based on user input. The template includes two example components:
-
-- **Graph** - Recharts-based data visualization (bar, line, pie charts)
-- **DataCard** - Selectable cards with links and descriptions
-
-### Tools
-
-AI can invoke registered tools to fetch data or perform actions. The template includes:
-
-- **countryPopulation** - Country population stats with filtering by continent, sorting, and limits
-- **globalPopulation** - Global population trends with year range filtering
-
-### MCP (Model Context Protocol)
-
-Full MCP support for connecting to external tool servers:
-
-- Configure MCP servers via the in-app modal (HTTP/SSE transport)
-- Browse and insert MCP prompts and resources
-- Elicitation UI for multi-step MCP forms
-
-### Voice Input
-
-Speech-to-text via the `DictationButton` component using the `useTamboVoice` hook.
-
-### Interactables
-
-Components wrapped with `withTamboInteractable` allow AI to control their state directly. The demo shows a settings panel whose fields update in real time as the AI responds.
-
-### Streaming
-
-Real-time streaming of AI-generated content with progressive UI updates and generation stage indicators.
-
-### Thread Management
-
-Full thread history sidebar with search, thread switching, and new thread creation.
-
-## Customizing
-
-### Register Components
-
-Components are registered in `src/lib/tambo.ts`:
-
-```tsx
-export const components: TamboComponent[] = [
-  {
-    name: "Graph",
-    description:
-      "A component that renders various types of charts (bar, line, pie) using Recharts.",
-    component: Graph,
-    propsSchema: graphSchema,
-  },
-  {
-    name: "DataCard",
-    description:
-      "A component that displays options as clickable cards with links and summaries.",
-    component: DataCard,
-    propsSchema: dataCardSchema,
-  },
-  // Add more components here
-];
-```
-
-To add a new component:
-
-1. Create the component in `src/components/tambo/`
-2. Define a Zod schema for its props
-3. Register it in the `components` array in `src/lib/tambo.ts`
-
-You can also install pre-built components:
+## Commands
 
 ```bash
-npx tambo add graph
+pnpm dev        # Development server
+pnpm build      # Static production build (output: out/)
+pnpm lint       # ESLint
 ```
 
-More info: [Generative Components docs](https://docs.tambo.co/concepts/generative-interfaces/generative-components)
+## Environment Variables
 
-### Register Tools
+See [`example.env.local`](example.env.local) for all required variables.
 
-Tools are defined with `inputSchema` and `outputSchema`:
+## Related Projects
 
-```tsx
-export const tools: TamboTool[] = [
-  {
-    name: "globalPopulation",
-    description: "A tool to get global population trends with optional year range filtering",
-    tool: getGlobalPopulationTrend,
-    inputSchema: z.object({
-      startYear: z.number().optional(),
-      endYear: z.number().optional(),
-    }),
-    outputSchema: z.array(
-      z.object({
-        year: z.number(),
-        population: z.number(),
-        growthRate: z.number(),
-      }),
-    ),
-  },
-];
-```
+- [walkthru.earth](https://github.com/walkthru-earth/walkthru-earth.github.io) — Main website with Earth's Living Indices globe
 
-More info: [Tools docs](https://docs.tambo.co/concepts/tools)
+## License
 
-### TamboProvider
-
-The `TamboProvider` wraps each page that uses Tambo (see `src/app/chat/page.tsx`):
-
-```tsx
-<TamboProvider
-  apiKey={process.env.NEXT_PUBLIC_TAMBO_API_KEY!}
-  components={components}
-  tools={tools}
-  tamboUrl={process.env.NEXT_PUBLIC_TAMBO_URL}
-  mcpServers={mcpServers}
-  userKey={userKey}
->
-  {children}
-</TamboProvider>
-```
-
-### Display Components Outside the Chat
-
-Access rendered components from the thread to display them anywhere:
-
-```tsx
-const { thread } = useTambo();
-const latestComponent =
-  thread?.messages[thread.messages.length - 1]?.renderedComponent;
-
-return (
-  <div>
-    {latestComponent && (
-      <div className="my-custom-wrapper">{latestComponent}</div>
-    )}
-  </div>
-);
-```
-
-## Scripts
-
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start development server |
-| `npm run build` | Build for production |
-| `npm run start` | Start production server |
-| `npm run lint` | Run ESLint |
-| `npm run lint:fix` | Run ESLint with auto-fix |
-
-## Tech Stack
-
-- [Next.js](https://nextjs.org) 15 with App Router
-- [React](https://react.dev) 19
-- [Tambo AI SDK](https://tambo.co) (`@tambo-ai/react`)
-- [Tailwind CSS](https://tailwindcss.com) v4
-- [Recharts](https://recharts.org) for data visualization
-- [TipTap](https://tiptap.dev) for rich text editing
-- [Zod](https://zod.dev) for schema validation
-- [Framer Motion](https://motion.dev) for animations
-
-For full documentation, visit [docs.tambo.co](https://docs.tambo.co).
+CC BY 4.0 — see [LICENSE](LICENSE)

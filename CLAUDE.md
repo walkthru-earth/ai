@@ -1,125 +1,148 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## Project: Walkthru Earth AI
 
-## Important: This is a Tambo AI Template
+AI-powered urban intelligence platform. Users talk to global geospatial data (weather, terrain, buildings, population) via natural language. Built on **Tambo AI** + **DuckDB-WASM** + **deck.gl**.
 
-**This is a template application for Tambo AI.** Before writing any new code:
+```mermaid
+graph LR
+  User[User Input] --> Tambo[Tambo AI Agent]
+  Tambo -->|tools| Tools[runSQL / listDatasets / etc]
+  Tools -->|sql| DuckDB[DuckDB-WASM]
+  DuckDB -->|Arrow→JS| QStore[Query Store]
+  QStore -->|queryId| H3Map
+  QStore -->|queryId| Graph
+  QStore -->|queryId| DataTable
+  Tambo -->|props| StatsCard
+  Tambo -->|props| InsightCard
+  H3Map <-->|cross-filter| CFBus[Cross-Filter Bus]
+  Graph <-->|cross-filter| CFBus
+  DataTable <-->|cross-filter| CFBus
+  CFBus -->|bbox/value| H3Map
+  CFBus -->|bbox/value| Graph
+  CFBus -->|bbox/value| DataTable
+```
 
-1. **Check the package** - Read `node_modules/@tambo-ai/react` to understand the latest available hooks, components, and features
-
-Always check the `@tambo-ai/react` package exports for the most up-to-date functionality. The template may not showcase all available features.
+### Companion Project
+`../walkthru-earth.github.io/` — deck.gl + hyparquet for client-side Parquet rendering on a 3D globe.
 
 ## Essential Commands
 
 ```bash
-# Development
-npm run dev          # Start development server (localhost:3000)
-npm run build        # Build production bundle
-npm run start        # Start production server
-npm run lint         # Run ESLint
-npm run lint:fix     # Run ESLint with auto-fix
-
-
-## Architecture Overview
-
-This is a Next.js 15 app with Tambo AI integration for building generative UI/UX applications. The architecture enables AI to dynamically generate and control React components.
-
-### Core Technologies
-- **Next.js 15.4.1** with App Router
-- **React 19.1.0** with TypeScript
-- **Tambo AI SDK**
-- **Tailwind CSS v4** with dark mode support
-- **Zod** for schema validation
-
-### Key Architecture Patterns
-
-1. **Component Registration System**
-   - Components are registered in `src/lib/tambo.ts` with Zod schemas
-   - AI can dynamically render these components based on user input
-   - Each component has a name, description, component reference, and propsSchema
-
-2. **Tool System**
-   - External functions registered as "tools" in `src/lib/tambo.ts`
-   - AI can invoke these tools to fetch data or perform actions
-   - Tools have schemas defining their inputs and outputs
-
-3. **Provider Pattern**
-   - `TamboProvider` wraps the app in `src/app/layout.tsx`
-   - Provides API key, registered components, and tools to the entire app
-
-4. **Streaming Architecture**
-   - Real-time streaming of AI-generated content via `useTamboStreaming` hook
-   - Support for progressive UI updates during generation
-
-### File Structure
-
+# Package manager: pnpm (NOT npm)
+pnpm dev             # localhost:3000
+pnpm build           # Production build
+pnpm lint            # ESLint (config has a known circular ref issue)
 ```
 
-src/
-├── app/ # Next.js App Router pages
-│ ├── chat/ # Chat interface route
-│ ├── interactables/ # Interactive components demo
-│ └── layout.tsx # Root layout with TamboProvider
-├── components/
-│ ├── tambo/ # Tambo-specific components
-│ │ ├── graph.tsx # Recharts data visualization
-│ │ ├── message*.tsx # Chat UI components
-│ │ └── thread*.tsx # Thread management UI
-│ └── ApiKeyCheck.tsx # API key validation
-├── lib/
-│ ├── tambo.ts # CENTRAL CONFIG: Component & tool registration
-│ ├── thread-hooks.ts # Custom thread management hooks
-│ └── utils.ts # Utility functions
-└── services/
-└── population-stats.ts # Demo data service
+## Core Architecture
 
-```
+### Zero-Token Data Bridge (queryId pattern)
+The central optimization. AI calls `runSQL` → DuckDB executes → full result stored client-side in `query-store.ts`. Only `queryId` + metadata returned to LLM (~10 tokens). Components read data directly from store.
 
-## Key Tambo Hooks
+**Components using queryId**: H3Map, Graph, DataTable
+**Components using inline props**: StatsCard, StatsGrid, InsightCard, DatasetCard, QueryDisplay
 
-- **`useTamboRegistry`**: Component and tool registration
-- **`useTamboThread`**: Thread state and message management
-- **`useTamboThreadInput`**: Input handling for chat
-- **`useTamboStreaming`**: Real-time content streaming
-- **`useTamboSuggestions`**: AI suggestion management
-- **`withInteractable`**: Interactable component wrapper
+### Cross-Filter Bus
+Lightweight pub/sub in `query-store.ts` (no Zustand). Components emit/consume filters:
+- **bbox**: Map viewport change → h3-js computes visible hex IDs → Graph/DataTable filter to matching rows
+- **value**: Click bar/row/hex → highlights in other components
+- **Toggle**: Link icon in explore header enables/disables globally
+- Requires shared `queryId` + `hex` column across linked components
+
+### DuckDB-WASM
+In-browser SQL engine. Preloaded on page mount. Extensions: httpfs (S3 access), h3 (hex functions). Retries up to 3x on chunk load failure.
+
+**Critical DuckDB rules (for AI tool descriptions)**:
+- `h3_cell_to_latlng()` returns `DOUBLE[2]` list, NOT a struct — never use `.lat`
+- Use `h3_grid_ring` not `h3_k_ring` (deprecated)
+- `h3_cell_area(h3_index, 'km^2')` not `h3_cell_area_km2`
+- ONE statement per call, always LIMIT 500, HTTPS URLs in FROM
+
+### Dashboard Canvas
+`DashboardCanvas` uses `useMemo` (not useEffect+state) to derive panels from Tambo messages — ensures streamed prop updates always reflect. Panels are draggable/resizable via react-grid-layout (desktop only — disabled on touch devices). `data-canvas-space="true"` attribute tells chat sidebar to show "Rendered in dashboard" instead of inline component.
+
+Panel dragging: only via `.panel-drag-handle` grip icon (hidden on touch). Content area has `.panel-content` class with `draggableCancel` to prevent grid drag conflicts with map panning.
+
+**Component sizing**: All viz components use `h-full flex flex-col` to fill their panel. No fixed pixel heights — the panel controls size, header/footer use `flex-shrink-0`, content uses `flex-1 min-h-0`.
+
+**Mobile**: Separate `sm` layout (single column, shorter panels, tighter margins). Chat is a collapsible bottom sheet, dashboard fills the screen.
+
+## Data Infrastructure
+
+| Dataset | S3 Path | H3 Res | Columns |
+|---------|---------|--------|---------|
+| Weather (GraphCast) | `indices/weather/model=GraphCast_GFS/date={date}/hour={hour}/h3_res=5/` | 5 only | h3_index, timestamp, temperature_2m_C, wind_speed_10m_ms, wind_direction_10m_deg, pressure_msl_hPa, precipitation_mm_6hr |
+| Terrain (GEDTM 30m) | `dem-terrain/v2/h3/h3_res={1-10}/` | 1-10 | h3_index, elev, slope, aspect, tri |
+| Buildings (2.75B) | `indices/building/v2/h3/h3_res={3-8}/` | 3-8 | h3_index, building_count, building_density, avg_height_m, total_volume_m3, total_footprint_m2, avg_footprint_m2, coverage_ratio |
+| Population (SSP2) | `indices/population/v2/scenario=SSP2/h3_res={1-8}/` | 1-8 | h3_index, pop_2025, pop_2050, pop_2100 |
+
+S3 base: `https://s3.us-west-2.amazonaws.com/us-west-2.opendata.source.coop/walkthru-earth`
 
 ## When Working on This Codebase
 
-1. **Adding New Components for AI Control**
-   - Define component in `src/components/tambo/`
-   - Create Zod schema for props validation
-   - use z.infer<typeof schema> to type the props
-   - Register in `src/lib/tambo.ts` components array
+### Adding a queryId-driven component
+1. Define Zod schema with `queryId`, column-mapping fields, plus `.describe()` on every field
+2. In component: `useQueryResult(queryId)` (reactive hook) → derive display data from rows. **Not** `getQueryResult()` — that's synchronous and won't re-render when thread replay populates data asynchronously.
+3. Consume `useCrossFilter()` for highlighting, emit `setCrossFilter()` on click
+4. Register in `src/lib/tambo.ts` with description telling AI to prefer queryId mode
 
-2. **Adding New Tools**
-   - Implement tool function in `src/services/`
-   - Define Zod schema for inputs/outputs
-   - Register in `src/lib/tambo.ts` tools array
+### Adding a new tool
+1. Implement in `src/services/`
+2. Define Zod input/output schemas
+3. Register in `src/lib/tambo.ts` tools array
+4. Add usage rules to tool description (AI reads these)
 
-3. **Styling Guidelines**
-   - Use Tailwind CSS classes
-   - Follow existing dark mode patterns using CSS variables
-   - Components should support variant and size props
+### Zod constraints (Tambo rejects invalid schemas)
+- No `z.record()`, `z.map()`, `z.set()` — use `z.object()` with explicit keys
+- Array items need `id` field for React keys
+- Always `.describe()` every field
 
-4. **TypeScript Requirements**
-   - Strict mode is enabled
-   - All components and tools must be fully typed
-   - Use Zod schemas for runtime validation
+### Styling
+- Tailwind CSS v4, dark/light mode via CSS variables
+- Brand colors: `earth-blue` (hsl 204 80% 40%), `earth-cyan` (hsl 185 72% 48%), `earth-green` (hsl 158 64% 52%) — defined in `@theme inline` in globals.css
+- Font: Quicksand (local woff2), forced via `font-family: inherit` on `*`
+- Components: `forwardRef` + handle undefined props for streaming
+- **No hardcoded colors**: Never use `bg-zinc-950`, `text-zinc-200`, `hsl(...)` inline, `#hex`, or `rgb()`. Use theme variables: `bg-muted`, `text-foreground`, `bg-card`, `text-primary`, `var(--border)`, etc.
+- **No `!important`**: All styles must be native — use JS conditionals instead of CSS overrides
+- Use semantic color classes: `text-destructive` not `text-red-500`, `text-primary` not `text-blue-500`, `bg-destructive/10` not `bg-red-50`
 
-5. **Testing Approach**
-   - No test framework is currently configured
-   - Manual testing via development server
-   - Verify AI can properly invoke components and tools
+### Theme
+- **System detection**: On first visit (no localStorage), detects `prefers-color-scheme`. Inline `<script>` in layout.tsx prevents FOUC.
+- **ThemeSwitcher**: Dark/Light/System cycle on both homepage and /explore. Persists to localStorage.
+- **Map basemap**: Reactive — CARTO Dark Matter (dark) / CARTO Positron (light). `MutationObserver` watches `<html>` class changes.
+- **RTL text plugin**: Loaded once for Arabic/Hebrew map labels.
+- **All pages** must use theme-aware CSS variables (`bg-background`, `text-foreground`, etc.), never hardcoded colors.
+
+### Tambo internal props
+Components receive `_tambo_*` props from Tambo SDK. Never spread `{...props}` onto DOM elements — destructure known props only.
+
+### Thread URLs
+- URL param `?thread=threadId` only set for real thread IDs (prefix `thr_`), never for `placeholder`.
+- On shared link load: validates thread ID, switches thread, replays SQL queries.
+
+### No user-visible branding
+Never show "Tambo", "DuckDB", "H3", "Parquet", "deck.gl" etc. in the UI. These are internal implementation details. Use generic terms like "interactive maps" and "real-time queries".
+
+## Tambo CLI
+
+```bash
+npx tambo add <component>    # Add UI components
+npx tambo init               # Re-initialize API key
 ```
 
-<!-- tambo-docs-v1.0 -->
+Docs: https://docs.tambo.co/llms.txt
 
-## Tambo AI Framework
+## CLAUDE.md Maintenance
 
-This project uses **Tambo AI** for building AI assistants with generative UI and MCP support.
+**Always update CLAUDE.md files when you change the codebase.** There are 5 CLAUDE.md files:
 
-**Documentation**: https://docs.tambo.co/llms.txt
+| File | Scope |
+|------|-------|
+| `CLAUDE.md` (root) | Architecture, commands, data infra, conventions |
+| `src/app/CLAUDE.md` | Pages, layout, theme, thread URLs |
+| `src/services/CLAUDE.md` | DuckDB, query store, cross-filter, datasets |
+| `src/components/tambo/CLAUDE.md` | Viz components, dashboard, chat UI |
+| `src/lib/CLAUDE.md` | Tambo config, tools, component registry |
 
-**CLI**: Use `npx tambo` to add UI components or upgrade. Run `npx tambo help` to learn more.
+After making code changes, check if any CLAUDE.md needs updating. Focus on: new exports, changed behavior, new patterns, removed features.
