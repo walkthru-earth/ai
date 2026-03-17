@@ -672,27 +672,8 @@ const MessageInputTextarea = ({
   onResourceSelect,
   ...props
 }: MessageInputTextareaProps) => {
-  // On touch devices (mobile), use plain textarea to avoid TipTap keyboard issues
-  // (e.g. space key not working in iOS WebViews / in-app browsers)
-  const [isTouch, setIsTouch] = React.useState(false);
-  React.useEffect(() => {
-    setIsTouch(window.matchMedia("(pointer: coarse)").matches || "ontouchstart" in window);
-  }, []);
-
-  if (isTouch) {
-    return <MessageInputPlainTextarea className={className} placeholder={placeholder} />;
-  }
-
-  return (
-    <MessageInputRichTextarea
-      className={className}
-      placeholder={placeholder}
-      resourceProvider={resourceProvider}
-      promptProvider={promptProvider}
-      onResourceSelect={onResourceSelect}
-      {...props}
-    />
-  );
+  // Always use plain textarea — TipTap has space key issues across browsers
+  return <MessageInputPlainTextarea className={className} placeholder={placeholder} />;
 };
 MessageInputTextarea.displayName = "MessageInput.Textarea";
 

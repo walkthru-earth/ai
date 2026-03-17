@@ -182,10 +182,16 @@ export function DashboardCanvas({ className }: DashboardCanvasProps) {
   // Derive panels from messages
   const panels: PanelInfo[] = useMemo(() => {
     const result: PanelInfo[] = [];
+    const usedIds = new Set<string>();
     for (const msg of messages) {
+      let compIdx = 0;
       for (const content of msg.content) {
         if (content.type === "component" && content.renderedComponent) {
-          const panelId = content.id || `${msg.id}-comp`;
+          // Ensure unique panel ID — content.id can collide across components
+          let panelId = content.id || `${msg.id}-comp-${compIdx}`;
+          if (usedIds.has(panelId)) panelId = `${panelId}-${compIdx}`;
+          usedIds.add(panelId);
+          compIdx++;
           if (!dismissedIds.has(panelId)) {
             const name = (content as any).componentName ?? "";
             const propsTitle = (content as any).props?.title;
