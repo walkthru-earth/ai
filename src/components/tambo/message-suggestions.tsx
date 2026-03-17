@@ -235,7 +235,7 @@ const MessageSuggestionsList = React.forwardRef<HTMLDivElement, MessageSuggestio
     return (
       <div
         ref={ref}
-        className={cn("flex space-x-2 overflow-x-auto pb-2 rounded-md bg-transparent min-h-[2.5rem]", className)}
+        className={cn("flex flex-wrap gap-2 pb-2 rounded-md bg-transparent", className)}
         data-slot="message-suggestions-list"
         {...props}
       >

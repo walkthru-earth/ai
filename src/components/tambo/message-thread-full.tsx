@@ -104,6 +104,11 @@ export const MessageThreadFull = React.forwardRef<HTMLDivElement, MessageThreadF
             <MessageSuggestionsStatus />
           </MessageSuggestions>
 
+          {/* Suggestion chips — above input for mobile accessibility */}
+          <MessageSuggestions initialSuggestions={defaultSuggestions}>
+            <MessageSuggestionsList className="px-4" />
+          </MessageSuggestions>
+
           {/* Message input */}
           <div className="px-4 pb-4">
             <MessageInput>
@@ -119,11 +124,6 @@ export const MessageThreadFull = React.forwardRef<HTMLDivElement, MessageThreadF
               <MessageInputError />
             </MessageInput>
           </div>
-
-          {/* Message suggestions */}
-          <MessageSuggestions initialSuggestions={defaultSuggestions}>
-            <MessageSuggestionsList />
-          </MessageSuggestions>
         </ThreadContainer>
 
         {/* Thread History Sidebar - rendered last if history is on the right */}
