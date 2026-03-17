@@ -1,6 +1,6 @@
 "use client";
 
-import { useTamboComponentState, withTamboInteractable } from "@tambo-ai/react";
+import { withTamboInteractable } from "@tambo-ai/react";
 import { Map } from "lucide-react";
 import dynamic from "next/dynamic";
 import * as React from "react";
@@ -71,36 +71,6 @@ export const geoMapSchema = z.object({
     .enum(["auto", "dark", "light"])
     .optional()
     .describe("Basemap style. 'auto' follows system theme (default), 'dark' or 'light' override."),
-});
-
-/** State schema — exposed to AI via useTamboComponentState for bidirectional control */
-export const geoMapStateSchema = z.object({
-  viewport: z
-    .object({
-      latitude: z.number().describe("Current center latitude"),
-      longitude: z.number().describe("Current center longitude"),
-      zoom: z.number().describe("Current zoom level"),
-    })
-    .optional()
-    .describe("Current map viewport — updated when user pans/zooms. AI can read to know where user is looking."),
-  selectedFeature: z
-    .string()
-    .nullable()
-    .optional()
-    .describe(
-      "Currently selected feature (hex ID, point label, or GeoJSON property). " +
-        "Set when user clicks a feature. AI can read to know what the user selected.",
-    ),
-  visibleBbox: z
-    .object({
-      west: z.number(),
-      south: z.number(),
-      east: z.number(),
-      north: z.number(),
-    })
-    .nullable()
-    .optional()
-    .describe("Current visible bounding box — updated on pan/zoom."),
 });
 
 export type GeoMapProps = z.infer<typeof geoMapSchema>;
@@ -174,14 +144,7 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
     colorScheme = "blue-red",
     extruded = false,
     basemap = "auto",
-    onFeatureSelect: onFeatureSelectCb,
-    onViewportChange: onViewportChangeCb,
-    onBboxChange: onBboxChangeCb,
-  } = props as GeoMapProps & {
-    onFeatureSelect?: (val: string | null) => void;
-    onViewportChange?: (view: { latitude: number; longitude: number; zoom: number }) => void;
-    onBboxChange?: (bbox: { west: number; south: number; east: number; north: number } | null) => void;
-  };
+  } = props;
   const inPanel = useInDashboardPanel();
 
   const queryResult = useQueryResult(queryId);
@@ -391,18 +354,9 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
   const centerLat = latitude ?? center?.lat ?? 0;
   const centerLng = longitude ?? center?.lng ?? 0;
 
-  // Cross-filter + bidirectional state: feature click
+  // Cross-filter: feature click
   const handleFeatureClick = React.useCallback(
     (feature: any, lt: LayerType) => {
-      // Notify bidirectional state — AI sees what user selected
-      const featureLabel =
-        lt === "h3"
-          ? feature
-          : lt === "geojson"
-            ? (feature?.properties?.name ?? feature?.properties?.id ?? JSON.stringify(feature?.properties?.value))
-            : String(feature?.value ?? feature?.label ?? feature);
-      onFeatureSelectCb?.(featureLabel);
-
       if (!queryId) return;
       if (lt === "h3") {
         setCrossFilter({
@@ -422,24 +376,13 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
         });
       }
     },
-    [queryId, hexColumn, valueColumn, onFeatureSelectCb],
+    [queryId, hexColumn, valueColumn],
   );
 
-  // Bidirectional state: viewport sync — AI sees where user is looking
-  const handleViewStateChange = React.useCallback(
-    (view: { latitude: number; longitude: number; zoom: number }) => {
-      onViewportChangeCb?.(view);
-    },
-    [onViewportChangeCb],
-  );
-
-  // Cross-filter + bidirectional state: bbox
+  // Cross-filter: bbox
   const handleBoundsChange = React.useCallback(
     async (bbox: [number, number, number, number]) => {
       const [west, south, east, north] = bbox;
-      // Sync visible area to AI
-      onBboxChangeCb?.({ west, south, east, north });
-
       if (!queryId || !hasData) return;
 
       if (detectedType === "h3") {
@@ -491,7 +434,7 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
       }
       // GeoJSON and arc bbox filtering can be added later
     },
-    [queryId, detectedType, layerConfigs, hexColumn, latColumn, hasData, onBboxChangeCb],
+    [queryId, detectedType, layerConfigs, hexColumn, latColumn, hasData],
   );
 
   // Feature count label
@@ -556,7 +499,6 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
             fitBounds={finalBounds}
             onFeatureClick={handleFeatureClick}
             onBoundsChange={handleBoundsChange}
-            onViewStateChange={handleViewStateChange}
           />
         ) : (
           <div className="h-full flex items-center justify-center bg-muted/30 text-muted-foreground">
@@ -613,38 +555,12 @@ function extractFirstCoord(geom: any): [number, number] | null {
 
 /* ── Interactable wrapper ──────────────────────────────────────── */
 
-/** Wrapper that adds bidirectional state via useTamboComponentState */
-const GeoMapWithState = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref) => {
-  const [_selectedFeature, setSelectedFeature] = useTamboComponentState<string | null>("selectedFeature", null);
-  const [_viewport, setViewport] = useTamboComponentState("viewport", { latitude: 0, longitude: 0, zoom: 4 }, 1000);
-  const [_visibleBbox, setVisibleBbox] = useTamboComponentState<{
-    west: number;
-    south: number;
-    east: number;
-    north: number;
-  } | null>("visibleBbox", null, 1000);
-
-  return (
-    <GeoMap
-      ref={ref}
-      {...(props as any)}
-      onFeatureSelect={setSelectedFeature}
-      onViewportChange={setViewport}
-      onBboxChange={setVisibleBbox}
-    />
-  );
-});
-GeoMapWithState.displayName = "GeoMapWithState";
-
-export const InteractableGeoMap = withTamboInteractable(GeoMapWithState, {
+export const InteractableGeoMap = withTamboInteractable(GeoMap, {
   componentName: "GeoMap",
   description:
     "Interactive deck.gl map supporting multiple geometry types (H3 hexagons, scatter points, GeoJSON polygons/lines, arcs). " +
     "AI can update view (latitude, longitude, zoom), color scheme, basemap (dark/light/auto), extruded mode, and layer type at runtime. " +
-    "State is bidirectional: viewport (where user is looking), selectedFeature (what user clicked), visibleBbox (visible area). " +
     "When user says 'zoom into Cairo', update latitude/longitude/zoom. " +
-    "When user says 'switch to light map', update basemap to 'light'. " +
-    "When user clicks a feature, selectedFeature state shows what they selected.",
+    "When user says 'switch to light map', update basemap to 'light'.",
   propsSchema: geoMapSchema,
-  stateSchema: geoMapStateSchema,
 });

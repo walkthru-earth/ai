@@ -55,7 +55,7 @@ S3 base: `https://s3.us-west-2.amazonaws.com/us-west-2.opendata.source.coop/walk
 - Components receive `_tambo_*` props — never spread `{...props}` onto DOM
 - Zod: no `z.record()`/`z.map()`/`z.set()`, always `.describe()` every field, array items need `id`
 - `useQueryResult(queryId)` (reactive) — NOT `getQueryResult()` (won't re-render on thread replay)
-- **Bidirectional state**: all viz components use `useTamboComponentState` + `stateSchema` on `withTamboInteractable`. User interactions (pan, click, page) flow back to AI. AI can update props AND state at runtime.
+- **Interactable components**: GeoMap, Graph, DataTable use `withTamboInteractable` + `propsSchema`. AI can update props at runtime (zoom, basemap, chartType, visibleColumns). Do NOT use `useTamboComponentState` with interactables (causes setState-during-render error).
 - **Run ID desync**: `invalid_previous_run` error → auto `startNewThread()` to escape error loop
 
 ## Conventions

@@ -1,6 +1,6 @@
 "use client";
 
-import { useTamboComponentState, withTamboInteractable } from "@tambo-ai/react";
+import { withTamboInteractable } from "@tambo-ai/react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import * as React from "react";
 import { useMemo, useState } from "react";
@@ -70,21 +70,7 @@ const PAGE_SIZE = 20;
 /* ── Component ─────────────────────────────────────────────────────── */
 
 export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
-  (
-    {
-      title,
-      queryId,
-      visibleColumns,
-      columns,
-      rows,
-      caption,
-      highlight = "alternating",
-      onRowSelect,
-      onPageChange,
-      ...rest
-    }: DataTableProps & { onRowSelect?: (val: string) => void; onPageChange?: (page: number) => void },
-    ref,
-  ) => {
+  ({ title, queryId, visibleColumns, columns, rows, caption, highlight = "alternating" }, ref) => {
     const crossFilter = useCrossFilter();
     const queryResult = useQueryResult(queryId);
     const inPanel = useInDashboardPanel();
@@ -154,9 +140,6 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
     const handleRowClick = (rowIdx: number) => {
       const globalIdx = safePage * PAGE_SIZE + rowIdx;
       const val = resolvedRows[globalIdx]?.cells[0];
-      if (val != null) {
-        onRowSelect?.(String(val));
-      }
       if (!queryId || !resolvedColumns.length || val == null) return;
       const firstCol = resolvedColumns[0].id;
       if (val != null) {
@@ -249,9 +232,7 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
             <div className="flex items-center gap-1 ml-auto">
               <button
                 onClick={() => {
-                  const newPage = Math.max(0, safePage - 1);
-                  setPage(newPage);
-                  onPageChange?.(newPage);
+                  setPage((p) => Math.max(0, p - 1));
                 }}
                 disabled={safePage === 0}
                 className="p-0.5 rounded hover:bg-muted/50 disabled:opacity-30 transition-colors"
@@ -263,9 +244,7 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
               </span>
               <button
                 onClick={() => {
-                  const newPage = Math.min(totalPages - 1, safePage + 1);
-                  setPage(newPage);
-                  onPageChange?.(newPage);
+                  setPage((p) => Math.min(totalPages - 1, p + 1));
                 }}
                 disabled={safePage >= totalPages - 1}
                 className="p-0.5 rounded hover:bg-muted/50 disabled:opacity-30 transition-colors"
@@ -281,33 +260,11 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
 );
 DataTable.displayName = "DataTable";
 
-/** Wrapper that adds bidirectional state via useTamboComponentState */
-const DataTableWithState = React.forwardRef<HTMLDivElement, DataTableProps>((props, ref) => {
-  const [_selectedRow, setSelectedRow] = useTamboComponentState<string | null>("selectedRow", null);
-  const [_currentPage, setCurrentPage] = useTamboComponentState("currentPage", 0, 1000);
-  return <DataTable ref={ref} {...(props as any)} onRowSelect={setSelectedRow} onPageChange={setCurrentPage} />;
-});
-DataTableWithState.displayName = "DataTableWithState";
-
-const dataTableStateSchema = z.object({
-  selectedRow: z
-    .string()
-    .nullable()
-    .optional()
-    .describe("The first cell value of the row the user clicked. AI can read to know what row user selected."),
-  currentPage: z
-    .number()
-    .optional()
-    .describe("Current page number (0-indexed). AI can read to know which page user is viewing."),
-});
-
 /** Interactable DataTable — AI can update visibleColumns, title at runtime */
-export const InteractableDataTable = withTamboInteractable(DataTableWithState, {
+export const InteractableDataTable = withTamboInteractable(DataTable, {
   componentName: "DataTable",
   description:
     "Interactive data table with pagination. AI can update visible columns and title at runtime. " +
-    "State is bidirectional: selectedRow shows what row user clicked, currentPage shows which page. " +
     "Use to respond to requests like 'hide the hex column' or 'show only pop_2025 and pop_2100'.",
   propsSchema: dataTableSchema,
-  stateSchema: dataTableStateSchema,
 });
