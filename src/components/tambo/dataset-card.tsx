@@ -73,7 +73,7 @@ export const DatasetCard = React.forwardRef<HTMLDivElement, DatasetCardProps>(
             <div className="mt-3">
               <button
                 onClick={() => setExpanded(!expanded)}
-                className="text-xs text-blue-500 hover:text-blue-600 transition-colors"
+                className="text-xs text-earth-blue hover:text-earth-cyan transition-colors"
               >
                 {expanded ? "Hide columns" : "Show columns"}
               </button>
@@ -81,7 +81,7 @@ export const DatasetCard = React.forwardRef<HTMLDivElement, DatasetCardProps>(
                 <div className="mt-2 space-y-1">
                   {columns.map((col) => (
                     <div key={col.id} className="flex items-start gap-2 text-xs">
-                      <code className="font-mono text-blue-500 bg-blue-500/5 px-1.5 py-0.5 rounded flex-shrink-0">
+                      <code className="font-mono text-earth-blue bg-earth-blue/5 px-1.5 py-0.5 rounded flex-shrink-0">
                         {col.name}
                       </code>
                       <span className="text-muted-foreground">{col.description}</span>
@@ -98,7 +98,7 @@ export const DatasetCard = React.forwardRef<HTMLDivElement, DatasetCardProps>(
                 href={sourceUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs text-blue-500 hover:underline"
+                className="text-xs text-earth-blue hover:underline"
               >
                 View source data →
               </a>

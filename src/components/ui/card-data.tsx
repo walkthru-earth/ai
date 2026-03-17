@@ -1,7 +1,7 @@
 "use client";
 
 import { useTamboComponentState } from "@tambo-ai/react";
-import { Check } from "lucide-react";
+import { Check, ExternalLink } from "lucide-react";
 import * as React from "react";
 import { z } from "zod";
 import { cn } from "@/lib/utils";
@@ -37,7 +37,8 @@ export const dataCardSchema = z.object({
 });
 
 // Define the props type based on the Zod schema
-export type DataCardProps = z.infer<typeof dataCardSchema> & React.HTMLAttributes<HTMLDivElement>;
+export type DataCardProps = z.infer<typeof dataCardSchema> &
+  React.HTMLAttributes<HTMLDivElement> & { [key: `_tambo_${string}`]: unknown };
 
 /**
  * DataCard Component
@@ -46,9 +47,11 @@ export type DataCardProps = z.infer<typeof dataCardSchema> & React.HTMLAttribute
  * with the ability to select multiple items.
  */
 export const DataCard = React.forwardRef<HTMLDivElement, DataCardProps>(
-  ({ title, options, className, ...props }, ref) => {
+  ({ title, options, className, ...rest }, ref) => {
+    // Filter out Tambo internal props before spreading onto DOM
+    const props = Object.fromEntries(Object.entries(rest).filter(([k]) => !k.startsWith("_tambo_")));
     // Initialize Tambo component state
-    const [state, setState] = useTamboComponentState<DataCardState>(`data-card`, { selectedValues: [] });
+    const [state, setState] = useTamboComponentState<DataCardState>("data-card", { selectedValues: [] });
 
     // Handle option selection
     const handleToggleCard = (value: string) => {
@@ -57,15 +60,12 @@ export const DataCard = React.forwardRef<HTMLDivElement, DataCardProps>(
       const selectedValues = [...state.selectedValues];
       const index = selectedValues.indexOf(value);
 
-      // Toggle selection
       if (index > -1) {
-        // Remove if already selected
         selectedValues.splice(index, 1);
       } else {
         selectedValues.push(value);
       }
 
-      // Update component state
       setState({ selectedValues });
     };
 
@@ -77,53 +77,57 @@ export const DataCard = React.forwardRef<HTMLDivElement, DataCardProps>(
     };
 
     return (
-      <div ref={ref} className={cn("w-full", className)} {...props}>
-        {title && <h2 className="text-lg font-medium text-gray-700 mb-3">{title}</h2>}
+      <div ref={ref} className={cn("w-full space-y-3", className)} {...props}>
+        {title && <h3 className="font-semibold text-foreground">{title}</h3>}
 
         <div className="space-y-2">
-          {options?.map((card, index) => (
-            <div key={`${card.id || "card"}-${index}`} className="border-b border-gray-100 pb-2 last:border-0">
+          {options?.map((card, index) => {
+            const isSelected = state?.selectedValues.includes(card.value);
+            return (
               <div
+                key={`${card.id || "card"}-${index}`}
                 className={cn(
-                  "group flex items-start p-1.5 rounded-md transition-colors",
-                  state?.selectedValues.includes(card.value) && "bg-gray-50",
+                  "group rounded-lg border bg-card p-3 transition-colors cursor-pointer",
+                  isSelected
+                    ? "border-primary/40 bg-primary/5"
+                    : "border-border hover:border-border/80 hover:bg-muted/30",
                 )}
+                onClick={() => handleToggleCard(card.value)}
               >
-                <div className="flex-shrink-0 mr-3 mt-0.5 cursor-pointer" onClick={() => handleToggleCard(card.value)}>
+                <div className="flex items-start gap-3">
                   <div
                     className={cn(
-                      "w-4 h-4 border rounded-sm flex items-center justify-center transition-colors",
-                      state?.selectedValues.includes(card.value)
-                        ? "bg-blue-500 border-blue-500 text-white"
-                        : "border-gray-200 hover:border-gray-300",
+                      "mt-0.5 w-4 h-4 border rounded-sm flex items-center justify-center flex-shrink-0 transition-colors",
+                      isSelected ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/30",
                     )}
                   >
-                    {state?.selectedValues.includes(card.value) && <Check className="h-2.5 w-2.5" />}
+                    {isSelected && <Check className="h-2.5 w-2.5" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-medium text-earth-blue group-hover:text-earth-cyan transition-colors">
+                      {card.label}
+                    </h4>
+                    {card.description && (
+                      <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{card.description}</p>
+                    )}
+                    {card.url && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleNavigate(card.url);
+                        }}
+                        className="inline-flex items-center gap-1 text-xs text-earth-green mt-1.5 hover:underline truncate max-w-full"
+                      >
+                        <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                        <span className="truncate">{card.url}</span>
+                      </button>
+                    )}
                   </div>
                 </div>
-                <div
-                  className="flex-1 cursor-pointer"
-                  onClick={() => (card.url ? handleNavigate(card.url) : handleToggleCard(card.value))}
-                >
-                  <h3
-                    className={cn(
-                      "text-blue-600 font-medium text-sm",
-                      "group-hover:text-blue-700",
-                      state?.selectedValues.includes(card.value) && "text-blue-700",
-                    )}
-                  >
-                    {card.label}
-                  </h3>
-                  {card.description && (
-                    <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{card.description}</p>
-                  )}
-                  {card.url && (
-                    <span className="text-xs text-green-600 mt-1 block truncate opacity-80">{card.url}</span>
-                  )}
-                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     );

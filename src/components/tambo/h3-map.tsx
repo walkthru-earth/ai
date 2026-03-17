@@ -208,6 +208,8 @@ export const H3Map = React.forwardRef<HTMLDivElement, H3MapProps>((props, ref) =
         style={{ touchAction: "none" }}
         onPointerDown={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
+        onTouchStart={(e) => e.stopPropagation()}
+        onTouchMove={(e) => e.stopPropagation()}
       >
         {hasData ? (
           <DeckGLMap

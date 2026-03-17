@@ -262,7 +262,7 @@ const messageInputVariants = cva("w-full", {
       ].join(" "),
       bordered: [
         "[&>div]:bg-transparent",
-        "[&>div]:border-2 [&>div]:border-gray-300 [&>div]:dark:border-zinc-600",
+        "[&>div]:border-2 [&>div]:border-border",
         "[&>div]:shadow-none",
         "[&_textarea]:bg-transparent",
         "[&_textarea]:border-0",
@@ -580,14 +580,12 @@ const MessageInputInternal = React.forwardRef<HTMLFormElement, MessageInputProps
           <div
             className={cn(
               "relative flex flex-col rounded-xl bg-background shadow-md p-2 px-3",
-              isDragging ? "border border-dashed border-emerald-400" : "border border-border",
+              isDragging ? "border border-dashed border-earth-green" : "border border-border",
             )}
           >
             {isDragging && (
-              <div className="absolute inset-0 rounded-xl bg-emerald-50/90 dark:bg-emerald-950/30 flex items-center justify-center pointer-events-none z-20">
-                <p className="text-emerald-700 dark:text-emerald-300 font-medium">
-                  Drop files here to add to conversation
-                </p>
+              <div className="absolute inset-0 rounded-xl bg-earth-green/10 flex items-center justify-center pointer-events-none z-20">
+                <p className="text-earth-green font-medium">Drop files here to add to conversation</p>
               </div>
             )}
             {elicitation ? (

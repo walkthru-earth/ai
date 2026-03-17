@@ -252,6 +252,15 @@ function ExplorerLayout() {
     preloadDuckDB();
   }, []);
 
+  // Auto-expand mobile chat when a new message arrives (user submitted)
+  const prevMessageCount = useRef(messages.length);
+  useEffect(() => {
+    if (messages.length > prevMessageCount.current) {
+      setMobileChat((prev) => (prev === "collapsed" ? "expanded" : prev));
+    }
+    prevMessageCount.current = messages.length;
+  }, [messages.length]);
+
   // Sync thread ID from URL → Tambo on initial load (for shared links)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -429,6 +438,18 @@ function ExplorerLayout() {
 
       {/* Dashboard — all AI components become draggable/resizable panels */}
       <DashboardCanvas className="bg-muted/30" />
+
+      {/* ── Mobile: floating chat bubble (visible when chat is hidden) ── */}
+      {mobileChat === "hidden" && (
+        <button
+          type="button"
+          onClick={() => setMobileChat("collapsed")}
+          className="sm:hidden fixed bottom-4 right-4 z-40 w-12 h-12 rounded-full bg-earth-blue text-white shadow-lg flex items-center justify-center hover:brightness-110 transition-all"
+          title="Open chat"
+        >
+          <MessageSquare className="w-5 h-5" />
+        </button>
+      )}
 
       {/* ── Mobile: bottom sheet chat ────────────────────────────── */}
       <div
