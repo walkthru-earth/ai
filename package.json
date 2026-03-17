@@ -35,6 +35,7 @@
     "deck.gl": "^9.2.11",
     "dompurify": "^3.3.3",
     "framer-motion": "^12.38.0",
+    "h3-js": "^4.4.0",
     "highlight.js": "^11.11.1",
     "hyparquet": "^1.25.1",
     "hyparquet-compressors": "^1.1.1",
