@@ -231,7 +231,11 @@ export function DashboardCanvas({ className }: DashboardCanvasProps) {
   }, []);
 
   const toggleMaximize = useCallback((id: string) => {
-    setMaximizedId((prev) => (prev === id ? null : id));
+    // Defer to avoid "Cannot update component while rendering" when
+    // withTamboInteractable re-registers during the same render cycle
+    queueMicrotask(() => {
+      setMaximizedId((prev) => (prev === id ? null : id));
+    });
   }, []);
 
   // Panel height in grid rows (×80px)
