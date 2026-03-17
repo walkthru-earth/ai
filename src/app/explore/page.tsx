@@ -388,6 +388,10 @@ function ExplorerLayout({ geo }: { geo: GeoIP | null }) {
                   <MessageSuggestionsStatus />
                 </MessageSuggestions>
 
+                <MessageSuggestions initialSuggestions={isEmpty ? defaultSuggestions : undefined}>
+                  <MessageSuggestionsList className="px-3" />
+                </MessageSuggestions>
+
                 <div className="p-3 border-t border-border/30">
                   <MessageInput variant="bordered">
                     <MessageInputTextarea placeholder="Ask about weather, terrain, buildings, population..." />
@@ -401,10 +405,6 @@ function ExplorerLayout({ geo }: { geo: GeoIP | null }) {
                     <MessageInputError />
                   </MessageInput>
                 </div>
-
-                <MessageSuggestions initialSuggestions={isEmpty ? defaultSuggestions : undefined}>
-                  <MessageSuggestionsList />
-                </MessageSuggestions>
               </>
             )}
           </>
@@ -484,6 +484,11 @@ function ExplorerLayout({ geo }: { geo: GeoIP | null }) {
           </>
         )}
 
+        {/* Suggestion chips — above input for mobile visibility */}
+        <MessageSuggestions initialSuggestions={isEmpty ? defaultSuggestions : undefined}>
+          <MessageSuggestionsList className="px-2 pb-1" />
+        </MessageSuggestions>
+
         {/* Input bar — always visible */}
         <div className={cn("p-2", mobileChat === "expanded" && "border-t border-border/30")}>
           <MessageInput variant="bordered">
@@ -494,13 +499,6 @@ function ExplorerLayout({ geo }: { geo: GeoIP | null }) {
             <MessageInputError />
           </MessageInput>
         </div>
-
-        {/* Suggestions — only when collapsed and empty thread */}
-        {mobileChat === "collapsed" && (
-          <MessageSuggestions initialSuggestions={isEmpty ? defaultSuggestions : undefined}>
-            <MessageSuggestionsList className="px-2 pb-2" />
-          </MessageSuggestions>
-        )}
       </MobileBottomSheet>
     </div>
   );

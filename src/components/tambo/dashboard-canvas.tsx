@@ -366,7 +366,7 @@ export function DashboardCanvas({ className }: DashboardCanvasProps) {
         <div
           ref={containerRef}
           data-canvas-space="true"
-          className={cn("h-full flex-1 flex flex-col overflow-hidden", className)}
+          className={cn("h-full flex-1 flex flex-col overflow-hidden relative z-30", className)}
         >
           <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border/30 bg-muted/10 flex-shrink-0">
             <span className="text-xs font-semibold text-foreground truncate flex-1">{panel.title}</span>

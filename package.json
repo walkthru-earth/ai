@@ -29,7 +29,7 @@
     "@tailwindcss/oxide": "^4.2.1",
     "@tambo-ai/react": "1.2.2",
     "@tambo-ai/typescript-sdk": "^0.94.0",
-    "@walkthru-earth/objex-utils": "^1.0.0",
+    "@walkthru-earth/objex-utils": "^1.1.0",
     "apache-arrow": "^21.1.0",
     "class-variance-authority": "^0.7.1",
     "deck.gl": "^9.2.11",
@@ -54,7 +54,8 @@
     "react-leaflet": "^5.0.0",
     "react-markdown": "^10.1.0",
     "recharts": "^3.8.0",
-    "streamdown": "^1.6.11"
+    "streamdown": "^1.6.11",
+    "yaml": "^2.8.2"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

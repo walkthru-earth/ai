@@ -60,8 +60,8 @@ importers:
         specifier: ^0.94.0
         version: 0.94.0
       '@walkthru-earth/objex-utils':
-        specifier: ^1.0.0
-        version: 1.0.0(apache-arrow@21.1.0)(hyparquet-compressors@1.1.1)(hyparquet@1.25.1)
+        specifier: ^1.1.0
+        version: 1.1.0(apache-arrow@21.1.0)(hyparquet-compressors@1.1.1)(hyparquet@1.25.1)(yaml@2.8.2)
       apache-arrow:
         specifier: ^21.1.0
         version: 21.1.0
@@ -137,6 +137,9 @@ importers:
       streamdown:
         specifier: ^1.6.11
         version: 1.6.11(@types/mdast@4.0.4)(micromark-util-types@2.0.2)(micromark@4.0.2)(react@19.2.4)
+      yaml:
+        specifier: ^2.8.2
+        version: 2.8.2
     devDependencies:
       '@biomejs/biome':
         specifier: 2.4.7
@@ -2259,18 +2262,21 @@ packages:
     resolution: {integrity: sha512-8r4TNknD7OJQADe3VygeofFR7UNAXZ2/jjBFP5dgI8+2uMfnuGYgbuHivasKr9WSQ64sPej6m8rDoM1uSllXjQ==}
     engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
 
-  '@walkthru-earth/objex-utils@1.0.0':
-    resolution: {integrity: sha512-k6BuK80XFLAcNwezmDjGaGhhRbjkjlXpi9ElVauN4SaOfbw/pAm/I+EGFfaQucTaxImpQ8sZ52+7+ciN6V5auQ==}
+  '@walkthru-earth/objex-utils@1.1.0':
+    resolution: {integrity: sha512-JpianfMU3SwXBBXEgib3HDslfxIRq4HVeHK+e8rOnmz+J5LQ6Gb5d7fTUYCnS59QzIGQI293yl0b2Lob3FaO9Q==}
     peerDependencies:
       apache-arrow: '>=14'
       hyparquet: '>=1.25'
       hyparquet-compressors: '>=1.1'
+      yaml: '>=2'
     peerDependenciesMeta:
       apache-arrow:
         optional: true
       hyparquet:
         optional: true
       hyparquet-compressors:
+        optional: true
+      yaml:
         optional: true
 
   '@webcomponents/shadycss@1.11.2':
@@ -4619,6 +4625,11 @@ packages:
   xss@1.0.13:
     resolution: {integrity: sha512-clu7dxTm1e8Mo5fz3n/oW3UCXBfV89xZ72jM8yzo1vR/pIS0w3sgB3XV2H8Vm6zfGnHL0FzvLJPJEBhd86/z4Q==}
     engines: {node: '>= 0.10.0'}
+    hasBin: true
+
+  yaml@2.8.2:
+    resolution: {integrity: sha512-mplynKqc1C2hTVYxd0PU2xQAc22TI1vShAYGksCCfxbn/dFwnHTNi1bvYsBTkhdUNtGIf5xNOg938rrSSYvS9A==}
+    engines: {node: '>= 14.6'}
     hasBin: true
 
   yn@3.1.1:
@@ -7028,11 +7039,12 @@ snapshots:
     dependencies:
       '@vaadin/vaadin-development-mode-detector': 2.0.7
 
-  '@walkthru-earth/objex-utils@1.0.0(apache-arrow@21.1.0)(hyparquet-compressors@1.1.1)(hyparquet@1.25.1)':
+  '@walkthru-earth/objex-utils@1.1.0(apache-arrow@21.1.0)(hyparquet-compressors@1.1.1)(hyparquet@1.25.1)(yaml@2.8.2)':
     optionalDependencies:
       apache-arrow: 21.1.0
       hyparquet: 1.25.1
       hyparquet-compressors: 1.1.1
+      yaml: 2.8.2
 
   '@webcomponents/shadycss@1.11.2': {}
 
@@ -9951,6 +9963,8 @@ snapshots:
     dependencies:
       commander: 2.20.3
       cssfilter: 0.0.10
+
+  yaml@2.8.2: {}
 
   yn@3.1.1: {}
 
