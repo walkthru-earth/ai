@@ -30,7 +30,11 @@ export const tools: TamboTool[] = [
   {
     name: "runSQL",
     description:
-      "Execute a DuckDB SQL query in-browser via DuckDB-WASM. H3 extension is pre-loaded. RULES: (1) Use HTTPS URLs in FROM clause. (2) DO NOT write INSTALL or LOAD — pre-loaded. (3) Always LIMIT (max 500). (4) h3_index is BIGINT. For H3Map, only need: h3_h3_to_string(h3_index) AS hex, <metric> AS value — NO lat/lng needed, deck.gl renders H3 polygons from hex string. (5) ONE statement per call (no semicolons). (6) Weather: res 0-5, hours 0 and 12. Building: res 3-8. Population: res 1-8. Terrain: res 1-10. (7) Use h3_cell_area(h3_index, 'km^2') for area (NOT h3_cell_area_km2). (8) NEVER use h3_cell_to_latlng().lat — it returns a DOUBLE[2] list, NOT a struct. If you need lat/lng: list_extract(h3_cell_to_latlng(h3_index), 1) AS lat, list_extract(h3_cell_to_latlng(h3_index), 2) AS lng. But prefer passing lat/lng as H3Map props instead. (9) Use h3_grid_ring NOT h3_k_ring (deprecated). Use h3_grid_disk NOT h3_k_ring_distances. (10) NEVER hardcode H3 hex strings — always compute them from coordinates: h3_latlng_to_cell(lat, lng, resolution)::BIGINT. Example for Cairo res 5: h3_latlng_to_cell(30.05, 31.35, 5)::BIGINT. Use h3_grid_disk(h3_latlng_to_cell(lat, lng, res)::BIGINT, radius) for area queries.",
+      "Execute a DuckDB SQL query in-browser via DuckDB-WASM. H3 extension is pre-loaded. " +
+      "COORDINATE ORDER: lat = latitude (north/south, e.g. 30.05 for Cairo), lng = longitude (east/west, e.g. 31.25 for Cairo). " +
+      "H3 functions: h3_latlng_to_cell(lat, lng, res) — lat FIRST, lng SECOND. " +
+      "DuckDB spatial: ST_Point(lng, lat) — lng FIRST (x), lat SECOND (y). Do NOT reverse these. " +
+      "RULES: (1) Use HTTPS URLs in FROM clause. (2) DO NOT write INSTALL or LOAD — pre-loaded. (3) Always LIMIT (max 500). (4) h3_index is BIGINT. For H3Map, only need: h3_h3_to_string(h3_index) AS hex, <metric> AS value — NO lat/lng needed, deck.gl renders H3 polygons from hex string. (5) ONE statement per call (no semicolons). (6) Weather: res 0-5, hours 0 and 12. Building: res 3-8. Population: res 1-8. Terrain: res 1-10. (7) Use h3_cell_area(h3_index, 'km^2') for area (NOT h3_cell_area_km2). (8) NEVER use h3_cell_to_latlng().lat — it returns a DOUBLE[2] list, NOT a struct. If you need lat/lng: list_extract(h3_cell_to_latlng(h3_index), 1) AS lat, list_extract(h3_cell_to_latlng(h3_index), 2) AS lng. But prefer passing lat/lng as H3Map props instead. (9) Use h3_grid_ring NOT h3_k_ring (deprecated). Use h3_grid_disk NOT h3_k_ring_distances. (10) NEVER hardcode H3 hex strings — always compute from coordinates: h3_latlng_to_cell(lat, lng, res)::BIGINT. Example Cairo res 5: h3_latlng_to_cell(30.05, 31.25, 5)::BIGINT (lat=30.05, lng=31.25). Or use pre-computed H3 cells from user context if available.",
     tool: runQuery,
     inputSchema: z.object({
       sql: z
@@ -39,7 +43,8 @@ export const tools: TamboTool[] = [
           "DuckDB SQL query. Use HTTPS Parquet URLs in FROM. Include LIMIT 500. " +
             "For maps: SELECT h3_h3_to_string(h3_index) AS hex, <metric> AS value FROM ... " +
             "CRITICAL: NEVER hardcode H3 hex strings — LLMs hallucinate wrong indices. " +
-            "For area queries around a location, ALWAYS compute from lat/lng: " +
+            "For area queries, use pre-computed H3 cells from user context, or compute: " +
+            "h3_latlng_to_cell(lat, lng, res)::BIGINT — lat FIRST (N/S), lng SECOND (E/W). " +
             "WITH center AS (SELECT h3_latlng_to_cell(lat, lng, res)::BIGINT AS h3) " +
             "SELECT unnest(h3_grid_disk(h3, radius))::BIGINT AS h3_index FROM center",
         ),
@@ -275,13 +280,26 @@ export function buildContextHelpers(geo: GeoIP | null) {
                 lng: geo.longitude,
                 region: geo.region,
                 timezone: geo.timezone,
+                ...(geo.h3Cells ? { h3Cells: geo.h3Cells } : {}),
               },
               locationHint:
                 "The user is browsing from " +
                 geo.city +
                 ", " +
                 geo.country +
-                ". " +
+                " (latitude=" +
+                geo.latitude +
+                " [north/south], longitude=" +
+                geo.longitude +
+                " [east/west]). " +
+                "Remember: h3_latlng_to_cell(latitude, longitude, res) — lat FIRST. ST_Point(longitude, latitude) — lng FIRST. " +
+                (geo.h3Cells
+                  ? "Pre-computed H3 cell IDs for their location: " +
+                    Object.entries(geo.h3Cells)
+                      .map(([res, hex]) => `res ${res}: '${hex}'`)
+                      .join(", ") +
+                    ". Use these directly in SQL queries with h3_grid_disk() for area queries around the user's location — no need to call h3_latlng_to_cell(). "
+                  : "") +
                 "Use this to personalize initial suggestions (e.g., show data for their city/region first). " +
                 "Do NOT mention that you know their location unless they ask about their area.",
             }

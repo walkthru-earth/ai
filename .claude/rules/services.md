@@ -1,0 +1,33 @@
+---
+paths:
+  - "src/services/**"
+---
+
+# Services
+
+## `duckdb-wasm.ts`
+
+- `initDuckDB()`: singleton, jsDelivr bundles, Blob URL worker, extensions: httpfs → spatial → h3 → a5, retries 3x
+- `preloadDuckDB()`: non-blocking warmup on page mount
+- `runQuery({sql})`: cleanSql → execute → Arrow→JS rows + columnArrays (typed array views) + arrowIPC (bytes) → store in query-store → return metadata + 3 sample rows
+- `arrowToJs(val)`: BigInt→Number, Uint8Array→hex, Struct→.toJSON(), Array→recursive
+- Column arrays extracted via `vec.toArray()` — zero-copy views for single-chunk results. Used by GeoArrow layers for map rendering.
+
+## `query-store.ts`
+
+- `Map<string, StoredQuery>`, keeps last 20 results. `StoredQuery` has `rows` (JS objects), `columnArrays` (typed arrays for GeoArrow), `arrowIPC` (IPC bytes).
+- `storeQueryResult()` → auto-incremented `qr_N` ID
+- `storeQueryResultWithId(id, result)` → specific ID (thread replay)
+- `useQueryResult(queryId)` — `useSyncExternalStore` reactive hook. Components MUST use this, not `getQueryResult()`
+- Cross-filter: `setCrossFilter()` / `useCrossFilter()`. Types: `value` (click), `bbox` (viewport). Toggle via `setCrossFilterEnabled()`
+
+## `walkthru-data.ts`
+
+- 4 dataset definitions with full column lists, URL patterns, H3 res ranges:
+  - Weather: res 0-5, hours 0/12, 17 columns (temp, wind, shear, humidity, moisture flux, pressure, precip, geopotential)
+  - Terrain: res 1-10, 6 columns (elev, slope, aspect, tri, tpi)
+  - Building: res 3-8, 11 columns (count, density, footprint, coverage, height avg/max/std, volume, volume density)
+  - Population: res 1-8, 16 time steps (pop_2025 through pop_2100 every 5 years)
+- 6 pre-built cross-dataset analyses (CROSS_INDICES)
+- `resolveWeatherPrefix()`: probes S3 for latest weather date/hour (cached)
+- `suggestAnalysis()`: keyword routing → datasets, cross-indices, sample SQL

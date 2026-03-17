@@ -1,6 +1,10 @@
 "use client";
 
+import { latLngToCell } from "h3-js";
 import { useEffect, useState } from "react";
+
+/** H3 resolutions relevant to our datasets: weather(0-5), terrain(1-10), population(1-8), building(3-8) */
+const H3_RESOLUTIONS = [1, 3, 5, 7] as const;
 
 export interface GeoIP {
   city: string;
@@ -10,6 +14,8 @@ export interface GeoIP {
   longitude: string;
   region: string;
   timezone: string;
+  /** H3 cell hex strings at key resolutions for the user's location */
+  h3Cells?: Record<number, string>;
 }
 
 const CACHE_KEY = "walkthru-geoip";
@@ -38,6 +44,18 @@ export function useGeoIP(): GeoIP | null {
     fetch("https://get.geojs.io/v1/ip/geo.json")
       .then((r) => r.json())
       .then((data) => {
+        const lat = parseFloat(data.latitude);
+        const lng = parseFloat(data.longitude);
+        const h3Cells: Record<number, string> = {};
+        if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
+          for (const res of H3_RESOLUTIONS) {
+            try {
+              h3Cells[res] = latLngToCell(lat, lng, res);
+            } catch {
+              /* h3 computation failed for this res */
+            }
+          }
+        }
         const parsed: GeoIP = {
           city: data.city,
           country: data.country,
@@ -46,6 +64,7 @@ export function useGeoIP(): GeoIP | null {
           longitude: data.longitude,
           region: data.region,
           timezone: data.timezone,
+          h3Cells: Object.keys(h3Cells).length > 0 ? h3Cells : undefined,
         };
         setGeo(parsed);
         try {

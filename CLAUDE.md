@@ -12,7 +12,7 @@ pnpm lint:fix     # biome auto-fix
 ```
 
 - **Biome** (not ESLint) — `biome.json`: 2-space indent, double quotes, semicolons, 120 chars
-- **Pre-commit**: lefthook runs `biome check --write --staged`
+- **Pre-commit**: lefthook runs `pnpx @biomejs/biome check --write` on staged files
 
 ## Architecture
 
@@ -30,7 +30,8 @@ pnpm lint:fix     # biome auto-fix
 - `h3_cell_area(h3_index, 'km^2')` not `h3_cell_area_km2`
 - `ST_AsGeoJSON(geometry)` converts spatial geometry to GeoJSON string for GeoMap
 - ONE statement per call, always LIMIT 500, HTTPS URLs in FROM
-- **NEVER hardcode H3 hex strings** — AI will hallucinate wrong indices. Always compute from coordinates: `h3_latlng_to_cell(lat, lng, res)::BIGINT`. For area queries: `h3_grid_disk(h3_latlng_to_cell(lat, lng, res)::BIGINT, radius)`
+- **Coordinate order**: `lat` = latitude (north/south, e.g. 30.05 for Cairo), `lng` = longitude (east/west, e.g. 31.25 for Cairo). H3: `h3_latlng_to_cell(lat, lng, res)`. DuckDB spatial: `ST_Point(lng, lat)` (x=lon, y=lat). deck.gl GeoMap props: `latitude`/`longitude`.
+- **NEVER hardcode H3 hex strings** — AI will hallucinate wrong indices. Always compute from coordinates: `h3_latlng_to_cell(lat, lng, res)::BIGINT`. For area queries: `h3_grid_disk(h3_latlng_to_cell(lat, lng, res)::BIGINT, radius)`. If user's pre-computed H3 cells are available in context, use those directly.
 
 ## Data
 
@@ -52,7 +53,7 @@ S3 base: `https://s3.us-west-2.amazonaws.com/us-west-2.opendata.source.coop/walk
 
 ## Tambo SDK (v1.2.2) — Bidirectional AI Components
 
-Config in `src/lib/tambo.ts`. All pages spread `tamboProviderConfig` (apiKey, components, tools, tamboUrl).
+Config in `src/lib/tambo.ts`. All pages spread `tamboProviderConfig` (apiKey, components, tools, tamboUrl). Shared `buildContextHelpers(geo)` provides AI with user theme, geo-IP location, and pre-computed H3 cells. `buildInitialSuggestions(geo)` generates personalized suggestion chips.
 
 ### How Tambo Works (AI ↔ Component flow)
 
@@ -171,3 +172,7 @@ Packages: `@geoarrow/deck.gl-layers@0.3.1`, `@walkthru-earth/objex-utils@1.0.0`,
 - Map basemap: CARTO Dark Matter / Positron. `auto` follows system theme, `dark`/`light` override via AI or prop
 - Thread URLs: `?thread=threadId` only for real IDs (prefix `thr_`)
 - Plain `<textarea>` for all text input (no TipTap/rich-text)
+- AI must NEVER render checkboxes or selectable lists — users cannot submit selections. Use DatasetCard components + auto-submitting suggestion chips instead.
+- Geo-IP: `useGeoIP()` fetches from geojs.io, caches 24h in localStorage, SSR-safe (null on first render). Returns city, country, lat/lng, timezone, and pre-computed H3 cells at res 1/3/5/7. Falls back gracefully when blocked.
+- Query replay: `useReplayQueries(messages)` shared hook re-runs SQL from restored threads to repopulate query-store. Used by both `/chat` and `/explore`.
+- GeoMap height: `h-[420px]` in chat (inline), `h-full` in dashboard panels.
