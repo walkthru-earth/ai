@@ -261,6 +261,21 @@ function ExplorerLayout() {
     prevMessageCount.current = messages.length;
   }, [messages.length]);
 
+  // Auto-collapse mobile chat when a component is rendered in the dashboard
+  const prevComponentCount = useRef(0);
+  useEffect(() => {
+    let count = 0;
+    for (const msg of messages) {
+      for (const block of msg.content) {
+        if (block.type === "component" && block.renderedComponent) count++;
+      }
+    }
+    if (count > prevComponentCount.current) {
+      setMobileChat((prev) => (prev === "expanded" ? "collapsed" : prev));
+    }
+    prevComponentCount.current = count;
+  }, [messages]);
+
   // Sync thread ID from URL → Tambo on initial load (for shared links)
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);

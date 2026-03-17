@@ -223,12 +223,54 @@ export function DashboardCanvas({ className }: DashboardCanvasProps) {
     }
   }
 
+  // Touch devices: skip react-grid-layout entirely — simple stacked layout
+  // react-grid-layout's internal touch handlers steal events from maps even with isDraggable=false
+  if (isTouch) {
+    return (
+      <div
+        ref={containerRef}
+        data-canvas-space="true"
+        className={cn("h-full flex-1 overflow-auto pb-[240px]", className)}
+      >
+        <div className="flex flex-col gap-2 p-2">
+          {panels.map((panel) => {
+            const name = (panel.componentName || "").toLowerCase();
+            const isMap = name.includes("map") || name.includes("h3map");
+            const minH = isMap ? "min-h-[320px]" : "min-h-[220px]";
+
+            return (
+              <div
+                key={panel.id}
+                className={cn("rounded-xl border border-border bg-card overflow-hidden flex flex-col shadow-sm", minH)}
+              >
+                {/* Panel header */}
+                <div className="flex items-center px-1.5 py-0.5 border-b border-border/30 bg-muted/10 flex-shrink-0">
+                  <div className="flex-1" />
+                  <button
+                    onClick={() => toggleMaximize(panel.id)}
+                    className="p-1 rounded hover:bg-muted/50 transition-colors text-muted-foreground/30 hover:text-muted-foreground"
+                  >
+                    <Maximize2 className="w-2.5 h-2.5" />
+                  </button>
+                  <button
+                    onClick={() => removePanel(panel.id)}
+                    className="p-1 rounded hover:bg-destructive/20 transition-colors text-muted-foreground/30 hover:text-destructive"
+                  >
+                    <X className="w-2.5 h-2.5" />
+                  </button>
+                </div>
+                {/* Panel content — no grid wrapper, touch events reach map/chart directly */}
+                <div className="flex-1 min-h-0 overflow-auto">{panel.component}</div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div
-      ref={containerRef}
-      data-canvas-space="true"
-      className={cn("h-full flex-1 overflow-auto", isMobile && "pb-[240px]", className)}
-    >
+    <div ref={containerRef} data-canvas-space="true" className={cn("h-full flex-1 overflow-auto", className)}>
       {width > 0 && (
         <ResponsiveGridLayout
           {...({
@@ -236,14 +278,14 @@ export function DashboardCanvas({ className }: DashboardCanvasProps) {
             layouts,
             breakpoints: { lg: 900, md: 600, sm: 0 },
             cols: { lg: 12, md: 8, sm: 4 },
-            rowHeight: isMobile ? 70 : 80,
-            margin: (isMobile ? [8, 8] : [12, 12]) as [number, number],
-            containerPadding: (isMobile ? [8, 8] : [16, 16]) as [number, number],
+            rowHeight: 80,
+            margin: [12, 12] as [number, number],
+            containerPadding: [16, 16] as [number, number],
             onLayoutChange: handleLayoutChange,
             draggableHandle: ".panel-drag-handle",
             draggableCancel: ".panel-content",
-            isResizable: !isTouch,
-            isDraggable: !isTouch,
+            isResizable: true,
+            isDraggable: true,
             useCSSTransforms: true,
           } as any)}
         >
@@ -254,11 +296,9 @@ export function DashboardCanvas({ className }: DashboardCanvasProps) {
             >
               {/* Panel header — compact bar */}
               <div className="flex items-center px-1.5 py-0.5 border-b border-border/30 bg-muted/10 flex-shrink-0">
-                {!isTouch && (
-                  <div className="panel-drag-handle cursor-grab active:cursor-grabbing p-0.5 rounded hover:bg-muted/50 transition-colors">
-                    <GripVertical className="w-3 h-3 text-muted-foreground/30" />
-                  </div>
-                )}
+                <div className="panel-drag-handle cursor-grab active:cursor-grabbing p-0.5 rounded hover:bg-muted/50 transition-colors">
+                  <GripVertical className="w-3 h-3 text-muted-foreground/30" />
+                </div>
                 <div className="flex-1" />
                 <button
                   onClick={() => toggleMaximize(panel.id)}

@@ -26,6 +26,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -38,6 +39,15 @@ export default function RootLayout({
               else if (!t && !prefersDark) document.documentElement.classList.remove('dark');
             } catch(e){}
           })();
+          // Polyfill crypto.randomUUID for older iOS/Android WebViews
+          if(typeof crypto!=='undefined'&&!crypto.randomUUID){
+            crypto.randomUUID=function(){
+              var b=new Uint8Array(16);crypto.getRandomValues(b);
+              b[6]=(b[6]&0x0f)|0x40;b[8]=(b[8]&0x3f)|0x80;
+              var h=Array.prototype.map.call(b,function(v){return('0'+v.toString(16)).slice(-2)}).join('');
+              return h.slice(0,8)+'-'+h.slice(8,12)+'-'+h.slice(12,16)+'-'+h.slice(16,20)+'-'+h.slice(20);
+            };
+          }
         `,
           }}
         />
