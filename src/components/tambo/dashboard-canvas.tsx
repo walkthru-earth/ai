@@ -215,9 +215,13 @@ export function DashboardCanvas({ className }: DashboardCanvasProps) {
     return panelOrder.map((id) => map.get(id)).filter(Boolean) as PanelInfo[];
   }, [panels, panelOrder]);
 
+  // Defer dismissal to next tick — withTamboInteractable unregisters during unmount
+  // which triggers setState in TamboRegistryProvider; deferring avoids "update during render"
   const removePanel = useCallback((id: string) => {
-    setDismissedIds((prev) => new Set(prev).add(id));
-    setMaximizedId((prev) => (prev === id ? null : prev));
+    setTimeout(() => {
+      setDismissedIds((prev) => new Set(prev).add(id));
+      setMaximizedId((prev) => (prev === id ? null : prev));
+    }, 0);
   }, []);
 
   const toggleMaximize = useCallback((id: string) => {

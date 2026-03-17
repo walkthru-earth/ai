@@ -1,5 +1,6 @@
 "use client";
 
+import { withTamboInteractable } from "@tambo-ai/react";
 import { cva } from "class-variance-authority";
 import * as React from "react";
 import { useMemo } from "react";
@@ -309,3 +310,12 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
   },
 );
 Graph.displayName = "Graph";
+
+/** Interactable Graph — AI can update chartType, xColumn, yColumns at runtime */
+export const InteractableGraph = withTamboInteractable(Graph, {
+  componentName: "Graph",
+  description:
+    "Interactive chart (bar/line/pie). AI can update chart type, axes, and data source at runtime. " +
+    "Use this to respond to requests like 'switch to line chart' or 'show pop_2100 instead'.",
+  propsSchema: graphSchema,
+});

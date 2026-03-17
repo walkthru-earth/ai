@@ -1,5 +1,6 @@
 "use client";
 
+import { withTamboInteractable } from "@tambo-ai/react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import * as React from "react";
 import { useMemo, useState } from "react";
@@ -254,3 +255,12 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
   },
 );
 DataTable.displayName = "DataTable";
+
+/** Interactable DataTable — AI can update visibleColumns, title at runtime */
+export const InteractableDataTable = withTamboInteractable(DataTable, {
+  componentName: "DataTable",
+  description:
+    "Interactive data table with pagination. AI can update visible columns and title at runtime. " +
+    "Use to respond to requests like 'hide the hex column' or 'show only pop_2025 and pop_2100'.",
+  propsSchema: dataTableSchema,
+});

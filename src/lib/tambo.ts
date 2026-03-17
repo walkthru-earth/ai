@@ -5,9 +5,9 @@
 
 import type { TamboComponent, TamboTool } from "@tambo-ai/react";
 import { z } from "zod";
-import { DataTable, dataTableSchema } from "@/components/tambo/data-table";
+import { dataTableSchema, InteractableDataTable } from "@/components/tambo/data-table";
 import { DatasetCard, datasetCardSchema } from "@/components/tambo/dataset-card";
-import { Graph, graphSchema } from "@/components/tambo/graph";
+import { graphSchema, InteractableGraph } from "@/components/tambo/graph";
 import { h3MapSchema, InteractableH3Map } from "@/components/tambo/h3-map";
 import { InsightCard, insightCardSchema } from "@/components/tambo/insight-card";
 import { QueryDisplay, queryDisplaySchema } from "@/components/tambo/query-display";
@@ -177,11 +177,10 @@ export const components: TamboComponent[] = [
   {
     name: "DataTable",
     description:
-      "Displays tabular data. PREFERRED: pass queryId from runSQL (auto-derives columns and rows — zero token cost). " +
-      "Optionally pass visibleColumns to limit displayed columns. " +
-      "Fallback: pass inline columns + rows arrays. " +
-      "Cross-filtering: clicking a row highlights matching data in other components.",
-    component: DataTable,
+      "Interactive paginated data table. INTERACTABLE: AI can update visibleColumns and title at runtime. " +
+      "PREFERRED: pass queryId from runSQL (auto-derives columns/rows — zero token cost). " +
+      "When user says 'hide hex column' or 'only show population columns', UPDATE the existing table — do NOT create a new one.",
+    component: InteractableDataTable,
     propsSchema: dataTableSchema,
   },
   {
@@ -206,10 +205,10 @@ export const components: TamboComponent[] = [
   {
     name: "Graph",
     description:
-      "Renders bar, line, or pie charts. PREFERRED: pass queryId from runSQL + xColumn + yColumns + chartType (zero token cost — reads data from store). " +
-      "Example: queryId='qr_1', xColumn='hex', yColumns=['pop_2025','pop_2050'], chartType='bar'. " +
-      "Fallback: pass inline data object. Cross-filtering: clicking a bar highlights matching data in map/table.",
-    component: Graph,
+      "Interactive chart (bar/line/pie). INTERACTABLE: AI can update chartType, axes, and queryId at runtime. " +
+      "PREFERRED: pass queryId from runSQL + xColumn + yColumns + chartType (zero token cost). " +
+      "When user says 'switch to line chart' or 'show pop_2100 instead', UPDATE the existing chart — do NOT create a new one.",
+    component: InteractableGraph,
     propsSchema: graphSchema,
   },
   {
