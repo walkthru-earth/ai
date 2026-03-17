@@ -49,7 +49,7 @@ const looksLikeCode = (text: string): boolean => {
 
 /**
  * Resource mention component that displays resource names.
- * Matches the styling from text-editor.tsx mention components.
+ * Displays resource names as styled mention chips.
  */
 function ResourceMention({ name, uri }: { name: string; uri: string }) {
   return (

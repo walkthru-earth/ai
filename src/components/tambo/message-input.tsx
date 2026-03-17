@@ -5,20 +5,87 @@ import {
   type TamboElicitationRequest,
   type TamboElicitationResponse,
   useTamboElicitationContext,
-  useTamboMcpPrompt,
-  useTamboMcpPromptList,
-  useTamboMcpResourceList,
 } from "@tambo-ai/react/mcp";
 import { cva, type VariantProps } from "class-variance-authority";
-import { ArrowUp, AtSign, FileText, Image as ImageIcon, Paperclip, Square, X } from "lucide-react";
+import { ArrowUp, Image as ImageIcon, Paperclip, Square, X } from "lucide-react";
 import * as React from "react";
-import { useDebounce } from "use-debounce";
 import { ElicitationUI } from "@/components/tambo/elicitation-ui";
 import { McpPromptButton, McpResourceButton } from "@/components/tambo/mcp-components";
 import { Tooltip, TooltipProvider } from "@/components/tambo/suggestions-tooltip";
 import { cn } from "@/lib/utils";
 import { McpConfigModal } from "./mcp-config-modal";
-import { getImageItems, type PromptItem, type ResourceItem, type TamboEditor, TextEditor } from "./text-editor";
+
+// ── Types and utilities previously in text-editor.tsx ──
+
+/**
+ * Result of extracting images from clipboard data.
+ */
+interface ImageItems {
+  imageItems: File[];
+  hasText: boolean;
+}
+
+/**
+ * Returns images array and hasText bool from clipboard data.
+ */
+function getImageItems(clipboardData: DataTransfer | null | undefined): ImageItems {
+  const items = Array.from(clipboardData?.items ?? []);
+  const imageItems: File[] = [];
+
+  for (const item of items) {
+    if (!item.type.startsWith("image/")) {
+      continue;
+    }
+
+    const image = item.getAsFile();
+    if (image) {
+      imageItems.push(image);
+    }
+  }
+
+  const text = clipboardData?.getData("text/plain") ?? "";
+
+  return {
+    imageItems,
+    hasText: text.length > 0,
+  };
+}
+
+/**
+ * Minimal editor interface exposed to parent components.
+ */
+interface TamboEditor {
+  focus(position?: "start" | "end"): void;
+  setContent(content: string): void;
+  appendText(text: string): void;
+  getTextWithResourceURIs(): {
+    text: string;
+    resourceNames: Record<string, string>;
+  };
+  hasMention(id: string): boolean;
+  insertMention(id: string, label: string): void;
+  setEditable(editable: boolean): void;
+}
+
+interface SuggestionItem {
+  id: string;
+  name: string;
+  icon?: React.ReactNode;
+}
+
+/**
+ * Represents a resource item that appears in the "@" mention dropdown.
+ */
+export interface ResourceItem extends SuggestionItem {
+  componentData?: unknown;
+}
+
+/**
+ * Represents a prompt item that appears in the "/" command dropdown.
+ */
+export interface PromptItem extends SuggestionItem {
+  text: string;
+}
 
 // Lazy load DictationButton for code splitting (framework-agnostic alternative to next/dynamic)
 // eslint-disable-next-line @typescript-eslint/promise-function-async
@@ -46,200 +113,6 @@ const DictationButton = () => {
     </React.Suspense>
   );
 };
-
-/**
- * Provider interface for searching resources (for "@" mentions).
- * Empty query string "" should return all available resources.
- */
-export interface ResourceProvider {
-  /** Search for resources matching the query */
-  search(query: string): Promise<ResourceItem[]>;
-}
-
-/**
- * Provider interface for searching and fetching prompts (for "/" commands).
- * Empty query string "" should return all available prompts.
- */
-export interface PromptProvider {
-  /** Search for prompts matching the query */
-  search(query: string): Promise<PromptItem[]>;
-  /** Get the full prompt details including text by ID */
-  get(id: string): Promise<PromptItem>;
-}
-
-/**
- * Removes duplicate resource items based on ID.
- */
-const dedupeResourceItems = (resourceItems: ResourceItem[]) => {
-  const seen = new Set<string>();
-  return resourceItems.filter((item) => {
-    if (seen.has(item.id)) return false;
-    seen.add(item.id);
-    return true;
-  });
-};
-
-/**
- * Filters resource items by query string.
- * Empty query returns all items.
- */
-const filterResourceItems = (resourceItems: ResourceItem[], query: string): ResourceItem[] => {
-  if (query === "") return resourceItems;
-
-  const normalizedQuery = query.toLocaleLowerCase();
-  return resourceItems.filter((item) => item.name.toLocaleLowerCase().includes(normalizedQuery));
-};
-
-/**
- * Filters prompt items by query string.
- * Empty query returns all items.
- */
-const filterPromptItems = (promptItems: PromptItem[], query: string): PromptItem[] => {
-  if (query === "") return promptItems;
-
-  const normalizedQuery = query.toLocaleLowerCase();
-  return promptItems.filter((item) => item.name.toLocaleLowerCase().includes(normalizedQuery));
-};
-
-const EXTERNAL_SEARCH_DEBOUNCE_MS = 200;
-
-/**
- * Hook to get a combined resource list that merges MCP resources with an external provider.
- * Returns the combined, filtered resource items.
- *
- * @param externalProvider - Optional external resource provider
- * @param search - Search string to filter resources. For MCP servers, results are filtered locally.
- *                 For registry dynamic sources, the search is passed to listResources(search).
- */
-function useCombinedResourceList(externalProvider: ResourceProvider | undefined, search: string): ResourceItem[] {
-  const { data: mcpResources } = useTamboMcpResourceList(search);
-  const [debouncedSearch] = useDebounce(search, EXTERNAL_SEARCH_DEBOUNCE_MS);
-
-  // Convert MCP resources to ResourceItems
-  const mcpItems: ResourceItem[] = React.useMemo(
-    () =>
-      mcpResources
-        ? (
-            mcpResources as {
-              resource: { uri: string; name?: string };
-            }[]
-          ).map((entry) => ({
-            // Use the full URI (already includes serverKey prefix from MCP hook)
-            // When inserted as @{id}, parseResourceReferences will strip serverKey before sending to backend
-            id: entry.resource.uri,
-            name: entry.resource.name ?? entry.resource.uri,
-            icon: React.createElement(AtSign, { className: "w-4 h-4" }),
-            componentData: { type: "mcp-resource", data: entry },
-          }))
-        : [],
-    [mcpResources],
-  );
-
-  // Track external provider results with state
-  const [externalItems, setExternalItems] = React.useState<ResourceItem[]>([]);
-
-  // Fetch external resources when search changes
-  React.useEffect(() => {
-    if (!externalProvider) {
-      setExternalItems([]);
-      return;
-    }
-
-    let cancelled = false;
-    externalProvider
-      .search(debouncedSearch)
-      .then((items) => {
-        if (!cancelled) {
-          setExternalItems(items);
-        }
-      })
-      .catch((error) => {
-        console.error("Failed to fetch external resources", error);
-        if (!cancelled) {
-          setExternalItems([]);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [externalProvider, debouncedSearch]);
-
-  // Combine and dedupe - MCP resources are already filtered by the hook
-  // External items need to be filtered locally
-  const combined = React.useMemo(() => {
-    const filteredExternal = filterResourceItems(externalItems, search);
-    return dedupeResourceItems([...mcpItems, ...filteredExternal]);
-  }, [mcpItems, externalItems, search]);
-
-  return combined;
-}
-
-/**
- * Hook to get a combined prompt list that merges MCP prompts with an external provider.
- * Returns the combined, filtered prompt items.
- *
- * @param externalProvider - Optional external prompt provider
- * @param search - Search string to filter prompts by name. MCP prompts are filtered via the hook.
- */
-function useCombinedPromptList(externalProvider: PromptProvider | undefined, search: string): PromptItem[] {
-  // Pass search to MCP hook for filtering
-  const { data: mcpPrompts } = useTamboMcpPromptList(search);
-  const [debouncedSearch] = useDebounce(search, EXTERNAL_SEARCH_DEBOUNCE_MS);
-
-  // Convert MCP prompts to PromptItems (mark with mcp-prompt: prefix for special handling)
-  const mcpItems: PromptItem[] = React.useMemo(
-    () =>
-      mcpPrompts
-        ? (mcpPrompts as { prompt: { name: string } }[]).map((entry) => ({
-            id: `mcp-prompt:${entry.prompt.name}`,
-            name: entry.prompt.name,
-            icon: React.createElement(FileText, { className: "w-4 h-4" }),
-            text: "", // Text will be fetched when selected via useTamboMcpPrompt
-          }))
-        : [],
-    [mcpPrompts],
-  );
-
-  // Track external provider results with state
-  const [externalItems, setExternalItems] = React.useState<PromptItem[]>([]);
-
-  // Fetch external prompts when search changes
-  React.useEffect(() => {
-    if (!externalProvider) {
-      setExternalItems([]);
-      return;
-    }
-
-    let cancelled = false;
-    externalProvider
-      .search(debouncedSearch)
-      .then((items) => {
-        if (!cancelled) {
-          setExternalItems(items);
-        }
-      })
-      .catch((error) => {
-        console.error("Failed to fetch external prompts", error);
-        if (!cancelled) {
-          setExternalItems([]);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [externalProvider, debouncedSearch]);
-
-  // Combine - MCP prompts are already filtered by the hook
-  // External items need to be filtered locally
-  const combined = React.useMemo(() => {
-    const filteredExternal = filterPromptItems(externalItems, search);
-    return [...mcpItems, ...filteredExternal];
-  }, [mcpItems, externalItems, search]);
-
-  return combined;
-}
 
 /**
  * CSS variants for the message input container
@@ -624,176 +497,24 @@ declare global {
 
 /**
  * Props for the MessageInputTextarea component.
- * Extends standard TextareaHTMLAttributes.
  */
-export interface MessageInputTextareaProps extends React.HTMLAttributes<HTMLDivElement> {
+export interface MessageInputTextareaProps {
+  /** Custom CSS class name. */
+  className?: string;
   /** Custom placeholder text. */
   placeholder?: string;
-  /** Resource provider for @ mentions (optional - includes interactables by default) */
-  resourceProvider?: ResourceProvider;
-  /** Prompt provider for / commands (optional) */
-  promptProvider?: PromptProvider;
-  /** Callback when a resource is selected from @ mentions (optional) */
-  onResourceSelect?: (item: ResourceItem) => void;
 }
 
 /**
- * Rich-text textarea component for entering message text with @ mention support.
- * Uses the TipTap-based TextEditor which supports:
- * - @ mention autocomplete for interactables plus optional static items and async fetchers
- * - Keyboard navigation (Enter to submit, Shift+Enter for newline)
- * - Image paste handling via the thread input context
- *
- * **Note:** This component uses refs internally to ensure callbacks stay fresh,
- * so consumers can pass updated providers on each render without worrying about
- * closure issues with the TipTap editor.
+ * Textarea component for entering message text.
+ * Uses a plain native textarea.
  *
  * @component MessageInput.Textarea
- * @example
- * ```tsx
- * <MessageInput>
- *   <MessageInput.Textarea
- *     placeholder="Type your message..."
- *     resourceProvider={{
- *       search: async (query) => {
- *         // Return custom resources
- *         return [{ id: "foo", name: "Foo" }];
- *       }
- *     }}
- *   />
- * </MessageInput>
- * ```
  */
-const MessageInputTextarea = ({
-  className,
-  placeholder = "What do you want to do?",
-  resourceProvider,
-  promptProvider,
-  onResourceSelect,
-  ...props
-}: MessageInputTextareaProps) => {
-  // Always use plain textarea — TipTap has space key issues across browsers
+const MessageInputTextarea = ({ className, placeholder = "What do you want to do?" }: MessageInputTextareaProps) => {
   return <MessageInputPlainTextarea className={className} placeholder={placeholder} />;
 };
 MessageInputTextarea.displayName = "MessageInput.Textarea";
-
-/**
- * Rich-text textarea using TipTap (desktop only).
- */
-const MessageInputRichTextarea = ({
-  className,
-  placeholder = "What do you want to do?",
-  resourceProvider,
-  promptProvider,
-  onResourceSelect,
-  ...props
-}: MessageInputTextareaProps) => {
-  const { value, setValue, handleSubmit, editorRef, setImageError } = useMessageInputContext();
-  const { isIdle } = useTambo();
-  const { addImage, images } = useTamboThreadInput();
-  const isUpdatingToken = useIsTamboTokenUpdating();
-  // Resource names are extracted from editor at submit time, no need to track in state
-  const setResourceNames = React.useCallback(
-    (_resourceNames: Record<string, string> | ((prev: Record<string, string>) => Record<string, string>)) => {
-      // No-op - we extract resource names directly from editor at submit time
-    },
-    [],
-  );
-
-  // Track search state for resources (controlled by TextEditor)
-  const [resourceSearch, setResourceSearch] = React.useState("");
-
-  // Track search state for prompts (controlled by TextEditor)
-  const [promptSearch, setPromptSearch] = React.useState("");
-
-  // Get combined resource list (MCP + external provider), filtered by search
-  const resourceItems = useCombinedResourceList(resourceProvider, resourceSearch);
-
-  // Get combined prompt list (MCP + external provider), filtered by search
-  const promptItems = useCombinedPromptList(promptProvider, promptSearch);
-
-  // State for MCP prompt fetching (since we can't call hooks inside get())
-  const [selectedMcpPromptName, setSelectedMcpPromptName] = React.useState<string | null>(null);
-  const { data: selectedMcpPromptData } = useTamboMcpPrompt(selectedMcpPromptName ?? "");
-
-  // Handle MCP prompt insertion when data is fetched
-  React.useEffect(() => {
-    if (selectedMcpPromptData && selectedMcpPromptName) {
-      const promptMessages = selectedMcpPromptData?.messages;
-      if (promptMessages) {
-        const promptText = promptMessages
-          .map((msg) => {
-            if (msg.content?.type === "text") {
-              return msg.content.text;
-            }
-            return "";
-          })
-          .filter(Boolean)
-          .join("\n");
-
-        const editor = editorRef.current;
-        if (editor) {
-          editor.setContent(promptText);
-          setValue(promptText);
-          editor.focus("end");
-        }
-      }
-      setSelectedMcpPromptName(null);
-    }
-  }, [selectedMcpPromptData, selectedMcpPromptName, editorRef, setValue]);
-
-  // Handle prompt selection - check if it's an MCP prompt
-  const handlePromptSelect = React.useCallback((item: PromptItem) => {
-    if (item.id.startsWith("mcp-prompt:")) {
-      const promptName = item.id.replace("mcp-prompt:", "");
-      setSelectedMcpPromptName(promptName);
-    }
-  }, []);
-
-  // Handle image paste - mark as pasted and add to thread
-  const pendingImagesRef = React.useRef(0);
-
-  const handleAddImage = React.useCallback(
-    async (file: File) => {
-      if (images.length + pendingImagesRef.current >= MAX_IMAGES) {
-        setImageError(`Max ${MAX_IMAGES} uploads at a time`);
-        return;
-      }
-      setImageError(null);
-      pendingImagesRef.current += 1;
-      try {
-        file[IS_PASTED_IMAGE] = true;
-        await addImage(file);
-      } finally {
-        pendingImagesRef.current -= 1;
-      }
-    },
-    [addImage, images, setImageError],
-  );
-
-  return (
-    <div className={cn("flex-1", className)} data-slot="message-input-textarea" {...props}>
-      <TextEditor
-        ref={editorRef}
-        value={value}
-        onChange={setValue}
-        onResourceNamesChange={setResourceNames}
-        onSubmit={handleSubmit}
-        onAddImage={handleAddImage}
-        placeholder={placeholder}
-        disabled={!isIdle || isUpdatingToken}
-        className="bg-background text-foreground"
-        onSearchResources={setResourceSearch}
-        resources={resourceItems}
-        onSearchPrompts={setPromptSearch}
-        prompts={promptItems}
-        onResourceSelect={onResourceSelect ?? (() => {})}
-        onPromptSelect={handlePromptSelect}
-      />
-    </div>
-  );
-};
-MessageInputRichTextarea.displayName = "MessageInput.RichTextarea";
 
 /**
  * Props for the legacy plain textarea message input component.
@@ -1415,8 +1136,6 @@ const MessageInputToolbar = React.forwardRef<HTMLDivElement, React.HTMLAttribute
 );
 MessageInputToolbar.displayName = "MessageInput.Toolbar";
 
-// Re-export types from text-editor for convenience
-export type { PromptItem, ResourceItem } from "./text-editor";
 // --- Exports ---
 export {
   DictationButton,
