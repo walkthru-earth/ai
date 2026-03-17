@@ -11,7 +11,8 @@ const dmMono = DM_Mono({
 
 export const metadata = {
   title: "walkthru.earth — AI Urban Intelligence",
-  description: "Talk to the world's data. Explore cities, climate, terrain, and population with AI + DuckDB.",
+  description:
+    "Talk to the world's data. Explore cities, climate, terrain, and population with AI-powered maps, charts, and real-time queries.",
   icons: {
     icon: "/favicon.png",
   },
