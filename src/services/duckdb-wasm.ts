@@ -70,12 +70,13 @@ async function initDuckDB(): Promise<any> {
             "LOAD h3",
             "INSTALL a5 FROM community",
             "LOAD a5",
-            "SET s3_region = 'us-west-2'",
-            "SET s3_url_style = 'path'",
-            "SET geometry_always_xy = true",
+            "SET GLOBAL s3_region = 'us-west-2'",
+            "SET GLOBAL s3_url_style = 'path'",
+            "SET GLOBAL geometry_always_xy = true",
             // Disable auto GeoParquet→GEOMETRY conversion — triggers stoi crash in WASM on some files.
             // Our detectGeometryColumns + wrapSqlForGeometry handles geometry extraction instead.
-            "SET enable_geoparquet_conversion = false",
+            // Must be GLOBAL so it persists across connections (runQuery opens new connections).
+            "SET GLOBAL enable_geoparquet_conversion = false",
           ]) {
             try {
               await conn.query(stmt);
