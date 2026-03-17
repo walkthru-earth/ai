@@ -14,8 +14,13 @@ export type ColorScheme = "blue-red" | "viridis" | "plasma" | "warm" | "cool" | 
 export type LayerType = "h3" | "scatterplot" | "geojson" | "arc";
 
 export interface LayerConfig {
+  id?: string;
   type: LayerType;
   data: any[];
+  colorScheme?: ColorScheme;
+  opacity?: number;
+  minVal?: number;
+  maxVal?: number;
 }
 
 export type Basemap = "auto" | "dark" | "light";
@@ -155,13 +160,20 @@ function buildLayers(
 ): any[] {
   const result: any[] = [];
 
-  for (const config of configs) {
+  for (let i = 0; i < configs.length; i++) {
+    const config = configs[i];
+    const layerId = config.id ?? `${config.type}-${i}`;
+    const scheme = config.colorScheme ?? colorScheme;
+    const lo = config.minVal ?? minVal;
+    const hi = config.maxVal ?? maxVal;
+    const layerOpacity = config.opacity ?? 0.85;
+
     switch (config.type) {
       case "h3":
         if (config.data.length > 0) {
           result.push(
             new H3HexagonLayer({
-              id: "h3-hexagons",
+              id: `h3-${layerId}`,
               data: config.data,
               pickable: true,
               filled: true,
@@ -170,22 +182,22 @@ function buildLayers(
               coverage: 0.92,
               getHexagon: (d: any) => d.hex ?? "",
               getFillColor: (d: any) =>
-                d.value != null ? valueToColor(d.value, minVal, maxVal, colorScheme) : [100, 150, 255, 120],
+                d.value != null ? valueToColor(d.value, lo, hi, scheme) : [100, 150, 255, 120],
               getElevation: (d: any) => {
                 if (!extruded || d.value == null) return 0;
-                const range = maxVal - minVal || 1;
-                const t = (d.value - minVal) / range;
+                const range = hi - lo || 1;
+                const t = (d.value - lo) / range;
                 return t * 500;
               },
               elevationScale: 50,
-              opacity: 0.85,
+              opacity: layerOpacity,
               onClick: (info: any) => {
                 const hex = info?.object?.hex;
                 if (hex && onFeatureClick) onFeatureClick(hex, "h3");
               },
               updateTriggers: {
-                getFillColor: [minVal, maxVal, colorScheme],
-                getElevation: [minVal, maxVal, extruded],
+                getFillColor: [lo, hi, scheme],
+                getElevation: [lo, hi, extruded],
               },
             }),
           );
@@ -196,7 +208,7 @@ function buildLayers(
         if (config.data.length > 0) {
           result.push(
             new ScatterplotLayer({
-              id: "scatter-points",
+              id: `scatter-${layerId}`,
               data: config.data,
               pickable: true,
               filled: true,
@@ -205,21 +217,22 @@ function buildLayers(
               getRadius: (d: any) => {
                 if (d.radius != null) return d.radius;
                 if (d.value == null) return 8000;
-                const range = maxVal - minVal || 1;
-                return 3000 + ((d.value - minVal) / range) * 30000;
+                const range = hi - lo || 1;
+                return 3000 + ((d.value - lo) / range) * 30000;
               },
               getFillColor: (d: any) =>
-                d.value != null ? valueToColor(d.value, minVal, maxVal, colorScheme) : [100, 150, 255, 150],
+                d.value != null ? valueToColor(d.value, lo, hi, scheme) : [100, 150, 255, 150],
               getLineColor: [255, 255, 255, 40],
               lineWidthMinPixels: 1,
               radiusMinPixels: 3,
               radiusMaxPixels: 20,
+              opacity: layerOpacity,
               onClick: (info: any) => {
                 if (info?.object && onFeatureClick) onFeatureClick(info.object, "scatterplot");
               },
               updateTriggers: {
-                getFillColor: [minVal, maxVal, colorScheme],
-                getRadius: [minVal, maxVal],
+                getFillColor: [lo, hi, scheme],
+                getRadius: [lo, hi],
               },
             }),
           );
@@ -230,7 +243,7 @@ function buildLayers(
         if (config.data.length > 0) {
           result.push(
             new GeoJsonLayer<any>({
-              id: "geojson-layer",
+              id: `geojson-${layerId}`,
               data: { type: "FeatureCollection", features: config.data },
               pickable: true,
               stroked: true,
@@ -240,29 +253,30 @@ function buildLayers(
               getLineWidth: 2,
               getFillColor: (f: any) => {
                 const v = f.properties?.value;
-                return v != null ? valueToColor(v, minVal, maxVal, colorScheme) : [100, 150, 255, 120];
+                return v != null ? valueToColor(v, lo, hi, scheme) : [100, 150, 255, 120];
               },
               getLineColor: (f: any) => {
                 const v = f.properties?.value;
-                return v != null ? valueToColor(v, minVal, maxVal, colorScheme) : [80, 130, 230, 200];
+                return v != null ? valueToColor(v, lo, hi, scheme) : [80, 130, 230, 200];
               },
               getElevation: (f: any) => {
                 if (!extruded) return 0;
                 const v = f.properties?.value;
                 if (v == null) return 0;
-                const range = maxVal - minVal || 1;
-                return ((v - minVal) / range) * 500;
+                const range = hi - lo || 1;
+                return ((v - lo) / range) * 500;
               },
               getPointRadius: 100,
               pointRadiusMinPixels: 3,
               pointRadiusMaxPixels: 20,
+              opacity: layerOpacity,
               onClick: (info: any) => {
                 if (info?.object && onFeatureClick) onFeatureClick(info.object, "geojson");
               },
               updateTriggers: {
-                getFillColor: [minVal, maxVal, colorScheme],
-                getLineColor: [minVal, maxVal, colorScheme],
-                getElevation: [minVal, maxVal, extruded],
+                getFillColor: [lo, hi, scheme],
+                getLineColor: [lo, hi, scheme],
+                getElevation: [lo, hi, extruded],
               },
             }),
           );
@@ -273,24 +287,25 @@ function buildLayers(
         if (config.data.length > 0) {
           result.push(
             new ArcLayer({
-              id: "arc-layer",
+              id: `arc-${layerId}`,
               data: config.data,
               pickable: true,
               getSourcePosition: (d: any) => [d.sourceLng ?? 0, d.sourceLat ?? 0],
               getTargetPosition: (d: any) => [d.destLng ?? 0, d.destLat ?? 0],
               getSourceColor: (d: any) =>
-                d.value != null ? valueToColor(d.value, minVal, maxVal, colorScheme) : [100, 150, 255, 200],
+                d.value != null ? valueToColor(d.value, lo, hi, scheme) : [100, 150, 255, 200],
               getTargetColor: (d: any) =>
-                d.value != null ? valueToColor(d.value, minVal, maxVal, colorScheme) : [255, 150, 100, 200],
+                d.value != null ? valueToColor(d.value, lo, hi, scheme) : [255, 150, 100, 200],
               getWidth: 2,
               widthMinPixels: 1,
               widthMaxPixels: 8,
+              opacity: layerOpacity,
               onClick: (info: any) => {
                 if (info?.object && onFeatureClick) onFeatureClick(info.object, "arc");
               },
               updateTriggers: {
-                getSourceColor: [minVal, maxVal, colorScheme],
-                getTargetColor: [minVal, maxVal, colorScheme],
+                getSourceColor: [lo, hi, scheme],
+                getTargetColor: [lo, hi, scheme],
               },
             }),
           );

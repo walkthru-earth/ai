@@ -1,16 +1,52 @@
 "use client";
 
 import { withTamboInteractable } from "@tambo-ai/react";
-import { Map } from "lucide-react";
+import { ChevronDown, ChevronUp, Eye, EyeOff, Layers, Map } from "lucide-react";
 import dynamic from "next/dynamic";
 import * as React from "react";
 import { useMemo } from "react";
 import { z } from "zod";
 import { setCrossFilter, useQueryResult } from "@/services/query-store";
-import type { Basemap, LayerConfig, LayerType } from "./geo-map-deckgl";
+import type { Basemap, ColorScheme, LayerConfig, LayerType } from "./geo-map-deckgl";
 import { useInDashboardPanel } from "./panel-context";
 
 /* ── Schema ────────────────────────────────────────────────────────── */
+
+const COLOR_SCHEMES = ["blue-red", "viridis", "plasma", "warm", "cool", "spectral"] as const;
+
+const layerEntrySchema = z.object({
+  id: z.string().describe("Unique layer ID for add/remove/update"),
+  queryId: z.string().describe("Query result to render"),
+  layerType: z
+    .enum(["h3", "scatterplot", "geojson", "arc"])
+    .optional()
+    .describe("Layer type. Auto-detected from column names if omitted."),
+  hexColumn: z.string().optional().describe("H3 hex string column (default: 'hex'). For layerType=h3."),
+  valueColumn: z.string().optional().describe("Numeric value column for coloring (default: 'value')."),
+  latColumn: z.string().optional().describe("Latitude column (default: 'lat'). For layerType=scatterplot."),
+  lngColumn: z.string().optional().describe("Longitude column (default: 'lng'). For layerType=scatterplot."),
+  geometryColumn: z
+    .string()
+    .optional()
+    .describe("GeoJSON geometry column (default: 'geometry'). For layerType=geojson."),
+  sourceLatColumn: z.string().optional().describe("Source latitude column (default: 'source_lat'). For layerType=arc."),
+  sourceLngColumn: z
+    .string()
+    .optional()
+    .describe("Source longitude column (default: 'source_lng'). For layerType=arc."),
+  destLatColumn: z
+    .string()
+    .optional()
+    .describe("Destination latitude column (default: 'dest_lat'). For layerType=arc."),
+  destLngColumn: z
+    .string()
+    .optional()
+    .describe("Destination longitude column (default: 'dest_lng'). For layerType=arc."),
+  colorScheme: z.enum(COLOR_SCHEMES).optional().describe("Color palette for this layer"),
+  colorMetric: z.string().optional().describe("Legend label for this layer's color metric"),
+  opacity: z.number().optional().describe("Layer opacity 0-1 (default 0.85)"),
+  visible: z.boolean().optional().describe("Whether this layer is visible (default true)"),
+});
 
 export const geoMapSchema = z.object({
   title: z.string().optional().describe("Map title"),
@@ -18,14 +54,15 @@ export const geoMapSchema = z.object({
     .string()
     .optional()
     .describe(
-      "ID from runSQL result — the map reads data directly from the query store. Zero token cost, instant render.",
+      "ID from runSQL result — the map reads data directly from the query store. Zero token cost, instant render. " +
+        "For single-layer maps. Use `layers` array for multi-layer.",
     ),
   layerType: z
     .enum(["h3", "scatterplot", "geojson", "arc"])
     .optional()
     .describe(
       "Layer type. Auto-detected from column names if omitted: " +
-        "hex/h3_index→h3, lat+lng→scatterplot, geometry→geojson, source_lat+dest_lat→arc",
+        "hex/h3_index->h3, lat+lng->scatterplot, geometry->geojson, source_lat+dest_lat->arc",
     ),
   // H3
   hexColumn: z.string().optional().describe("H3 hex string column (default: 'hex'). For layerType=h3."),
@@ -62,15 +99,23 @@ export const geoMapSchema = z.object({
   longitude: z.number().optional().describe("Center longitude"),
   zoom: z.number().optional().describe("Zoom level (default 4)"),
   colorMetric: z.string().optional().describe("Legend label for the color metric (e.g. 'Population Density')"),
-  colorScheme: z
-    .enum(["blue-red", "viridis", "plasma", "warm", "cool", "spectral"])
-    .optional()
-    .describe("Color palette"),
+  colorScheme: z.enum(COLOR_SCHEMES).optional().describe("Color palette"),
   extruded: z.boolean().optional().describe("3D extrusion based on value"),
   basemap: z
     .enum(["auto", "dark", "light"])
     .optional()
     .describe("Basemap style. 'auto' follows system theme (default), 'dark' or 'light' override."),
+  // Multi-layer
+  layers: z
+    .array(layerEntrySchema)
+    .optional()
+    .describe(
+      "Multiple layers on the same map. Each has its own queryId and styling. " +
+        "Max 5 layers. When set, queryId/layerType/column props are ignored (use per-layer props instead). " +
+        "To add a layer: update_component_props with layers array including existing + new layer. " +
+        "To remove a layer: update with layers array excluding that layer. " +
+        "To toggle visibility: set visible=false on a layer.",
+    ),
 });
 
 export type GeoMapProps = z.infer<typeof geoMapSchema>;
@@ -80,6 +125,8 @@ export type GeoMapProps = z.infer<typeof geoMapSchema>;
 const DeckGLMap = dynamic(() => import("./geo-map-deckgl"), { ssr: false });
 
 /* ── Utilities ─────────────────────────────────────────────────────── */
+
+const MAX_LAYERS = 5;
 
 function computePercentileRange(values: number[]): { min: number; max: number } {
   if (values.length === 0) return { min: 0, max: 1 };
@@ -120,6 +167,179 @@ const LEGEND_GRADIENTS: Record<string, string> = {
   spectral: "linear-gradient(90deg, #5e4fa2, #3288bd, #66c2a5, #fee08b, #f46d43, #9e0142)",
 };
 
+/* ── Bounds accumulator ──────────────────────────────────────────── */
+
+interface BoundsAccumulator {
+  latSum: number;
+  lngSum: number;
+  coordCount: number;
+  minLat: number;
+  maxLat: number;
+  minLng: number;
+  maxLng: number;
+}
+
+function createBoundsAccumulator(): BoundsAccumulator {
+  return { latSum: 0, lngSum: 0, coordCount: 0, minLat: 90, maxLat: -90, minLng: 180, maxLng: -180 };
+}
+
+function updateBoundsAcc(acc: BoundsAccumulator, lat: number, lng: number) {
+  acc.latSum += lat;
+  acc.lngSum += lng;
+  acc.coordCount++;
+  if (lat < acc.minLat) acc.minLat = lat;
+  if (lat > acc.maxLat) acc.maxLat = lat;
+  if (lng < acc.minLng) acc.minLng = lng;
+  if (lng > acc.maxLng) acc.maxLng = lng;
+}
+
+function finalizeBounds(acc: BoundsAccumulator) {
+  const center = acc.coordCount > 0 ? { lat: acc.latSum / acc.coordCount, lng: acc.lngSum / acc.coordCount } : null;
+  const bounds: [[number, number], [number, number]] | null =
+    acc.coordCount > 0 && acc.minLat <= acc.maxLat
+      ? [
+          [acc.minLng, acc.minLat],
+          [acc.maxLng, acc.maxLat],
+        ]
+      : null;
+  return { center, bounds };
+}
+
+/* ── Transform one query result into a LayerConfig ───────────────── */
+
+interface TransformResult {
+  layerConfig: LayerConfig | null;
+  type: LayerType;
+  values: number[];
+  featureCount: number;
+}
+
+function transformQueryToLayer(
+  rows: Record<string, unknown>[],
+  opts: {
+    id: string;
+    layerType?: LayerType;
+    hexColumn: string;
+    valueColumn: string;
+    latColumn: string;
+    lngColumn: string;
+    radiusColumn?: string;
+    geometryColumn: string;
+    sourceLatColumn: string;
+    sourceLngColumn: string;
+    destLatColumn: string;
+    destLngColumn: string;
+    colorScheme?: ColorScheme;
+    opacity?: number;
+  },
+  boundsAcc: BoundsAccumulator,
+): TransformResult {
+  if (rows.length === 0) {
+    return { layerConfig: null, type: opts.layerType ?? "h3", values: [], featureCount: 0 };
+  }
+
+  const columns = Object.keys(rows[0]);
+  const type = detectLayerType(columns, opts.layerType);
+  const vals: number[] = [];
+  const data: any[] = [];
+
+  switch (type) {
+    case "h3": {
+      for (const row of rows) {
+        const hex = row[opts.hexColumn];
+        const val = row[opts.valueColumn];
+        if (typeof hex === "string" && hex.length > 0) {
+          const numVal = typeof val === "number" ? val : 0;
+          data.push({ hex, value: numVal });
+          vals.push(numVal);
+          const lat = resolveColumn(row, "lat", "latitude") as number | undefined;
+          const lng = resolveColumn(row, "lng", "longitude") as number | undefined;
+          if (typeof lat === "number" && typeof lng === "number") {
+            updateBoundsAcc(boundsAcc, lat, lng);
+          } else if (Array.isArray(row.latlng) && row.latlng.length === 2) {
+            updateBoundsAcc(boundsAcc, row.latlng[0] as number, row.latlng[1] as number);
+          }
+        }
+      }
+      break;
+    }
+    case "scatterplot": {
+      for (const row of rows) {
+        const lat = resolveColumn(row, opts.latColumn, "lat", "latitude") as number | undefined;
+        const lng = resolveColumn(row, opts.lngColumn, "lng", "longitude") as number | undefined;
+        if (typeof lat === "number" && typeof lng === "number") {
+          const val = row[opts.valueColumn];
+          const numVal = typeof val === "number" ? val : undefined;
+          const item: any = { lat, lng, value: numVal };
+          if (opts.radiusColumn && typeof row[opts.radiusColumn] === "number") item.radius = row[opts.radiusColumn];
+          data.push(item);
+          if (numVal != null) vals.push(numVal);
+          updateBoundsAcc(boundsAcc, lat, lng);
+        }
+      }
+      break;
+    }
+    case "geojson": {
+      for (const row of rows) {
+        const geomStr = row[opts.geometryColumn];
+        if (typeof geomStr === "string") {
+          try {
+            const geom = JSON.parse(geomStr);
+            const val = row[opts.valueColumn];
+            const numVal = typeof val === "number" ? val : undefined;
+            const feature = {
+              type: "Feature",
+              geometry: geom,
+              properties: { ...row, value: numVal },
+            };
+            data.push(feature);
+            if (numVal != null) vals.push(numVal);
+            const coords = extractFirstCoord(geom);
+            if (coords) updateBoundsAcc(boundsAcc, coords[1], coords[0]);
+          } catch {
+            /* invalid GeoJSON */
+          }
+        }
+      }
+      break;
+    }
+    case "arc": {
+      for (const row of rows) {
+        const sLat = resolveColumn(row, opts.sourceLatColumn, "source_lat", "source_latitude") as number | undefined;
+        const sLng = resolveColumn(row, opts.sourceLngColumn, "source_lng", "source_longitude") as number | undefined;
+        const dLat = resolveColumn(row, opts.destLatColumn, "dest_lat", "dest_latitude") as number | undefined;
+        const dLng = resolveColumn(row, opts.destLngColumn, "dest_lng", "dest_longitude") as number | undefined;
+        if (
+          typeof sLat === "number" &&
+          typeof sLng === "number" &&
+          typeof dLat === "number" &&
+          typeof dLng === "number"
+        ) {
+          const val = row[opts.valueColumn];
+          const numVal = typeof val === "number" ? val : undefined;
+          data.push({ sourceLat: sLat, sourceLng: sLng, destLat: dLat, destLng: dLng, value: numVal });
+          if (numVal != null) vals.push(numVal);
+          updateBoundsAcc(boundsAcc, sLat, sLng);
+          updateBoundsAcc(boundsAcc, dLat, dLng);
+        }
+      }
+      break;
+    }
+  }
+
+  const { min, max } = computePercentileRange(vals);
+
+  return {
+    layerConfig:
+      data.length > 0
+        ? { id: opts.id, type, data, colorScheme: opts.colorScheme, opacity: opts.opacity, minVal: min, maxVal: max }
+        : null,
+    type,
+    values: vals,
+    featureCount: data.length,
+  };
+}
+
 /* ── Main component ────────────────────────────────────────────────── */
 
 export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref) => {
@@ -144,153 +364,166 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
     colorScheme = "blue-red",
     extruded = false,
     basemap = "auto",
+    layers: layersProp,
   } = props;
   const inPanel = useInDashboardPanel();
 
-  const queryResult = useQueryResult(queryId);
+  // Multi-layer mode: determine if using `layers` array or single `queryId`
+  const isMultiLayer = layersProp != null && layersProp.length > 0;
 
-  // Detect layer type and transform data
-  const { layerConfigs, detectedType, center, bounds, values, featureCount } = useMemo(() => {
-    if (!queryId || !queryResult || queryResult.rows.length === 0) {
-      return {
-        layerConfigs: [] as LayerConfig[],
-        detectedType: explicitLayerType ?? ("h3" as LayerType),
-        center: null as { lat: number; lng: number } | null,
-        bounds: null as [[number, number], [number, number]] | null,
-        values: [] as number[],
-        featureCount: 0,
-      };
+  // Layer control overrides (persisted to localStorage)
+  const storageKey = isMultiLayer ? `geomap-layers:${layersProp?.map((l) => l.id).join(",")}` : undefined;
+
+  const [layerOverrides, setLayerOverrides] = React.useState<z.infer<typeof layerEntrySchema>[] | null>(() => {
+    if (!storageKey || typeof window === "undefined") return null;
+    try {
+      const stored = localStorage.getItem(storageKey);
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  // Effective layers = overrides (if same IDs) or original prop
+  const effectiveLayers = useMemo(() => {
+    if (!isMultiLayer || !layersProp) return layersProp;
+    if (!layerOverrides) return layersProp;
+    // Validate override IDs still match props (AI may have changed layers)
+    const propIds = new Set(layersProp.map((l) => l.id));
+    const overrideIds = new Set(layerOverrides.map((l) => l.id));
+    if (propIds.size !== overrideIds.size || ![...propIds].every((id) => overrideIds.has(id))) {
+      return layersProp; // IDs changed, discard stale overrides
+    }
+    return layerOverrides;
+  }, [isMultiLayer, layersProp, layerOverrides]);
+
+  const handleUpdateLayers = React.useCallback(
+    (updated: z.infer<typeof layerEntrySchema>[]) => {
+      setLayerOverrides(updated);
+      if (storageKey) {
+        try {
+          localStorage.setItem(storageKey, JSON.stringify(updated));
+        } catch {
+          /* quota exceeded */
+        }
+      }
+    },
+    [storageKey],
+  );
+
+  const visibleLayers = useMemo(
+    () =>
+      isMultiLayer
+        ? ((effectiveLayers ?? layersProp)?.filter((l) => l.visible !== false).slice(0, MAX_LAYERS) ?? [])
+        : [],
+    [isMultiLayer, effectiveLayers, layersProp],
+  );
+
+  // Fixed-slot hooks for up to MAX_LAYERS query results (React hooks can't be called conditionally)
+  const qr0 = useQueryResult(isMultiLayer ? visibleLayers[0]?.queryId : queryId);
+  const qr1 = useQueryResult(isMultiLayer ? visibleLayers[1]?.queryId : undefined);
+  const qr2 = useQueryResult(isMultiLayer ? visibleLayers[2]?.queryId : undefined);
+  const qr3 = useQueryResult(isMultiLayer ? visibleLayers[3]?.queryId : undefined);
+  const qr4 = useQueryResult(isMultiLayer ? visibleLayers[4]?.queryId : undefined);
+  const queryResults = [qr0, qr1, qr2, qr3, qr4];
+
+  // Transform data: multi-layer or single-layer
+  const { layerConfigs, legendEntries, center, bounds, allValues, totalFeatureCount, primaryType } = useMemo(() => {
+    const boundsAcc = createBoundsAccumulator();
+    const configs: LayerConfig[] = [];
+    const legends: { colorScheme: ColorScheme; colorMetric?: string; min: number; max: number; count: number }[] = [];
+    let allVals: number[] = [];
+    let totalCount = 0;
+    let firstType: LayerType = explicitLayerType ?? "h3";
+
+    if (isMultiLayer) {
+      for (let i = 0; i < visibleLayers.length; i++) {
+        const layer = visibleLayers[i];
+        const qr = queryResults[i];
+        if (!qr || qr.rows.length === 0) continue;
+
+        const result = transformQueryToLayer(
+          qr.rows,
+          {
+            id: layer.id,
+            layerType: layer.layerType as LayerType | undefined,
+            hexColumn: layer.hexColumn ?? "hex",
+            valueColumn: layer.valueColumn ?? "value",
+            latColumn: layer.latColumn ?? "lat",
+            lngColumn: layer.lngColumn ?? "lng",
+            geometryColumn: layer.geometryColumn ?? "geometry",
+            sourceLatColumn: layer.sourceLatColumn ?? "source_lat",
+            sourceLngColumn: layer.sourceLngColumn ?? "source_lng",
+            destLatColumn: layer.destLatColumn ?? "dest_lat",
+            destLngColumn: layer.destLngColumn ?? "dest_lng",
+            colorScheme: (layer.colorScheme as ColorScheme) ?? colorScheme,
+            opacity: layer.opacity,
+          },
+          boundsAcc,
+        );
+
+        if (result.layerConfig) {
+          configs.push(result.layerConfig);
+          if (configs.length === 1) firstType = result.type;
+          const { min, max } = computePercentileRange(result.values);
+          legends.push({
+            colorScheme: (layer.colorScheme as ColorScheme) ?? colorScheme,
+            colorMetric: layer.colorMetric,
+            min,
+            max,
+            count: result.featureCount,
+          });
+        }
+        allVals = allVals.concat(result.values);
+        totalCount += result.featureCount;
+      }
+    } else {
+      // Single-layer mode (backward compat)
+      const qr = qr0;
+      if (queryId && qr && qr.rows.length > 0) {
+        const result = transformQueryToLayer(
+          qr.rows,
+          {
+            id: "default",
+            layerType: explicitLayerType,
+            hexColumn,
+            valueColumn,
+            latColumn,
+            lngColumn,
+            radiusColumn,
+            geometryColumn,
+            sourceLatColumn,
+            sourceLngColumn,
+            destLatColumn,
+            destLngColumn,
+          },
+          boundsAcc,
+        );
+        if (result.layerConfig) {
+          configs.push(result.layerConfig);
+          firstType = result.type;
+        }
+        allVals = result.values;
+        totalCount = result.featureCount;
+      }
     }
 
-    const columns = Object.keys(queryResult.rows[0]);
-    const type = detectLayerType(columns, explicitLayerType);
-    const vals: number[] = [];
-    let latSum = 0;
-    let lngSum = 0;
-    let coordCount = 0;
-    let minLat = 90;
-    let maxLat = -90;
-    let minLng = 180;
-    let maxLng = -180;
-
-    const updateBounds = (lat: number, lng: number) => {
-      latSum += lat;
-      lngSum += lng;
-      coordCount++;
-      if (lat < minLat) minLat = lat;
-      if (lat > maxLat) maxLat = lat;
-      if (lng < minLng) minLng = lng;
-      if (lng > maxLng) maxLng = lng;
-    };
-
-    const data: any[] = [];
-
-    switch (type) {
-      case "h3": {
-        for (const row of queryResult.rows) {
-          const hex = row[hexColumn];
-          const val = row[valueColumn];
-          if (typeof hex === "string" && hex.length > 0) {
-            const numVal = typeof val === "number" ? val : 0;
-            data.push({ hex, value: numVal });
-            vals.push(numVal);
-            // Try to get lat/lng for centering
-            const lat = resolveColumn(row, "lat", "latitude") as number | undefined;
-            const lng = resolveColumn(row, "lng", "longitude") as number | undefined;
-            if (typeof lat === "number" && typeof lng === "number") {
-              updateBounds(lat, lng);
-            } else if (Array.isArray(row.latlng) && row.latlng.length === 2) {
-              updateBounds(row.latlng[0] as number, row.latlng[1] as number);
-            }
-          }
-        }
-        break;
-      }
-      case "scatterplot": {
-        for (const row of queryResult.rows) {
-          const lat = resolveColumn(row, latColumn, "lat", "latitude") as number | undefined;
-          const lng = resolveColumn(row, lngColumn, "lng", "longitude") as number | undefined;
-          if (typeof lat === "number" && typeof lng === "number") {
-            const val = row[valueColumn];
-            const numVal = typeof val === "number" ? val : undefined;
-            const item: any = { lat, lng, value: numVal };
-            if (radiusColumn && typeof row[radiusColumn] === "number") item.radius = row[radiusColumn];
-            data.push(item);
-            if (numVal != null) vals.push(numVal);
-            updateBounds(lat, lng);
-          }
-        }
-        break;
-      }
-      case "geojson": {
-        for (const row of queryResult.rows) {
-          const geomStr = row[geometryColumn];
-          if (typeof geomStr === "string") {
-            try {
-              const geom = JSON.parse(geomStr);
-              const val = row[valueColumn];
-              const numVal = typeof val === "number" ? val : undefined;
-              const feature = {
-                type: "Feature",
-                geometry: geom,
-                properties: { ...row, value: numVal },
-              };
-              data.push(feature);
-              if (numVal != null) vals.push(numVal);
-              // Extract centroid for bounds
-              const coords = extractFirstCoord(geom);
-              if (coords) updateBounds(coords[1], coords[0]);
-            } catch {
-              /* invalid GeoJSON */
-            }
-          }
-        }
-        break;
-      }
-      case "arc": {
-        for (const row of queryResult.rows) {
-          const sLat = resolveColumn(row, sourceLatColumn, "source_lat", "source_latitude") as number | undefined;
-          const sLng = resolveColumn(row, sourceLngColumn, "source_lng", "source_longitude") as number | undefined;
-          const dLat = resolveColumn(row, destLatColumn, "dest_lat", "dest_latitude") as number | undefined;
-          const dLng = resolveColumn(row, destLngColumn, "dest_lng", "dest_longitude") as number | undefined;
-          if (
-            typeof sLat === "number" &&
-            typeof sLng === "number" &&
-            typeof dLat === "number" &&
-            typeof dLng === "number"
-          ) {
-            const val = row[valueColumn];
-            const numVal = typeof val === "number" ? val : undefined;
-            data.push({ sourceLat: sLat, sourceLng: sLng, destLat: dLat, destLng: dLng, value: numVal });
-            if (numVal != null) vals.push(numVal);
-            updateBounds(sLat, sLng);
-            updateBounds(dLat, dLng);
-          }
-        }
-        break;
-      }
-    }
-
-    const computedCenter = coordCount > 0 ? { lat: latSum / coordCount, lng: lngSum / coordCount } : null;
-    const computedBounds: [[number, number], [number, number]] | null =
-      coordCount > 0 && minLat <= maxLat
-        ? [
-            [minLng, minLat],
-            [maxLng, maxLat],
-          ]
-        : null;
+    const { center: c, bounds: b } = finalizeBounds(boundsAcc);
 
     return {
-      layerConfigs: data.length > 0 ? [{ type, data }] : [],
-      detectedType: type,
-      center: computedCenter,
-      bounds: computedBounds,
-      values: vals,
-      featureCount: data.length,
+      layerConfigs: configs,
+      legendEntries: legends,
+      center: c,
+      bounds: b,
+      allValues: allVals,
+      totalFeatureCount: totalCount,
+      primaryType: firstType,
     };
   }, [
+    isMultiLayer,
+    visibleLayers,
     queryId,
-    queryResult,
+    ...queryResults,
     explicitLayerType,
     hexColumn,
     valueColumn,
@@ -302,29 +535,33 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
     sourceLngColumn,
     destLatColumn,
     destLngColumn,
+    colorScheme,
   ]);
 
   // For H3, compute bounds async via h3-js (hex strings don't have direct lat/lng)
   const [h3Bounds, setH3Bounds] = React.useState<[[number, number], [number, number]] | null>(null);
+  const hasH3Layer = layerConfigs.some((c) => c.type === "h3");
   React.useEffect(() => {
-    if (detectedType !== "h3" || layerConfigs.length === 0) {
+    if (!hasH3Layer || layerConfigs.length === 0) {
       setH3Bounds(null);
       return;
     }
-    const hexData = layerConfigs[0].data;
-    if (hexData.length === 0) return;
     // If we already computed bounds from lat/lng columns, skip h3-js
     if (bounds) {
       setH3Bounds(null);
       return;
     }
+    // Gather all H3 hex data across layers
+    const allHexData = layerConfigs.filter((c) => c.type === "h3").flatMap((c) => c.data);
+    if (allHexData.length === 0) return;
+
     import("h3-js")
       .then((h3) => {
         let minLat = 90;
         let maxLat = -90;
         let minLng = 180;
         let maxLng = -180;
-        for (const d of hexData) {
+        for (const d of allHexData) {
           if (!d.hex) continue;
           try {
             const [lat, lng] = h3.cellToLatLng(d.hex);
@@ -344,117 +581,134 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
         }
       })
       .catch(() => {});
-  }, [detectedType, layerConfigs, bounds]);
+  }, [hasH3Layer, layerConfigs, bounds]);
 
   const finalBounds = bounds ?? h3Bounds;
 
-  const hasData = featureCount > 0;
-  const { min: minVal, max: maxVal } = computePercentileRange(values);
+  const hasData = totalFeatureCount > 0;
+  const { min: minVal, max: maxVal } = computePercentileRange(allValues);
 
   const centerLat = latitude ?? center?.lat ?? 0;
   const centerLng = longitude ?? center?.lng ?? 0;
 
-  // Cross-filter: feature click
+  // Cross-filter: feature click — emit for the first layer's queryId (or single queryId)
+  const primaryQueryId = isMultiLayer ? visibleLayers[0]?.queryId : queryId;
+  const primaryHexColumn = isMultiLayer ? (visibleLayers[0]?.hexColumn ?? "hex") : hexColumn;
+  const primaryValueColumn = isMultiLayer ? (visibleLayers[0]?.valueColumn ?? "value") : valueColumn;
+
   const handleFeatureClick = React.useCallback(
     (feature: any, lt: LayerType) => {
-      if (!queryId) return;
+      if (!primaryQueryId) return;
       if (lt === "h3") {
         setCrossFilter({
-          sourceQueryId: queryId,
+          sourceQueryId: primaryQueryId,
           sourceComponent: "GeoMap",
           filterType: "value",
-          column: hexColumn,
+          column: primaryHexColumn,
           values: [feature],
         });
       } else {
         setCrossFilter({
-          sourceQueryId: queryId,
+          sourceQueryId: primaryQueryId,
           sourceComponent: "GeoMap",
           filterType: "value",
-          column: valueColumn,
+          column: primaryValueColumn,
           values: [feature?.value ?? feature],
         });
       }
     },
-    [queryId, hexColumn, valueColumn],
+    [primaryQueryId, primaryHexColumn, primaryValueColumn],
   );
 
-  // Cross-filter: bbox
+  // Cross-filter: bbox — applies to all layers
   const handleBoundsChange = React.useCallback(
     async (bbox: [number, number, number, number]) => {
       const [west, south, east, north] = bbox;
-      if (!queryId || !hasData) return;
+      if (!primaryQueryId || !hasData) return;
 
-      if (detectedType === "h3") {
-        // H3: use h3-js to compute which hexes are visible
-        try {
-          const h3 = await import("h3-js");
-          const hexData = layerConfigs[0]?.data ?? [];
-          const visibleHexes = hexData
-            .filter((h: any) => {
-              const [lat, lng] = h3.cellToLatLng(h.hex);
-              return lat >= south && lat <= north && lng >= west && lng <= east;
-            })
-            .map((h: any) => h.hex);
-          if (visibleHexes.length > 0 && visibleHexes.length < hexData.length) {
-            setCrossFilter({
-              sourceQueryId: queryId,
-              sourceComponent: "GeoMap",
-              filterType: "bbox",
-              column: hexColumn,
-              values: visibleHexes,
-              bbox,
-            });
-          } else if (visibleHexes.length === hexData.length) {
-            setCrossFilter({
-              sourceQueryId: queryId,
-              sourceComponent: "GeoMap",
-              filterType: "bbox",
-              column: hexColumn,
-              values: [],
-              bbox,
-            });
+      // Emit bbox cross-filter for each layer's queryId
+      const layerQueryIds = isMultiLayer ? visibleLayers.map((l) => l.queryId) : queryId ? [queryId] : [];
+
+      for (let i = 0; i < layerQueryIds.length; i++) {
+        const lqid = layerQueryIds[i];
+        const config = layerConfigs[i];
+        if (!config) continue;
+
+        if (config.type === "h3") {
+          try {
+            const h3 = await import("h3-js");
+            const hexData = config.data ?? [];
+            const hCol = isMultiLayer ? (visibleLayers[i]?.hexColumn ?? "hex") : hexColumn;
+            const visibleHexes = hexData
+              .filter((h: any) => {
+                const [lat, lng] = h3.cellToLatLng(h.hex);
+                return lat >= south && lat <= north && lng >= west && lng <= east;
+              })
+              .map((h: any) => h.hex);
+            if (visibleHexes.length > 0 && visibleHexes.length < hexData.length) {
+              setCrossFilter({
+                sourceQueryId: lqid,
+                sourceComponent: "GeoMap",
+                filterType: "bbox",
+                column: hCol,
+                values: visibleHexes,
+                bbox,
+              });
+            } else if (visibleHexes.length === hexData.length) {
+              setCrossFilter({
+                sourceQueryId: lqid,
+                sourceComponent: "GeoMap",
+                filterType: "bbox",
+                column: hCol,
+                values: [],
+                bbox,
+              });
+            }
+          } catch {
+            /* h3-js not available */
           }
-        } catch {
-          /* h3-js not available */
+        } else if (config.type === "scatterplot") {
+          const pointData = config.data ?? [];
+          const lCol = isMultiLayer ? (visibleLayers[i]?.latColumn ?? "lat") : latColumn;
+          const visible = pointData.filter(
+            (d: any) => d.lat >= south && d.lat <= north && d.lng >= west && d.lng <= east,
+          );
+          setCrossFilter({
+            sourceQueryId: lqid,
+            sourceComponent: "GeoMap",
+            filterType: "bbox",
+            column: lCol,
+            values: visible.map((d: any) => d.value).filter((v: any) => v != null),
+            bbox,
+          });
         }
-      } else if (detectedType === "scatterplot") {
-        const pointData = layerConfigs[0]?.data ?? [];
-        const visible = pointData.filter(
-          (d: any) => d.lat >= south && d.lat <= north && d.lng >= west && d.lng <= east,
-        );
-        setCrossFilter({
-          sourceQueryId: queryId,
-          sourceComponent: "GeoMap",
-          filterType: "bbox",
-          column: latColumn,
-          values: visible.map((d: any) => d.value).filter((v: any) => v != null),
-          bbox,
-        });
       }
-      // GeoJSON and arc bbox filtering can be added later
     },
-    [queryId, detectedType, layerConfigs, hexColumn, latColumn, hasData],
+    [primaryQueryId, isMultiLayer, visibleLayers, queryId, layerConfigs, hexColumn, latColumn, hasData],
   );
 
   // Feature count label
   const countLabel = useMemo(() => {
-    switch (detectedType) {
-      case "h3":
-        return `${featureCount.toLocaleString()} hex`;
-      case "scatterplot":
-        return `${featureCount.toLocaleString()} points`;
-      case "geojson":
-        return `${featureCount.toLocaleString()} features`;
-      case "arc":
-        return `${featureCount.toLocaleString()} arcs`;
-      default:
-        return `${featureCount.toLocaleString()} items`;
+    if (isMultiLayer) {
+      return `${totalFeatureCount.toLocaleString()} features (${layerConfigs.length} layers)`;
     }
-  }, [detectedType, featureCount]);
+    switch (primaryType) {
+      case "h3":
+        return `${totalFeatureCount.toLocaleString()} hex`;
+      case "scatterplot":
+        return `${totalFeatureCount.toLocaleString()} points`;
+      case "geojson":
+        return `${totalFeatureCount.toLocaleString()} features`;
+      case "arc":
+        return `${totalFeatureCount.toLocaleString()} arcs`;
+      default:
+        return `${totalFeatureCount.toLocaleString()} items`;
+    }
+  }, [primaryType, totalFeatureCount, isMultiLayer, layerConfigs.length]);
 
   // Loading state
-  if (!queryId) {
+  const hasAnyQueryId = isMultiLayer ? visibleLayers.length > 0 : !!queryId;
+  if (!hasAnyQueryId) {
     return (
       <div
         ref={ref}
@@ -472,7 +726,9 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
         <div className="px-3 py-1.5 border-b bg-muted/30 flex items-center gap-2 flex-shrink-0">
           <Map className="w-3.5 h-3.5 text-muted-foreground" />
           <span className="text-sm font-semibold text-foreground truncate">{title}</span>
-          {colorMetric && <span className="text-xs text-muted-foreground ml-auto font-mono">{colorMetric}</span>}
+          {colorMetric && !isMultiLayer && (
+            <span className="text-xs text-muted-foreground ml-auto font-mono">{colorMetric}</span>
+          )}
         </div>
       )}
 
@@ -485,6 +741,10 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
         onTouchStart={(e) => e.stopPropagation()}
         onTouchMove={(e) => e.stopPropagation()}
       >
+        {/* Layer control — only for multi-layer maps */}
+        {isMultiLayer && effectiveLayers && effectiveLayers.length > 1 && (
+          <LayerControlPanel layers={effectiveLayers} onUpdateLayers={handleUpdateLayers} />
+        )}
         {hasData ? (
           <DeckGLMap
             latitude={centerLat}
@@ -502,36 +762,178 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
           />
         ) : (
           <div className="h-full flex items-center justify-center bg-muted/30 text-muted-foreground">
-            <p className="text-base">Loading {queryId}...</p>
+            <p className="text-base">Loading...</p>
           </div>
         )}
       </div>
 
       {/* Legend */}
-      <div className="px-3 py-1 border-t bg-muted/10 flex items-center gap-2 flex-shrink-0">
-        {values.length > 0 && (
-          <>
-            <span className="text-xs text-muted-foreground font-mono">
-              {minVal.toLocaleString(undefined, { maximumFractionDigits: 1 })}
-            </span>
-            <div
-              className="flex-1 h-2 rounded-full max-w-[200px]"
-              style={{ background: LEGEND_GRADIENTS[colorScheme] }}
-            />
-            <span className="text-xs text-muted-foreground font-mono">
-              {maxVal.toLocaleString(undefined, { maximumFractionDigits: 1 })}
-            </span>
-          </>
+      <div className="px-3 py-1 border-t bg-muted/10 flex flex-col gap-1 flex-shrink-0">
+        {isMultiLayer && legendEntries.length > 0 ? (
+          /* Multi-layer: stacked legend entries */
+          legendEntries.map((entry, i) => (
+            <div key={visibleLayers[i]?.id ?? i} className="flex items-center gap-2">
+              <span className="text-xs text-muted-foreground font-mono">
+                {entry.min.toLocaleString(undefined, { maximumFractionDigits: 1 })}
+              </span>
+              <div
+                className="flex-1 h-2 rounded-full max-w-[200px]"
+                style={{ background: LEGEND_GRADIENTS[entry.colorScheme] }}
+              />
+              <span className="text-xs text-muted-foreground font-mono">
+                {entry.max.toLocaleString(undefined, { maximumFractionDigits: 1 })}
+              </span>
+              {entry.colorMetric && (
+                <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{entry.colorMetric}</span>
+              )}
+              <span className="text-xs text-muted-foreground ml-auto">{entry.count.toLocaleString()}</span>
+            </div>
+          ))
+        ) : (
+          /* Single-layer legend */
+          <div className="flex items-center gap-2">
+            {allValues.length > 0 && (
+              <>
+                <span className="text-xs text-muted-foreground font-mono">
+                  {minVal.toLocaleString(undefined, { maximumFractionDigits: 1 })}
+                </span>
+                <div
+                  className="flex-1 h-2 rounded-full max-w-[200px]"
+                  style={{ background: LEGEND_GRADIENTS[colorScheme] }}
+                />
+                <span className="text-xs text-muted-foreground font-mono">
+                  {maxVal.toLocaleString(undefined, { maximumFractionDigits: 1 })}
+                </span>
+              </>
+            )}
+            {colorMetric && (
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{colorMetric}</span>
+            )}
+            {hasData && <span className="text-xs text-muted-foreground ml-auto">{countLabel}</span>}
+          </div>
         )}
-        {colorMetric && (
-          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{colorMetric}</span>
+        {isMultiLayer && hasData && (
+          <div className="flex justify-end">
+            <span className="text-xs text-muted-foreground">{countLabel}</span>
+          </div>
         )}
-        {hasData && <span className="text-xs text-muted-foreground ml-auto">{countLabel}</span>}
       </div>
     </div>
   );
 });
 GeoMap.displayName = "GeoMap";
+
+/* ── Layer Control Panel ─────────────────────────────────────────── */
+
+type LayerEntry = z.infer<typeof layerEntrySchema>;
+
+interface LayerControlPanelProps {
+  layers: LayerEntry[];
+  onUpdateLayers: (updated: LayerEntry[]) => void;
+}
+
+function LayerControlPanel({ layers, onUpdateLayers }: LayerControlPanelProps) {
+  const [open, setOpen] = React.useState(false);
+
+  const toggleVisibility = (idx: number) => {
+    const updated = layers.map((l, i) => (i === idx ? { ...l, visible: l.visible === false ? true : false } : l));
+    onUpdateLayers(updated);
+  };
+
+  const setOpacity = (idx: number, opacity: number) => {
+    const updated = layers.map((l, i) => (i === idx ? { ...l, opacity } : l));
+    onUpdateLayers(updated);
+  };
+
+  const moveLayer = (idx: number, dir: -1 | 1) => {
+    const target = idx + dir;
+    if (target < 0 || target >= layers.length) return;
+    const updated = [...layers];
+    [updated[idx], updated[target]] = [updated[target], updated[idx]];
+    onUpdateLayers(updated);
+  };
+
+  return (
+    <div className="absolute top-2 left-2 z-10" onPointerDown={(e) => e.stopPropagation()}>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex items-center gap-1 px-2 py-1 rounded-md bg-card/90 border shadow-sm text-xs font-medium text-foreground backdrop-blur-sm hover:bg-muted/80 transition-colors"
+      >
+        <Layers className="w-3 h-3" />
+        <span>{layers.length}</span>
+      </button>
+
+      {open && (
+        <div className="mt-1 w-52 rounded-md border bg-card/95 shadow-lg backdrop-blur-sm overflow-hidden">
+          <div className="px-2 py-1 border-b bg-muted/30 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+            Layers
+          </div>
+          <div className="max-h-48 overflow-y-auto">
+            {layers.map((layer, i) => {
+              const isVisible = layer.visible !== false;
+              const opacity = layer.opacity ?? 0.85;
+              return (
+                <div key={layer.id} className="px-2 py-1.5 border-b border-border/50 last:border-0">
+                  <div className="flex items-center gap-1.5">
+                    {/* Visibility toggle */}
+                    <button
+                      type="button"
+                      onClick={() => toggleVisibility(i)}
+                      className="p-0.5 rounded hover:bg-muted/60 text-muted-foreground"
+                    >
+                      {isVisible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3 opacity-40" />}
+                    </button>
+                    {/* Label */}
+                    <span
+                      className={`flex-1 text-xs truncate ${isVisible ? "text-foreground" : "text-muted-foreground/50"}`}
+                    >
+                      {layer.colorMetric || layer.id}
+                    </span>
+                    {/* Reorder */}
+                    <button
+                      type="button"
+                      onClick={() => moveLayer(i, -1)}
+                      disabled={i === 0}
+                      className="p-0.5 rounded hover:bg-muted/60 text-muted-foreground disabled:opacity-20"
+                    >
+                      <ChevronUp className="w-3 h-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => moveLayer(i, 1)}
+                      disabled={i === layers.length - 1}
+                      className="p-0.5 rounded hover:bg-muted/60 text-muted-foreground disabled:opacity-20"
+                    >
+                      <ChevronDown className="w-3 h-3" />
+                    </button>
+                  </div>
+                  {/* Opacity slider */}
+                  {isVisible && (
+                    <div className="flex items-center gap-1.5 mt-1 pl-5">
+                      <input
+                        type="range"
+                        min={0}
+                        max={1}
+                        step={0.05}
+                        value={opacity}
+                        onChange={(e) => setOpacity(i, Number.parseFloat(e.target.value))}
+                        className="flex-1 h-1 accent-foreground"
+                      />
+                      <span className="text-[10px] text-muted-foreground w-6 text-right font-mono">
+                        {Math.round(opacity * 100)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 /* ── Helper: extract first coordinate from GeoJSON geometry ─────── */
 
@@ -559,8 +961,13 @@ export const InteractableGeoMap = withTamboInteractable(GeoMap, {
   componentName: "GeoMap",
   description:
     "Interactive deck.gl map supporting multiple geometry types (H3 hexagons, scatter points, GeoJSON polygons/lines, arcs). " +
+    "Supports multiple simultaneous layers via `layers` array — each layer has its own queryId, layerType, columns, colorScheme, and visibility. " +
     "AI can update view (latitude, longitude, zoom), color scheme, basemap (dark/light/auto), extruded mode, and layer type at runtime. " +
+    "To add a layer: update_component_props with layers array including existing layers + the new one. " +
+    "To remove a layer: update with layers array excluding that layer. " +
+    "To toggle visibility: set visible=false on a layer. " +
     "When user says 'zoom into Cairo', update latitude/longitude/zoom. " +
-    "When user says 'switch to light map', update basemap to 'light'.",
+    "When user says 'switch to light map', update basemap to 'light'. " +
+    "When user says 'add population layer', add a new entry to the layers array.",
   propsSchema: geoMapSchema,
 });

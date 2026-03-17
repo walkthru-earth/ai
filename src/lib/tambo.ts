@@ -30,14 +30,18 @@ export const tools: TamboTool[] = [
   {
     name: "runSQL",
     description:
-      "Execute a DuckDB SQL query in-browser via DuckDB-WASM. H3 extension is pre-loaded. RULES: (1) Use HTTPS URLs in FROM clause. (2) DO NOT write INSTALL or LOAD — pre-loaded. (3) Always LIMIT (max 500). (4) h3_index is BIGINT. For H3Map, only need: h3_h3_to_string(h3_index) AS hex, <metric> AS value — NO lat/lng needed, deck.gl renders H3 polygons from hex string. (5) ONE statement per call (no semicolons). (6) Weather: res 5 only. Building: res 3-8. Population: res 1-8. Terrain: res 1-10. (7) Use h3_cell_area(h3_index, 'km^2') for area (NOT h3_cell_area_km2). (8) NEVER use h3_cell_to_latlng().lat — it returns a DOUBLE[2] list, NOT a struct. If you need lat/lng: list_extract(h3_cell_to_latlng(h3_index), 1) AS lat, list_extract(h3_cell_to_latlng(h3_index), 2) AS lng. But prefer passing lat/lng as H3Map props instead. (9) Use h3_grid_ring NOT h3_k_ring (deprecated). Use h3_grid_disk NOT h3_k_ring_distances.",
+      "Execute a DuckDB SQL query in-browser via DuckDB-WASM. H3 extension is pre-loaded. RULES: (1) Use HTTPS URLs in FROM clause. (2) DO NOT write INSTALL or LOAD — pre-loaded. (3) Always LIMIT (max 500). (4) h3_index is BIGINT. For H3Map, only need: h3_h3_to_string(h3_index) AS hex, <metric> AS value — NO lat/lng needed, deck.gl renders H3 polygons from hex string. (5) ONE statement per call (no semicolons). (6) Weather: res 0-5, hours 0 and 12. Building: res 3-8. Population: res 1-8. Terrain: res 1-10. (7) Use h3_cell_area(h3_index, 'km^2') for area (NOT h3_cell_area_km2). (8) NEVER use h3_cell_to_latlng().lat — it returns a DOUBLE[2] list, NOT a struct. If you need lat/lng: list_extract(h3_cell_to_latlng(h3_index), 1) AS lat, list_extract(h3_cell_to_latlng(h3_index), 2) AS lng. But prefer passing lat/lng as H3Map props instead. (9) Use h3_grid_ring NOT h3_k_ring (deprecated). Use h3_grid_disk NOT h3_k_ring_distances. (10) NEVER hardcode H3 hex strings — always compute them from coordinates: h3_latlng_to_cell(lat, lng, resolution)::BIGINT. Example for Cairo res 5: h3_latlng_to_cell(30.05, 31.35, 5)::BIGINT. Use h3_grid_disk(h3_latlng_to_cell(lat, lng, res)::BIGINT, radius) for area queries.",
     tool: runQuery,
     inputSchema: z.object({
       sql: z
         .string()
         .describe(
           "DuckDB SQL query. Use HTTPS Parquet URLs in FROM. Include LIMIT 500. " +
-            "For maps: SELECT h3_h3_to_string(h3_index) AS hex, <metric> AS value FROM ...",
+            "For maps: SELECT h3_h3_to_string(h3_index) AS hex, <metric> AS value FROM ... " +
+            "CRITICAL: NEVER hardcode H3 hex strings — LLMs hallucinate wrong indices. " +
+            "For area queries around a location, ALWAYS compute from lat/lng: " +
+            "WITH center AS (SELECT h3_latlng_to_cell(lat, lng, res)::BIGINT AS h3) " +
+            "SELECT unnest(h3_grid_disk(h3, radius))::BIGINT AS h3_index FROM center",
         ),
     }),
     outputSchema: z.object({
@@ -162,8 +166,12 @@ export const components: TamboComponent[] = [
       "Points: SELECT lat, lng, <metric> AS value ... ; " +
       "GeoJSON: SELECT ST_AsGeoJSON(geometry) AS geometry, <metric> AS value ... ; " +
       "Arcs: SELECT source_lat, source_lng, dest_lat, dest_lng, <metric> AS value ... ; " +
+      "MULTI-LAYER: set `layers` array (max 5). Each layer has id, queryId, layerType, column mappings, colorScheme, opacity, visible. " +
+      "To add a layer: update_component_props with layers array including existing + new layer. " +
+      "To remove a layer: update with layers array excluding that layer. " +
+      "To toggle visibility: set visible=false on a layer. " +
       "When user says 'zoom into Cairo' or 'change colors', UPDATE the existing map — do NOT create a new one. " +
-      "Props: layerType, latitude/longitude/zoom (view), colorMetric (legend), colorScheme, extruded (3D).",
+      "Props: layerType, latitude/longitude/zoom (view), colorMetric (legend), colorScheme, extruded (3D), layers (multi-layer).",
     component: InteractableGeoMap,
     propsSchema: geoMapSchema,
   },

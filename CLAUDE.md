@@ -30,17 +30,18 @@ pnpm lint:fix     # biome auto-fix
 - `h3_cell_area(h3_index, 'km^2')` not `h3_cell_area_km2`
 - `ST_AsGeoJSON(geometry)` converts spatial geometry to GeoJSON string for GeoMap
 - ONE statement per call, always LIMIT 500, HTTPS URLs in FROM
+- **NEVER hardcode H3 hex strings** — AI will hallucinate wrong indices. Always compute from coordinates: `h3_latlng_to_cell(lat, lng, res)::BIGINT`. For area queries: `h3_grid_disk(h3_latlng_to_cell(lat, lng, res)::BIGINT, radius)`
 
 ## Data
 
 S3 base: `https://s3.us-west-2.amazonaws.com/us-west-2.opendata.source.coop/walkthru-earth`
 
-| Dataset | Path Pattern | H3 Res |
-|---------|-------------|--------|
-| Weather (GraphCast) | `indices/weather/model=GraphCast_GFS/date={date}/hour={hour}/h3_res=5/` | 5 |
-| Terrain (GEDTM 30m) | `dem-terrain/v2/h3/h3_res={1-10}/` | 1-10 |
-| Buildings (2.75B) | `indices/building/v2/h3/h3_res={3-8}/` | 3-8 |
-| Population (SSP2) | `indices/population/v2/scenario=SSP2/h3_res={1-8}/` | 1-8 |
+| Dataset | Path Pattern | H3 Res | Notes |
+|---------|-------------|--------|-------|
+| Weather (GraphCast) | `indices/weather/model=GraphCast_GFS/date={date}/hour={0,12}/h3_res={0-5}/data.parquet` | 0-5 | Daily dates, hours 0 and 12. |
+| Terrain (GEDTM 30m) | `dem-terrain/v2/h3/h3_res={1-10}/data.parquet` | 1-10 | Columns: elev, slope, aspect, tri, tpi |
+| Buildings (2.75B) | `indices/building/v2/h3/h3_res={3-8}/data.parquet` | 3-8 | 12 columns incl. max_height_m, height_std_m, volume_density_m3_per_km2 |
+| Population (SSP2) | `indices/population/v2/scenario=SSP2/h3_res={1-8}/data.parquet` | 1-8 | 16 time steps: pop_2025 through pop_2100 (every 5 years) |
 
 ## Styling Rules
 
@@ -56,6 +57,7 @@ S3 base: `https://s3.us-west-2.amazonaws.com/us-west-2.opendata.source.coop/walk
 - Zod: no `z.record()`/`z.map()`/`z.set()`, always `.describe()` every field, array items need `id`
 - `useQueryResult(queryId)` (reactive) — NOT `getQueryResult()` (won't re-render on thread replay)
 - **Interactable components**: GeoMap, Graph, DataTable use `withTamboInteractable` + `propsSchema`. AI can update props at runtime (zoom, basemap, chartType, visibleColumns). Do NOT use `useTamboComponentState` with interactables (causes setState-during-render error).
+- **GeoMap multi-layer**: `layers` array prop (max 5). Each layer has `id`, `queryId`, `layerType`, column mappings, `colorScheme`, `opacity`, `visible`. Floating layer control panel (toggle visibility, opacity slider, reorder) persists to localStorage (keyed by layer IDs). Cannot use `useTamboInteractable`/`useTamboCurrentComponent` inside interactable components — same setState-during-render conflict as `useTamboComponentState`.
 - **Run ID desync**: `invalid_previous_run` error → auto `startNewThread()` to escape error loop
 
 ## Conventions

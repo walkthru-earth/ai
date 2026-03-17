@@ -333,7 +333,12 @@ const MessageInputInternal = React.forwardRef<HTMLFormElement, MessageInputProps
           // Detect stale previousRunId — the SDK's internal run tracking is permanently
           // out of sync with the server (e.g. stream disconnected before RUN_FINISHED).
           // Only recovery is starting a fresh thread.
-          if (errorMsg.includes("invalid_previous_run") || errorMsg.includes("does not match last completed run")) {
+          if (
+            errorMsg.includes("invalid_previous_run") ||
+            errorMsg.includes("does not match last completed run") ||
+            errorMsg.includes("not found in thread") ||
+            errorMsg.includes("Error in input stream")
+          ) {
             startNewThread();
             setSubmitError("Connection lost — started a new conversation. Please resend your message.");
           } else {
