@@ -19,6 +19,10 @@ export interface StoredQuery {
   rowCount: number;
   sql: string;
   timestamp: number;
+  /** Raw column typed arrays from Arrow result for zero-copy GeoArrow rendering */
+  columnArrays?: Record<string, ArrayLike<any>>;
+  /** Arrow IPC bytes for true zero-copy deserialization with GeoArrow layers */
+  arrowIPC?: Uint8Array;
 }
 
 const store = new Map<string, StoredQuery>();

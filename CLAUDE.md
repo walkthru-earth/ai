@@ -50,15 +50,118 @@ S3 base: `https://s3.us-west-2.amazonaws.com/us-west-2.opendata.source.coop/walk
 - **No `!important`**: use JS conditionals instead
 - Semantic classes: `text-destructive` not `text-red-500`, `text-primary` not `text-blue-500`
 
-## Tambo SDK (v1.2.2)
+## Tambo SDK (v1.2.2) — Bidirectional AI Components
 
-- Config in `src/lib/tambo.ts` — all pages spread `tamboProviderConfig`
-- Components receive `_tambo_*` props — never spread `{...props}` onto DOM
-- Zod: no `z.record()`/`z.map()`/`z.set()`, always `.describe()` every field, array items need `id`
-- `useQueryResult(queryId)` (reactive) — NOT `getQueryResult()` (won't re-render on thread replay)
-- **Interactable components**: GeoMap, Graph, DataTable use `withTamboInteractable` + `propsSchema`. AI can update props at runtime (zoom, basemap, chartType, visibleColumns). Do NOT use `useTamboComponentState` with interactables (causes setState-during-render error).
-- **GeoMap multi-layer**: `layers` array prop (max 5). Each layer has `id`, `queryId`, `layerType`, column mappings, `colorScheme`, `opacity`, `visible`. Floating layer control panel (toggle visibility, opacity slider, reorder) persists to localStorage (keyed by layer IDs). Cannot use `useTamboInteractable`/`useTamboCurrentComponent` inside interactable components — same setState-during-render conflict as `useTamboComponentState`.
+Config in `src/lib/tambo.ts`. All pages spread `tamboProviderConfig` (apiKey, components, tools, tamboUrl).
+
+### How Tambo Works (AI ↔ Component flow)
+
+1. **AI generates a component**: LLM picks a registered component by name, generates props matching its Zod schema → rendered in chat or dashboard.
+2. **AI updates existing component**: LLM calls `update_component_props` with new props → `withTamboInteractable` merges them into existing component (no re-mount).
+3. **Component reads data via queryId**: AI calls `runSQL` tool → DuckDB executes → result stored in `query-store` → only `queryId` (~10 tokens) returned to LLM. Component calls `useQueryResult(queryId)` to read full dataset reactively.
+4. **Component emits cross-filter**: User clicks a hex/bar/row → `setCrossFilter()` → other components react via `useCrossFilter()`.
+
+### Registering Components (`src/lib/tambo.ts`)
+
+```ts
+// In tamboProviderConfig.components array:
+{
+  name: "ComponentName",                    // AI references this name
+  description: "When/how AI should use it", // Critical for AI routing
+  component: InteractableComponent,         // withTamboInteractable-wrapped
+  propsSchema: zodSchema,                   // Zod schema with .describe() on every field
+}
+
+// In tamboProviderConfig.tools array:
+{
+  name: "toolName",
+  description: "What this tool does",
+  tool: functionRef,                        // Actual function AI can call
+  inputSchema: z.object({...}),
+  outputSchema: z.object({...}),
+}
+```
+
+### Making a Component Interactable (AI can update props at runtime)
+
+```ts
+// 1. Define Zod schema with .describe() on EVERY field
+export const mySchema = z.object({
+  queryId: z.string().optional().describe("ID from runSQL result"),
+  title: z.string().optional().describe("Display title"),
+  // ... all fields described
+});
+
+// 2. Build component with React.forwardRef (ref required)
+export const MyComponent = React.forwardRef<HTMLDivElement, MyProps>((props, ref) => {
+  const queryResult = useQueryResult(props.queryId); // reactive data
+  const crossFilter = useCrossFilter();              // optional: react to other components
+  return <div ref={ref}>...</div>;
+});
+
+// 3. Wrap with withTamboInteractable
+export const InteractableMyComponent = withTamboInteractable(MyComponent, {
+  componentName: "MyComponent",
+  description: "What AI can do: 'When user says X, update Y prop'",
+  propsSchema: mySchema,
+});
+```
+
+### Key Rules
+
+- **`_tambo_*` props**: Components receive hidden props (`_tambo_componentId`, etc.) — never spread `{...props}` onto DOM elements
+- **Zod constraints**: No `z.record()`, `z.map()`, `z.set()`. Always `.describe()` every field. Array items need `id` field.
+- **`useQueryResult(queryId)`** (reactive via `useSyncExternalStore`) — NOT `getQueryResult()` (won't re-render on thread replay)
+- **DO NOT use `useTamboComponentState`** with `withTamboInteractable` — causes "setState during render" error. Use `propsSchema` for all AI-controlled state.
+- **DO NOT use `useTamboInteractable()` or `useTamboCurrentComponent()`** inside a `withTamboInteractable`-wrapped component — same setState conflict.
+- **`useInDashboardPanel()`**: Components check if they're in a dashboard panel to hide redundant headers.
 - **Run ID desync**: `invalid_previous_run` error → auto `startNewThread()` to escape error loop
+
+### Current Interactable Components
+
+| Component | AI Can Update | Data Source | Cross-Filter |
+|-----------|--------------|-------------|--------------|
+| **GeoMap** | latitude, longitude, zoom, basemap, colorScheme, extruded, layerType, layers[] | queryId → useQueryResult | Emits: hex click, bbox. Consumes: bbox |
+| **Graph** | chartType, xColumn, yColumns, queryId | queryId → useQueryResult | Emits: bar click. Consumes: bbox (filters rows) |
+| **DataTable** | visibleColumns, title | queryId → useQueryResult | Emits: row click. Consumes: bbox |
+
+### Static Components (AI sends all props, no runtime updates)
+
+StatsCard, StatsGrid, InsightCard, DatasetCard, QueryDisplay, DataCard — AI provides all values inline.
+
+### Multi-Layer GeoMap
+
+`layers` array prop (max 5). Each layer: `{ id, queryId, layerType, hexColumn, valueColumn, ..., colorScheme, opacity, visible }`. Floating layer control panel (top-left) for toggle/opacity/reorder persists to localStorage (keyed by layer IDs). Uses 5 fixed `useQueryResult` hook slots (React hooks can't be called conditionally).
+
+### Adding a New Bidirectional Component (checklist)
+
+1. Define Zod schema in component file — `.describe()` every field, use `queryId` for data
+2. Build with `React.forwardRef`, use `useQueryResult(queryId)` for data, `useCrossFilter()` if needed
+3. Wrap with `withTamboInteractable(Component, { componentName, description, propsSchema })`
+4. Register in `src/lib/tambo.ts` → `components` array with `name`, `description`, `component`, `propsSchema`
+5. Write `description` that tells AI exactly when to use it and what props to update for common user requests
+6. If the component needs tools (e.g. a new data source), add to `tools` array with `inputSchema`/`outputSchema`
+
+## GeoArrow Zero-Copy Rendering
+
+Map layers use `@geoarrow/deck.gl-layers` + `@walkthru-earth/objex-utils` for zero-copy Arrow → GPU rendering. Data pipeline:
+
+```
+DuckDB-WASM → Arrow Table → columnArrays (typed array views) + arrowIPC (bytes)
+  → stored in query-store alongside JS rows
+  → GeoMap reads columnArrays → builds GeoArrow Table (makeData/makeVector, no copy for Float64)
+  → GeoArrow layers render directly from Arrow buffers
+```
+
+- **H3**: `buildGeoArrowH3Table()` — hex strings via `vectorFromArray(Utf8)`, values via `wrapFloat64()` (zero-copy)
+- **Scatterplot**: `buildPointGeomVector()` interleaves lat/lng into `Float64Array(2*N)`, wraps as `FixedSizeList(2, Float64)` via `makeData`
+- **Arc**: `buildGeoArrowArcTable()` — source/target point geometry columns, same interleave pattern
+- **WKB/GeoJSON geometry**: `@walkthru-earth/objex-utils` `buildGeoArrowTables()` — direct WKB binary → DataView reads → pre-allocated Float64Array → Arrow Table. Supports point, linestring, polygon, multi* geometries. No GeoJSON parsing, no intermediate JS objects.
+- **Fallback**: if `columnArrays`/`wkbArrays` missing, falls back to standard deck.gl layers with JS object data
+
+Layer types: `h3`, `scatterplot`, `geojson`, `arc`, `wkb` (native geometry via WKB)
+
+Packages: `@geoarrow/deck.gl-layers@0.3.1`, `@walkthru-earth/objex-utils@1.0.0`, `apache-arrow@21.1.0`, `hyparquet@1.25.1`
 
 ## Conventions
 

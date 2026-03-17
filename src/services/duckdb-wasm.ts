@@ -197,8 +197,34 @@ export async function runQuery(input: { sql: string } | string): Promise<{
       rows.push(row);
     }
 
-    // Store full result client-side
-    const queryId = storeQueryResult({ rows, columns, duration, rowCount: numRows, sql });
+    // Extract raw column typed arrays for zero-copy GeoArrow rendering
+    const columnArrays: Record<string, ArrayLike<any>> = {};
+    for (const col of columns) {
+      const vec = result.getChild(col);
+      if (vec) {
+        try {
+          columnArrays[col] = vec.toArray();
+        } catch {
+          /* some types (nested struct) may not support toArray */
+        }
+      }
+    }
+
+    // Serialize Arrow Table to IPC bytes for zero-copy GeoArrow layer rendering.
+    // DuckDB-WASM bundles its own apache-arrow; IPC is the version-safe transfer format.
+    let arrowIPC: Uint8Array | undefined;
+    try {
+      arrowIPC = result.serialize?.("binary");
+      // Fallback: DuckDB-WASM may expose serialize differently
+      if (!arrowIPC && typeof (result as any).toArrowBuffer === "function") {
+        arrowIPC = (result as any).toArrowBuffer();
+      }
+    } catch {
+      /* IPC serialization not available, fall back to columnArrays */
+    }
+
+    // Store full result client-side (JS rows for tables/graphs, Arrow for map layers)
+    const queryId = storeQueryResult({ rows, columns, duration, rowCount: numRows, sql, columnArrays, arrowIPC });
 
     // Return only metadata + 3 sample rows to the LLM (saves tokens!)
     return {

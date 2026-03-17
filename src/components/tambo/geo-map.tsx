@@ -231,6 +231,8 @@ function transformQueryToLayer(
     destLngColumn: string;
     colorScheme?: ColorScheme;
     opacity?: number;
+    columnArrays?: Record<string, ArrayLike<any>>;
+    arrowIPC?: Uint8Array;
   },
   boundsAcc: BoundsAccumulator,
 ): TransformResult {
@@ -332,7 +334,28 @@ function transformQueryToLayer(
   return {
     layerConfig:
       data.length > 0
-        ? { id: opts.id, type, data, colorScheme: opts.colorScheme, opacity: opts.opacity, minVal: min, maxVal: max }
+        ? {
+            id: opts.id,
+            type,
+            data,
+            colorScheme: opts.colorScheme,
+            opacity: opts.opacity,
+            minVal: min,
+            maxVal: max,
+            columnArrays: opts.columnArrays,
+            arrowIPC: opts.arrowIPC,
+            columnMapping: {
+              hexColumn: opts.hexColumn,
+              valueColumn: opts.valueColumn,
+              latColumn: opts.latColumn,
+              lngColumn: opts.lngColumn,
+              geometryColumn: opts.geometryColumn,
+              sourceLatColumn: opts.sourceLatColumn,
+              sourceLngColumn: opts.sourceLngColumn,
+              destLatColumn: opts.destLatColumn,
+              destLngColumn: opts.destLngColumn,
+            },
+          }
         : null,
     type,
     values: vals,
@@ -458,6 +481,8 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
             destLngColumn: layer.destLngColumn ?? "dest_lng",
             colorScheme: (layer.colorScheme as ColorScheme) ?? colorScheme,
             opacity: layer.opacity,
+            columnArrays: qr.columnArrays,
+            arrowIPC: qr.arrowIPC,
           },
           boundsAcc,
         );
@@ -496,6 +521,8 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
             sourceLngColumn,
             destLatColumn,
             destLngColumn,
+            columnArrays: qr.columnArrays,
+            arrowIPC: qr.arrowIPC,
           },
           boundsAcc,
         );

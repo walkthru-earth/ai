@@ -3,6 +3,16 @@
 import { H3HexagonLayer } from "@deck.gl/geo-layers";
 import { ArcLayer, GeoJsonLayer, ScatterplotLayer } from "@deck.gl/layers";
 import { MapboxOverlay } from "@deck.gl/mapbox";
+import {
+  GeoArrowArcLayer,
+  _GeoArrowH3HexagonLayer as GeoArrowH3HexagonLayer,
+  GeoArrowPathLayer,
+  GeoArrowPolygonLayer,
+  GeoArrowScatterplotLayer,
+} from "@geoarrow/deck.gl-layers";
+import type { GeoArrowGeomType, GeoArrowResult } from "@walkthru-earth/objex-utils";
+import { buildGeoArrowTables } from "@walkthru-earth/objex-utils";
+import { Field, FixedSizeList, Float64, makeData, makeVector, Table, Utf8, vectorFromArray } from "apache-arrow";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import React, { useEffect, useMemo, useRef } from "react";
@@ -11,7 +21,7 @@ import React, { useEffect, useMemo, useRef } from "react";
 
 export type ColorScheme = "blue-red" | "viridis" | "plasma" | "warm" | "cool" | "spectral";
 
-export type LayerType = "h3" | "scatterplot" | "geojson" | "arc";
+export type LayerType = "h3" | "scatterplot" | "geojson" | "arc" | "wkb";
 
 export interface LayerConfig {
   id?: string;
@@ -21,6 +31,24 @@ export interface LayerConfig {
   opacity?: number;
   minVal?: number;
   maxVal?: number;
+  /** Raw column typed arrays from Arrow for zero-copy GeoArrow rendering */
+  columnArrays?: Record<string, ArrayLike<any>>;
+  /** Arrow IPC bytes for true zero-copy deserialization */
+  arrowIPC?: Uint8Array;
+  /** Raw WKB geometry arrays for objex-utils buildGeoArrowTables (true zero-copy) */
+  wkbArrays?: Uint8Array[];
+  /** Column name mappings for GeoArrow layer construction */
+  columnMapping?: {
+    hexColumn?: string;
+    valueColumn?: string;
+    latColumn?: string;
+    lngColumn?: string;
+    geometryColumn?: string;
+    sourceLatColumn?: string;
+    sourceLngColumn?: string;
+    destLatColumn?: string;
+    destLngColumn?: string;
+  };
 }
 
 export type Basemap = "auto" | "dark" | "light";
@@ -148,6 +176,150 @@ function ensureRTLPlugin() {
   }
 }
 
+/* ── GeoArrow zero-copy table builders ──────────────────────────── */
+
+/**
+ * Wrap an existing Float64Array as an Arrow Vector without copying.
+ * Uses makeData to reference the same memory buffer.
+ */
+function wrapFloat64(arr: ArrayLike<any>) {
+  const f64 = arr instanceof Float64Array ? arr : Float64Array.from(arr as any, Number);
+  const data = makeData({ type: new Float64(), data: f64, length: f64.length });
+  return makeVector(data);
+}
+
+/**
+ * Build a FixedSizeList(2) point geometry column by interleaving lat/lng.
+ * One Float64Array allocation (2*N), no JS object per row.
+ */
+function buildPointGeomVector(latArr: ArrayLike<any>, lngArr: ArrayLike<any>) {
+  const len = Math.min(latArr.length, lngArr.length);
+  // Interleave [lng0, lat0, lng1, lat1, ...] — one typed array allocation
+  const coords = new Float64Array(len * 2);
+  for (let i = 0; i < len; i++) {
+    coords[i * 2] = Number(lngArr[i]); // x = longitude
+    coords[i * 2 + 1] = Number(latArr[i]); // y = latitude
+  }
+
+  const childField = new Field("xy", new Float64());
+  const childData = makeData({ type: new Float64(), data: coords, length: len * 2 });
+  const listData = makeData({
+    type: new FixedSizeList(2, childField),
+    child: childData,
+    length: len,
+  });
+  return makeVector(listData);
+}
+
+/** Build a GeoArrow-compatible Table with FixedSizeList(2) point geometry from lat/lng typed arrays */
+function buildGeoArrowPointTable(
+  latArr: ArrayLike<any>,
+  lngArr: ArrayLike<any>,
+  extraColumns: Record<string, ArrayLike<any>>,
+): Table {
+  const geomCol = buildPointGeomVector(latArr, lngArr);
+  const tableData: Record<string, any> = { geom: geomCol };
+  for (const [name, arr] of Object.entries(extraColumns)) {
+    // Wrap numeric typed arrays without copying; strings need vectorFromArray
+    if (arr instanceof Float64Array || arr instanceof Float32Array || arr instanceof Int32Array) {
+      tableData[name] = wrapFloat64(arr);
+    } else {
+      tableData[name] = vectorFromArray(Array.from(arr));
+    }
+  }
+  return new Table(tableData);
+}
+
+/** Build a GeoArrow H3 Table with hex as Utf8 and value columns */
+function buildGeoArrowH3Table(hexArr: ArrayLike<any>, extraColumns: Record<string, ArrayLike<any>>): Table {
+  // Utf8 encoding requires vectorFromArray (strings need offset+value buffers)
+  const hexStrings = Array.isArray(hexArr) ? hexArr : Array.from(hexArr);
+  const tableData: Record<string, any> = {
+    hex: vectorFromArray(hexStrings.map(String), new Utf8()),
+  };
+  for (const [name, arr] of Object.entries(extraColumns)) {
+    if (arr instanceof Float64Array || arr instanceof Float32Array || arr instanceof Int32Array) {
+      tableData[name] = wrapFloat64(arr);
+    } else {
+      tableData[name] = vectorFromArray(Array.from(arr));
+    }
+  }
+  return new Table(tableData);
+}
+
+/** Build a GeoArrow Arc Table with source/target FixedSizeList(2) point columns */
+function buildGeoArrowArcTable(
+  srcLatArr: ArrayLike<any>,
+  srcLngArr: ArrayLike<any>,
+  dstLatArr: ArrayLike<any>,
+  dstLngArr: ArrayLike<any>,
+  extraColumns: Record<string, ArrayLike<any>>,
+): Table {
+  const srcGeom = buildPointGeomVector(srcLatArr, srcLngArr);
+  const dstGeom = buildPointGeomVector(dstLatArr, dstLngArr);
+
+  const tableData: Record<string, any> = { source: srcGeom, target: dstGeom };
+  for (const [name, arr] of Object.entries(extraColumns)) {
+    if (arr instanceof Float64Array || arr instanceof Float32Array || arr instanceof Int32Array) {
+      tableData[name] = wrapFloat64(arr);
+    } else {
+      tableData[name] = vectorFromArray(Array.from(arr));
+    }
+  }
+  return new Table(tableData);
+}
+
+/**
+ * Build GeoArrow layers from WKB arrays using objex-utils (true zero-copy).
+ * WKB binary → DataView reads → pre-allocated Float64Array → Arrow Table.
+ * No intermediate JS objects, no GeoJSON parsing.
+ */
+function buildWkbGeoArrowResults(
+  wkbArrays: Uint8Array[],
+  attributes: Map<string, { values: any[]; type: string }>,
+  knownGeomType?: GeoArrowGeomType,
+): GeoArrowResult[] {
+  if (wkbArrays.length === 0) return [];
+  return buildGeoArrowTables(wkbArrays, attributes, knownGeomType);
+}
+
+/** Check if columnArrays has the required columns for GeoArrow rendering */
+function canUseGeoArrow(config: LayerConfig): boolean {
+  // If we have IPC bytes or columnArrays, we can use GeoArrow
+  const hasArrays = !!config.columnArrays;
+  const hasIPC = !!config.arrowIPC;
+  if (!hasArrays && !hasIPC) return false;
+
+  const cols = config.columnArrays ?? {};
+  const mapping = config.columnMapping ?? {};
+
+  switch (config.type) {
+    case "scatterplot": {
+      const lat = mapping.latColumn ?? "lat";
+      const lng = mapping.lngColumn ?? "lng";
+      return (lat in cols && lng in cols) || hasIPC;
+    }
+    case "h3": {
+      const hex = mapping.hexColumn ?? "hex";
+      return hex in cols || hasIPC;
+    }
+    case "arc": {
+      const sLat = mapping.sourceLatColumn ?? "source_lat";
+      const sLng = mapping.sourceLngColumn ?? "source_lng";
+      const dLat = mapping.destLatColumn ?? "dest_lat";
+      const dLng = mapping.destLngColumn ?? "dest_lng";
+      return (sLat in cols && sLng in cols && dLat in cols && dLng in cols) || hasIPC;
+    }
+    case "wkb":
+      return !!config.wkbArrays && config.wkbArrays.length > 0;
+    case "geojson":
+      // GeoJSON with WKB data can use GeoArrow via objex-utils
+      return !!config.wkbArrays && config.wkbArrays.length > 0;
+    default:
+      return false;
+  }
+}
+
 /* ── Layer factory ──────────────────────────────────────────────── */
 
 function buildLayers(
@@ -167,148 +339,406 @@ function buildLayers(
     const lo = config.minVal ?? minVal;
     const hi = config.maxVal ?? maxVal;
     const layerOpacity = config.opacity ?? 0.85;
+    const useGeoArrow = canUseGeoArrow(config);
 
     switch (config.type) {
       case "h3":
         if (config.data.length > 0) {
-          result.push(
-            new H3HexagonLayer({
-              id: `h3-${layerId}`,
-              data: config.data,
-              pickable: true,
-              filled: true,
-              extruded,
-              highPrecision: "auto",
-              coverage: 0.92,
-              getHexagon: (d: any) => d.hex ?? "",
-              getFillColor: (d: any) =>
-                d.value != null ? valueToColor(d.value, lo, hi, scheme) : [100, 150, 255, 120],
-              getElevation: (d: any) => {
-                if (!extruded || d.value == null) return 0;
-                const range = hi - lo || 1;
-                const t = (d.value - lo) / range;
-                return t * 500;
-              },
-              elevationScale: 50,
-              opacity: layerOpacity,
-              onClick: (info: any) => {
-                const hex = info?.object?.hex;
-                if (hex && onFeatureClick) onFeatureClick(hex, "h3");
-              },
-              updateTriggers: {
-                getFillColor: [lo, hi, scheme],
-                getElevation: [lo, hi, extruded],
-              },
-            }),
-          );
+          if (useGeoArrow) {
+            // Zero-copy GeoArrow H3 layer
+            const cols = config.columnArrays!;
+            const hexCol = config.columnMapping?.hexColumn ?? "hex";
+            const valCol = config.columnMapping?.valueColumn ?? "value";
+            const extra: Record<string, ArrayLike<any>> = {};
+            if (valCol in cols) extra.value = cols[valCol];
+            const table = buildGeoArrowH3Table(cols[hexCol], extra);
+
+            result.push(
+              new GeoArrowH3HexagonLayer({
+                id: `h3-ga-${layerId}`,
+                data: table,
+                getHexagon: table.getChild("hex")!,
+                pickable: true,
+                filled: true,
+                extruded,
+                highPrecision: "auto",
+                coverage: 0.92,
+                getFillColor: ({ index, data }: any) => {
+                  const v = data.data.getChild("value")?.get(index);
+                  return v != null ? valueToColor(Number(v), lo, hi, scheme) : [100, 150, 255, 120];
+                },
+                getElevation: ({ index, data }: any) => {
+                  if (!extruded) return 0;
+                  const v = data.data.getChild("value")?.get(index);
+                  if (v == null) return 0;
+                  const range = hi - lo || 1;
+                  return ((Number(v) - lo) / range) * 500;
+                },
+                elevationScale: 50,
+                opacity: layerOpacity,
+                onClick: (info: any) => {
+                  const hex = info?.object?.hex;
+                  if (hex && onFeatureClick) onFeatureClick(hex, "h3");
+                },
+                updateTriggers: {
+                  getFillColor: [lo, hi, scheme],
+                  getElevation: [lo, hi, extruded],
+                },
+              }),
+            );
+          } else {
+            // Standard H3 layer (fallback)
+            result.push(
+              new H3HexagonLayer({
+                id: `h3-${layerId}`,
+                data: config.data,
+                pickable: true,
+                filled: true,
+                extruded,
+                highPrecision: "auto",
+                coverage: 0.92,
+                getHexagon: (d: any) => d.hex ?? "",
+                getFillColor: (d: any) =>
+                  d.value != null ? valueToColor(d.value, lo, hi, scheme) : [100, 150, 255, 120],
+                getElevation: (d: any) => {
+                  if (!extruded || d.value == null) return 0;
+                  const range = hi - lo || 1;
+                  const t = (d.value - lo) / range;
+                  return t * 500;
+                },
+                elevationScale: 50,
+                opacity: layerOpacity,
+                onClick: (info: any) => {
+                  const hex = info?.object?.hex;
+                  if (hex && onFeatureClick) onFeatureClick(hex, "h3");
+                },
+                updateTriggers: {
+                  getFillColor: [lo, hi, scheme],
+                  getElevation: [lo, hi, extruded],
+                },
+              }),
+            );
+          }
         }
         break;
 
       case "scatterplot":
         if (config.data.length > 0) {
-          result.push(
-            new ScatterplotLayer({
-              id: `scatter-${layerId}`,
-              data: config.data,
-              pickable: true,
-              filled: true,
-              stroked: true,
-              getPosition: (d: any) => [d.lng ?? 0, d.lat ?? 0],
-              getRadius: (d: any) => {
-                if (d.radius != null) return d.radius;
-                if (d.value == null) return 8000;
-                const range = hi - lo || 1;
-                return 3000 + ((d.value - lo) / range) * 30000;
-              },
-              getFillColor: (d: any) =>
-                d.value != null ? valueToColor(d.value, lo, hi, scheme) : [100, 150, 255, 150],
-              getLineColor: [255, 255, 255, 40],
-              lineWidthMinPixels: 1,
-              radiusMinPixels: 3,
-              radiusMaxPixels: 20,
-              opacity: layerOpacity,
-              onClick: (info: any) => {
-                if (info?.object && onFeatureClick) onFeatureClick(info.object, "scatterplot");
-              },
-              updateTriggers: {
-                getFillColor: [lo, hi, scheme],
-                getRadius: [lo, hi],
-              },
-            }),
-          );
+          if (useGeoArrow) {
+            // Zero-copy GeoArrow Scatterplot layer
+            const cols = config.columnArrays!;
+            const latCol = config.columnMapping?.latColumn ?? "lat";
+            const lngCol = config.columnMapping?.lngColumn ?? "lng";
+            const valCol = config.columnMapping?.valueColumn ?? "value";
+            const extra: Record<string, ArrayLike<any>> = {};
+            if (valCol in cols) extra.value = cols[valCol];
+            // Include all other columns for picking info
+            for (const [k, v] of Object.entries(cols)) {
+              if (k !== latCol && k !== lngCol && !(k in extra)) extra[k] = v;
+            }
+            const table = buildGeoArrowPointTable(cols[latCol], cols[lngCol], extra);
+
+            result.push(
+              new GeoArrowScatterplotLayer({
+                id: `scatter-ga-${layerId}`,
+                data: table,
+                getPosition: table.getChild("geom")!,
+                pickable: true,
+                filled: true,
+                stroked: true,
+                getRadius: ({ index, data }: any) => {
+                  const v = data.data.getChild("value")?.get(index);
+                  if (v == null) return 8000;
+                  const range = hi - lo || 1;
+                  return 3000 + ((Number(v) - lo) / range) * 30000;
+                },
+                getFillColor: ({ index, data }: any) => {
+                  const v = data.data.getChild("value")?.get(index);
+                  return v != null ? valueToColor(Number(v), lo, hi, scheme) : [100, 150, 255, 150];
+                },
+                getLineColor: [255, 255, 255, 40],
+                lineWidthMinPixels: 1,
+                radiusMinPixels: 3,
+                radiusMaxPixels: 20,
+                opacity: layerOpacity,
+                onClick: (info: any) => {
+                  if (info?.object && onFeatureClick) onFeatureClick(info.object, "scatterplot");
+                },
+                updateTriggers: {
+                  getFillColor: [lo, hi, scheme],
+                  getRadius: [lo, hi],
+                },
+              }),
+            );
+          } else {
+            // Standard Scatterplot layer (fallback)
+            result.push(
+              new ScatterplotLayer({
+                id: `scatter-${layerId}`,
+                data: config.data,
+                pickable: true,
+                filled: true,
+                stroked: true,
+                getPosition: (d: any) => [d.lng ?? 0, d.lat ?? 0],
+                getRadius: (d: any) => {
+                  if (d.radius != null) return d.radius;
+                  if (d.value == null) return 8000;
+                  const range = hi - lo || 1;
+                  return 3000 + ((d.value - lo) / range) * 30000;
+                },
+                getFillColor: (d: any) =>
+                  d.value != null ? valueToColor(d.value, lo, hi, scheme) : [100, 150, 255, 150],
+                getLineColor: [255, 255, 255, 40],
+                lineWidthMinPixels: 1,
+                radiusMinPixels: 3,
+                radiusMaxPixels: 20,
+                opacity: layerOpacity,
+                onClick: (info: any) => {
+                  if (info?.object && onFeatureClick) onFeatureClick(info.object, "scatterplot");
+                },
+                updateTriggers: {
+                  getFillColor: [lo, hi, scheme],
+                  getRadius: [lo, hi],
+                },
+              }),
+            );
+          }
         }
         break;
 
+      case "wkb":
       case "geojson":
-        if (config.data.length > 0) {
-          result.push(
-            new GeoJsonLayer<any>({
-              id: `geojson-${layerId}`,
-              data: { type: "FeatureCollection", features: config.data },
-              pickable: true,
-              stroked: true,
-              filled: true,
-              extruded,
-              lineWidthMinPixels: 1,
-              getLineWidth: 2,
-              getFillColor: (f: any) => {
-                const v = f.properties?.value;
-                return v != null ? valueToColor(v, lo, hi, scheme) : [100, 150, 255, 120];
-              },
-              getLineColor: (f: any) => {
-                const v = f.properties?.value;
-                return v != null ? valueToColor(v, lo, hi, scheme) : [80, 130, 230, 200];
-              },
-              getElevation: (f: any) => {
-                if (!extruded) return 0;
-                const v = f.properties?.value;
-                if (v == null) return 0;
-                const range = hi - lo || 1;
-                return ((v - lo) / range) * 500;
-              },
-              getPointRadius: 100,
-              pointRadiusMinPixels: 3,
-              pointRadiusMaxPixels: 20,
-              opacity: layerOpacity,
-              onClick: (info: any) => {
-                if (info?.object && onFeatureClick) onFeatureClick(info.object, "geojson");
-              },
-              updateTriggers: {
-                getFillColor: [lo, hi, scheme],
-                getLineColor: [lo, hi, scheme],
-                getElevation: [lo, hi, extruded],
-              },
-            }),
-          );
+        if (config.data.length > 0 || (config.wkbArrays && config.wkbArrays.length > 0)) {
+          if (useGeoArrow && config.wkbArrays) {
+            // Zero-copy WKB → GeoArrow via objex-utils (no parsing, direct binary reads)
+            const attrs = new Map<string, { values: any[]; type: string }>();
+            if (config.columnArrays) {
+              const valCol = config.columnMapping?.valueColumn ?? "value";
+              for (const [name, arr] of Object.entries(config.columnArrays)) {
+                if (name === config.columnMapping?.geometryColumn) continue;
+                attrs.set(name, {
+                  values: Array.from(arr),
+                  type: arr instanceof Float64Array ? "DOUBLE" : "VARCHAR",
+                });
+              }
+              // Ensure value column is included
+              if (valCol in config.columnArrays && !attrs.has("value")) {
+                attrs.set("value", {
+                  values: Array.from(config.columnArrays[valCol]),
+                  type: "DOUBLE",
+                });
+              }
+            }
+
+            const geoResults = buildWkbGeoArrowResults(config.wkbArrays, attrs);
+            for (const gr of geoResults) {
+              const geoLayerType = gr.geometryType;
+              if (geoLayerType === "point" || geoLayerType === "multipoint") {
+                result.push(
+                  new GeoArrowScatterplotLayer({
+                    id: `wkb-scatter-${layerId}-${geoLayerType}`,
+                    data: gr.table,
+                    getPosition: gr.table.getChild("geometry")!,
+                    pickable: true,
+                    filled: true,
+                    stroked: true,
+                    getFillColor: ({ index, data }: any) => {
+                      const v = data.data.getChild("value")?.get(index);
+                      return v != null ? valueToColor(Number(v), lo, hi, scheme) : [100, 150, 255, 150];
+                    },
+                    getRadius: ({ index, data }: any) => {
+                      const v = data.data.getChild("value")?.get(index);
+                      if (v == null) return 8000;
+                      const range = hi - lo || 1;
+                      return 3000 + ((Number(v) - lo) / range) * 30000;
+                    },
+                    getLineColor: [255, 255, 255, 40],
+                    lineWidthMinPixels: 1,
+                    radiusMinPixels: 3,
+                    radiusMaxPixels: 20,
+                    opacity: layerOpacity,
+                    onClick: (info: any) => {
+                      if (info?.object && onFeatureClick) onFeatureClick(info.object, "geojson");
+                    },
+                    updateTriggers: { getFillColor: [lo, hi, scheme], getRadius: [lo, hi] },
+                  }),
+                );
+              } else if (geoLayerType === "linestring" || geoLayerType === "multilinestring") {
+                result.push(
+                  new GeoArrowPathLayer({
+                    id: `wkb-path-${layerId}-${geoLayerType}`,
+                    data: gr.table,
+                    getPath: gr.table.getChild("geometry")!,
+                    pickable: true,
+                    getColor: ({ index, data }: any) => {
+                      const v = data.data.getChild("value")?.get(index);
+                      return v != null ? valueToColor(Number(v), lo, hi, scheme) : [100, 150, 255, 200];
+                    },
+                    getWidth: 2,
+                    widthMinPixels: 1,
+                    widthMaxPixels: 8,
+                    opacity: layerOpacity,
+                    onClick: (info: any) => {
+                      if (info?.object && onFeatureClick) onFeatureClick(info.object, "geojson");
+                    },
+                    updateTriggers: { getColor: [lo, hi, scheme] },
+                  }),
+                );
+              } else if (geoLayerType === "polygon" || geoLayerType === "multipolygon") {
+                result.push(
+                  new GeoArrowPolygonLayer({
+                    id: `wkb-poly-${layerId}-${geoLayerType}`,
+                    data: gr.table,
+                    getPolygon: gr.table.getChild("geometry")!,
+                    pickable: true,
+                    stroked: true,
+                    filled: true,
+                    extruded,
+                    lineWidthMinPixels: 1,
+                    getLineWidth: 2,
+                    getFillColor: ({ index, data }: any) => {
+                      const v = data.data.getChild("value")?.get(index);
+                      return v != null ? valueToColor(Number(v), lo, hi, scheme) : [100, 150, 255, 120];
+                    },
+                    getLineColor: ({ index, data }: any) => {
+                      const v = data.data.getChild("value")?.get(index);
+                      return v != null ? valueToColor(Number(v), lo, hi, scheme) : [80, 130, 230, 200];
+                    },
+                    getElevation: ({ index, data }: any) => {
+                      if (!extruded) return 0;
+                      const v = data.data.getChild("value")?.get(index);
+                      if (v == null) return 0;
+                      const range = hi - lo || 1;
+                      return ((Number(v) - lo) / range) * 500;
+                    },
+                    elevationScale: 50,
+                    opacity: layerOpacity,
+                    onClick: (info: any) => {
+                      if (info?.object && onFeatureClick) onFeatureClick(info.object, "geojson");
+                    },
+                    updateTriggers: {
+                      getFillColor: [lo, hi, scheme],
+                      getLineColor: [lo, hi, scheme],
+                      getElevation: [lo, hi, extruded],
+                    },
+                  }),
+                );
+              }
+            }
+          } else {
+            // Standard GeoJSON layer (fallback — parsed geometry)
+            result.push(
+              new GeoJsonLayer<any>({
+                id: `geojson-${layerId}`,
+                data: { type: "FeatureCollection", features: config.data },
+                pickable: true,
+                stroked: true,
+                filled: true,
+                extruded,
+                lineWidthMinPixels: 1,
+                getLineWidth: 2,
+                getFillColor: (f: any) => {
+                  const v = f.properties?.value;
+                  return v != null ? valueToColor(v, lo, hi, scheme) : [100, 150, 255, 120];
+                },
+                getLineColor: (f: any) => {
+                  const v = f.properties?.value;
+                  return v != null ? valueToColor(v, lo, hi, scheme) : [80, 130, 230, 200];
+                },
+                getElevation: (f: any) => {
+                  if (!extruded) return 0;
+                  const v = f.properties?.value;
+                  if (v == null) return 0;
+                  const range = hi - lo || 1;
+                  return ((v - lo) / range) * 500;
+                },
+                getPointRadius: 100,
+                pointRadiusMinPixels: 3,
+                pointRadiusMaxPixels: 20,
+                opacity: layerOpacity,
+                onClick: (info: any) => {
+                  if (info?.object && onFeatureClick) onFeatureClick(info.object, "geojson");
+                },
+                updateTriggers: {
+                  getFillColor: [lo, hi, scheme],
+                  getLineColor: [lo, hi, scheme],
+                  getElevation: [lo, hi, extruded],
+                },
+              }),
+            );
+          }
         }
         break;
 
       case "arc":
         if (config.data.length > 0) {
-          result.push(
-            new ArcLayer({
-              id: `arc-${layerId}`,
-              data: config.data,
-              pickable: true,
-              getSourcePosition: (d: any) => [d.sourceLng ?? 0, d.sourceLat ?? 0],
-              getTargetPosition: (d: any) => [d.destLng ?? 0, d.destLat ?? 0],
-              getSourceColor: (d: any) =>
-                d.value != null ? valueToColor(d.value, lo, hi, scheme) : [100, 150, 255, 200],
-              getTargetColor: (d: any) =>
-                d.value != null ? valueToColor(d.value, lo, hi, scheme) : [255, 150, 100, 200],
-              getWidth: 2,
-              widthMinPixels: 1,
-              widthMaxPixels: 8,
-              opacity: layerOpacity,
-              onClick: (info: any) => {
-                if (info?.object && onFeatureClick) onFeatureClick(info.object, "arc");
-              },
-              updateTriggers: {
-                getSourceColor: [lo, hi, scheme],
-                getTargetColor: [lo, hi, scheme],
-              },
-            }),
-          );
+          if (useGeoArrow) {
+            // Zero-copy GeoArrow Arc layer
+            const cols = config.columnArrays!;
+            const sLatCol = config.columnMapping?.sourceLatColumn ?? "source_lat";
+            const sLngCol = config.columnMapping?.sourceLngColumn ?? "source_lng";
+            const dLatCol = config.columnMapping?.destLatColumn ?? "dest_lat";
+            const dLngCol = config.columnMapping?.destLngColumn ?? "dest_lng";
+            const valCol = config.columnMapping?.valueColumn ?? "value";
+            const extra: Record<string, ArrayLike<any>> = {};
+            if (valCol in cols) extra.value = cols[valCol];
+            const table = buildGeoArrowArcTable(cols[sLatCol], cols[sLngCol], cols[dLatCol], cols[dLngCol], extra);
+
+            result.push(
+              new GeoArrowArcLayer({
+                id: `arc-ga-${layerId}`,
+                data: table,
+                getSourcePosition: table.getChild("source")!,
+                getTargetPosition: table.getChild("target")!,
+                pickable: true,
+                getSourceColor: ({ index, data }: any) => {
+                  const v = data.data.getChild("value")?.get(index);
+                  return v != null ? valueToColor(Number(v), lo, hi, scheme) : [100, 150, 255, 200];
+                },
+                getTargetColor: ({ index, data }: any) => {
+                  const v = data.data.getChild("value")?.get(index);
+                  return v != null ? valueToColor(Number(v), lo, hi, scheme) : [255, 150, 100, 200];
+                },
+                getWidth: 2,
+                widthMinPixels: 1,
+                widthMaxPixels: 8,
+                opacity: layerOpacity,
+                onClick: (info: any) => {
+                  if (info?.object && onFeatureClick) onFeatureClick(info.object, "arc");
+                },
+                updateTriggers: {
+                  getSourceColor: [lo, hi, scheme],
+                  getTargetColor: [lo, hi, scheme],
+                },
+              }),
+            );
+          } else {
+            // Standard Arc layer (fallback)
+            result.push(
+              new ArcLayer({
+                id: `arc-${layerId}`,
+                data: config.data,
+                pickable: true,
+                getSourcePosition: (d: any) => [d.sourceLng ?? 0, d.sourceLat ?? 0],
+                getTargetPosition: (d: any) => [d.destLng ?? 0, d.destLat ?? 0],
+                getSourceColor: (d: any) =>
+                  d.value != null ? valueToColor(d.value, lo, hi, scheme) : [100, 150, 255, 200],
+                getTargetColor: (d: any) =>
+                  d.value != null ? valueToColor(d.value, lo, hi, scheme) : [255, 150, 100, 200],
+                getWidth: 2,
+                widthMinPixels: 1,
+                widthMaxPixels: 8,
+                opacity: layerOpacity,
+                onClick: (info: any) => {
+                  if (info?.object && onFeatureClick) onFeatureClick(info.object, "arc");
+                },
+                updateTriggers: {
+                  getSourceColor: [lo, hi, scheme],
+                  getTargetColor: [lo, hi, scheme],
+                },
+              }),
+            );
+          }
         }
         break;
     }
