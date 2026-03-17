@@ -26,7 +26,7 @@
     "@radix-ui/react-popover": "^1.1.15",
     "@react-leaflet/core": "^3.0.0",
     "@tailwindcss/oxide": "^4.2.1",
-    "@tambo-ai/react": "1.0.0-rc.5",
+    "@tambo-ai/react": "1.2.2",
     "@tambo-ai/typescript-sdk": "^0.89.0",
     "@tiptap/core": "3.20.2",
     "@tiptap/extension-bubble-menu": "3.20.2",
