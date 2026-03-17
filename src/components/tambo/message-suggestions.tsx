@@ -235,7 +235,7 @@ const MessageSuggestionsList = React.forwardRef<HTMLDivElement, MessageSuggestio
     return (
       <div
         ref={ref}
-        className={cn("flex flex-wrap gap-2 pb-2 rounded-md bg-transparent", className)}
+        className={cn("flex gap-2 pb-2 overflow-x-auto scrollbar-none flex-nowrap", className)}
         data-slot="message-suggestions-list"
         {...props}
       >
@@ -252,7 +252,7 @@ const MessageSuggestionsList = React.forwardRef<HTMLDivElement, MessageSuggestio
             <button
               type="button"
               className={cn(
-                "py-2 px-3 rounded-2xl text-xs transition-colors cursor-pointer",
+                "py-2 px-3 rounded-2xl text-xs transition-colors cursor-pointer whitespace-nowrap shrink-0",
                 "border border-flat",
                 "flex items-center gap-1.5",
                 getSuggestionButtonClassName({

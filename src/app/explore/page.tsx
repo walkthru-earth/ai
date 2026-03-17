@@ -256,7 +256,7 @@ function MobileBottomSheet({
     <div
       className={cn(
         "sm:hidden fixed inset-x-0 bottom-0 z-30 glass-panel transition-all duration-300 ease-out flex flex-col",
-        expanded ? "top-0" : "max-h-[180px]",
+        expanded && "top-0",
       )}
       style={{ borderTop: "1px solid var(--border)" }}
     >
