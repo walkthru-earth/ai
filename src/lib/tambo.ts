@@ -7,8 +7,9 @@ import type { TamboComponent, TamboTool } from "@tambo-ai/react";
 import { z } from "zod";
 import { dataTableSchema, InteractableDataTable } from "@/components/tambo/data-table";
 import { DatasetCard, datasetCardSchema } from "@/components/tambo/dataset-card";
+import { geoMapSchema, InteractableGeoMap } from "@/components/tambo/geo-map";
 import { graphSchema, InteractableGraph } from "@/components/tambo/graph";
-import { h3MapSchema, InteractableH3Map } from "@/components/tambo/h3-map";
+import { InteractableH3Map } from "@/components/tambo/h3-map";
 import { InsightCard, insightCardSchema } from "@/components/tambo/insight-card";
 import { QueryDisplay, queryDisplaySchema } from "@/components/tambo/query-display";
 import { StatsCard, statsCardSchema } from "@/components/tambo/stats-card";
@@ -152,15 +153,27 @@ export const tools: TamboTool[] = [
 
 export const components: TamboComponent[] = [
   {
+    name: "GeoMap",
+    description:
+      "deck.gl map supporting multiple geometry types. INTERACTABLE: AI can update props at runtime. " +
+      "Pass `queryId` from runSQL — zero token cost. Auto-detects layer type from column names, or set layerType explicitly. " +
+      "SQL patterns per type: " +
+      "H3: SELECT h3_h3_to_string(h3_index) AS hex, <metric> AS value ... ; " +
+      "Points: SELECT lat, lng, <metric> AS value ... ; " +
+      "GeoJSON: SELECT ST_AsGeoJSON(geometry) AS geometry, <metric> AS value ... ; " +
+      "Arcs: SELECT source_lat, source_lng, dest_lat, dest_lng, <metric> AS value ... ; " +
+      "When user says 'zoom into Cairo' or 'change colors', UPDATE the existing map — do NOT create a new one. " +
+      "Props: layerType, latitude/longitude/zoom (view), colorMetric (legend), colorScheme, extruded (3D).",
+    component: InteractableGeoMap,
+    propsSchema: geoMapSchema,
+  },
+  {
     name: "H3Map",
     description:
-      "deck.gl H3 hex map. INTERACTABLE: AI can update existing map props (zoom, center, colorScheme) without creating a new map. " +
-      "Pass `queryId` from runSQL result — zero token cost, instant render. " +
-      "SQL MUST have `hex` (h3_h3_to_string) + `value` columns. " +
-      "When user says 'zoom into Cairo' or 'change colors to viridis', UPDATE the existing map props — do NOT create a new H3Map. " +
-      "Props: latitude/longitude/zoom (view), colorMetric (legend), colorScheme, extruded (3D).",
+      "Alias for GeoMap with layerType=h3. Use GeoMap instead for new maps. " +
+      "Kept for backward compatibility with existing threads.",
     component: InteractableH3Map,
-    propsSchema: h3MapSchema,
+    propsSchema: geoMapSchema,
   },
   {
     name: "StatsCard",

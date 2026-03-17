@@ -1,6 +1,6 @@
 "use client";
 
-import { withTamboInteractable } from "@tambo-ai/react";
+import { useTamboComponentState, withTamboInteractable } from "@tambo-ai/react";
 import { cva } from "class-variance-authority";
 import * as React from "react";
 import { useMemo } from "react";
@@ -116,7 +116,23 @@ const defaultColors = [
 /* ── Component ─────────────────────────────────────────────────────── */
 
 export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
-  ({ className, variant, size, data, title, showLegend = true, queryId, xColumn, yColumns, chartType }, ref) => {
+  (
+    {
+      className,
+      variant,
+      size,
+      data,
+      title,
+      showLegend = true,
+      queryId,
+      xColumn,
+      yColumns,
+      chartType,
+      onItemSelect,
+      ...rest
+    }: GraphProps & { onItemSelect?: (val: string) => void },
+    ref,
+  ) => {
     const crossFilter = useCrossFilter();
     const queryResult = useQueryResult(queryId);
     const inPanel = useInDashboardPanel();
@@ -190,16 +206,18 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
     const _isFiltered = crossFilter && crossFilter.sourceComponent !== "Graph" && crossFilter.column === xColumn;
 
     const handleBarClick = (entry: any) => {
-      if (!queryId || !xColumn) return;
       const clickedLabel = entry?.name ?? entry?.payload?.name;
       if (clickedLabel != null) {
-        setCrossFilter({
-          sourceQueryId: queryId,
-          sourceComponent: "Graph",
-          filterType: "value",
-          column: xColumn,
-          values: [clickedLabel],
-        });
+        onItemSelect?.(String(clickedLabel));
+        if (queryId && xColumn) {
+          setCrossFilter({
+            sourceQueryId: queryId,
+            sourceComponent: "Graph",
+            filterType: "value",
+            column: xColumn,
+            values: [clickedLabel],
+          });
+        }
       }
     };
 
@@ -314,11 +332,28 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
 );
 Graph.displayName = "Graph";
 
+/** Wrapper that adds bidirectional state via useTamboComponentState */
+const GraphWithState = React.forwardRef<HTMLDivElement, GraphProps>((props, ref) => {
+  const [_selectedItem, setSelectedItem] = useTamboComponentState<string | null>("selectedItem", null);
+  return <Graph ref={ref} {...(props as any)} onItemSelect={setSelectedItem} />;
+});
+GraphWithState.displayName = "GraphWithState";
+
+const graphStateSchema = z.object({
+  selectedItem: z
+    .string()
+    .nullable()
+    .optional()
+    .describe("The bar/point label the user clicked. AI can read to know what user selected on the chart."),
+});
+
 /** Interactable Graph — AI can update chartType, xColumn, yColumns at runtime */
-export const InteractableGraph = withTamboInteractable(Graph, {
+export const InteractableGraph = withTamboInteractable(GraphWithState, {
   componentName: "Graph",
   description:
     "Interactive chart (bar/line/pie). AI can update chart type, axes, and data source at runtime. " +
-    "Use this to respond to requests like 'switch to line chart' or 'show pop_2100 instead'.",
+    "State is bidirectional: selectedItem shows what bar/point the user clicked. " +
+    "Use to respond to requests like 'switch to line chart' or 'show pop_2100 instead'.",
   propsSchema: graphSchema,
+  stateSchema: graphStateSchema,
 });

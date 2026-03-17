@@ -24,9 +24,11 @@ pnpm lint:fix     # biome auto-fix
 
 ## DuckDB Rules (for AI tool descriptions)
 
+- Extensions loaded: `httpfs`, `h3`, `spatial`
 - `h3_cell_to_latlng()` returns `DOUBLE[2]` list, NOT a struct
 - Use `h3_grid_ring` not `h3_k_ring` (deprecated)
 - `h3_cell_area(h3_index, 'km^2')` not `h3_cell_area_km2`
+- `ST_AsGeoJSON(geometry)` converts spatial geometry to GeoJSON string for GeoMap
 - ONE statement per call, always LIMIT 500, HTTPS URLs in FROM
 
 ## Data
@@ -53,12 +55,13 @@ S3 base: `https://s3.us-west-2.amazonaws.com/us-west-2.opendata.source.coop/walk
 - Components receive `_tambo_*` props — never spread `{...props}` onto DOM
 - Zod: no `z.record()`/`z.map()`/`z.set()`, always `.describe()` every field, array items need `id`
 - `useQueryResult(queryId)` (reactive) — NOT `getQueryResult()` (won't re-render on thread replay)
+- **Bidirectional state**: all viz components use `useTamboComponentState` + `stateSchema` on `withTamboInteractable`. User interactions (pan, click, page) flow back to AI. AI can update props AND state at runtime.
 - **Run ID desync**: `invalid_previous_run` error → auto `startNewThread()` to escape error loop
 
 ## Conventions
 
 - Never show "Tambo", "DuckDB", "H3", "Parquet", "deck.gl" in UI
 - Theme: system detection on first visit, ThemeSwitcher cycles Dark/Light/System
-- Map basemap: reactive CARTO Dark Matter / Positron via `MutationObserver`
+- Map basemap: CARTO Dark Matter / Positron. `auto` follows system theme, `dark`/`light` override via AI or prop
 - Thread URLs: `?thread=threadId` only for real IDs (prefix `thr_`)
 - Plain `<textarea>` for all text input (no TipTap/rich-text)
