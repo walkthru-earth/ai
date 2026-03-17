@@ -7,9 +7,14 @@ paths:
 
 ## queryId-driven (zero tokens to LLM)
 
-**GeoMap** (`geo-map.tsx` + `geo-map-deckgl.tsx`): Generic deck.gl map, 4 layer types (h3, scatterplot, geojson, arc). Auto-detects from column names. Basemap: auto/dark/light. AI can update props (zoom, basemap, colorScheme, layerType) at runtime via `withTamboInteractable`. Supports multi-layer via `layers` array prop (max 5) — each layer has `id`, `queryId`, `layerType`, columns, `colorScheme`, `opacity`, `visible`. Floating layer control panel (top-left) for toggle/opacity/reorder persists to localStorage. Uses 5 fixed `useQueryResult` hook slots for React rules compliance. `LayerConfig` in deckgl has per-layer `id`, `colorScheme`, `opacity`, `minVal`, `maxVal`, `columnArrays`, `arrowIPC`, `columnMapping`.
+**GeoMap** (`geo-map.tsx` + `geo-map-deckgl.tsx`): Generic deck.gl map, 5 layer types (h3, scatterplot, geojson, arc, wkb). Auto-detects from column names + wkbArrays presence. Basemap: auto/dark/light. AI can update props (zoom, basemap, colorScheme, layerType) at runtime via `withTamboInteractable`. Supports multi-layer via `layers` array prop (max 5) — each layer has `id`, `queryId`, `layerType`, columns, `colorScheme`, `opacity`, `visible`. Floating layer control panel (top-left) for toggle/opacity/reorder persists to localStorage. Uses 5 fixed `useQueryResult` hook slots for React rules compliance. `LayerConfig` in deckgl has per-layer `id`, `colorScheme`, `opacity`, `minVal`, `maxVal`, `columnArrays`, `arrowIPC`, `wkbArrays`, `columnMapping`.
 
-**GeoArrow rendering** (`geo-map-deckgl.tsx`): When `columnArrays` (raw typed arrays from DuckDB Arrow) are available, uses `@geoarrow/deck.gl-layers` for zero-copy rendering. `wrapFloat64()` wraps existing Float64Arrays via `makeData`/`makeVector` (no copy). `buildPointGeomVector()` interleaves lat/lng into FixedSizeList(2) geometry. Falls back to standard deck.gl layers when Arrow data unavailable (e.g., GeoJSON type, or old cached queries).
+**Geometry auto-detection**: When `StoredQuery.wkbArrays` is present (auto-extracted by `runQuery()` from GEOMETRY columns), `transformQueryToLayer()` takes the WKB fast path — bypasses GeoJSON parsing, routes directly to `buildGeoArrowTables()` zero-copy rendering. Lat/lng from the auto-injected centroid columns provide bounds. Works with GeoParquet, native Parquet geometry (Format 2.11+), and DuckDB GEOMETRY columns.
+
+**GeoArrow rendering** (`geo-map-deckgl.tsx`): Three paths:
+1. **WKB path** (preferred for geometry): `wkbArrays → buildGeoArrowTables() → GeoArrowScatterplotLayer/PathLayer/PolygonLayer`. Zero-copy binary → Arrow. Used automatically when GEOMETRY columns detected.
+2. **Point/Arc path**: `columnArrays → buildGeoArrowPointTable()/buildGeoArrowArcTable()`. Interleaves lat/lng into FixedSizeList(2) geometry.
+3. **Fallback**: Standard deck.gl layers with JS object data when Arrow data unavailable.
 
 **H3Map** (`h3-map.tsx`): Backward-compat alias → `GeoMap` with `layerType="h3"`.
 

@@ -14,7 +14,7 @@ paths:
 **Components** (10): GeoMap, H3Map (alias), Graph, DataTable (queryId-driven, bidirectional state) + StatsCard, StatsGrid, InsightCard, DatasetCard, QueryDisplay, DataCard (inline props)
 
 **Shared helpers**:
-- `buildContextHelpers(geo)` — AI context with user theme, geo-IP location (city, lat/lng, H3 cells at res 1/3/5/7), behavior rules, DuckDB notes, dataset paths, component tips. Coordinate order: `lat` = latitude (N/S), `lng` = longitude (E/W). H3: `h3_latlng_to_cell(lat, lng, res)`. Spatial: `ST_Point(lng, lat)`.
+- `buildContextHelpers(geo)` — AI context with user theme, geo-IP location (city, lat/lng, H3 cells at res 1/3/5/7), behavior rules, DuckDB v1.5 notes (geometry auto-detection, lambda syntax, spatial filter pushdown, TRY_CAST broken), dataset paths, component tips, anti-injection rules. Coordinate order: `lat` = latitude (N/S), `lng` = longitude (E/W). H3: `h3_latlng_to_cell(lat, lng, res)`. Spatial: `ST_Point(lng, lat)`.
 - `buildInitialSuggestions(geo)` — geo-personalized suggestion chips (falls back to global when geo unavailable)
 
 ## `thread-hooks.ts`
