@@ -134,8 +134,29 @@ export function DashboardCanvas({ className }: DashboardCanvasProps) {
   const { width, containerRef } = useContainerWidth({ initialWidth: 800 });
   const isTouch = useIsTouchDevice();
 
-  // Touch: panel ordering for dnd-kit
-  const [panelOrder, setPanelOrder] = useState<string[]>([]);
+  // Panel ordering — persisted to localStorage per thread
+  const orderKey = currentThreadId ? `panel-order-${currentThreadId}` : null;
+  const [panelOrder, setPanelOrder] = useState<string[]>(() => {
+    if (typeof window === "undefined" || !orderKey) return [];
+    try {
+      const stored = localStorage.getItem(orderKey);
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Persist order changes to localStorage
+  const prevOrderRef = useRef(panelOrder);
+  useEffect(() => {
+    if (!orderKey || panelOrder === prevOrderRef.current) return;
+    prevOrderRef.current = panelOrder;
+    try {
+      localStorage.setItem(orderKey, JSON.stringify(panelOrder));
+    } catch {
+      /* quota exceeded — ignore */
+    }
+  }, [panelOrder, orderKey]);
 
   // Reset on thread change
   if (prevThreadRef.current !== currentThreadId) {
@@ -143,7 +164,19 @@ export function DashboardCanvas({ className }: DashboardCanvasProps) {
     if (dismissedIds.size > 0) setDismissedIds(new Set());
     if (Object.keys(savedLayouts).length > 0) setSavedLayouts({});
     if (maximizedId) setMaximizedId(null);
-    setPanelOrder([]);
+    // Load order for new thread
+    if (orderKey) {
+      try {
+        const stored = localStorage.getItem(orderKey);
+        const parsed = stored ? JSON.parse(stored) : [];
+        if (parsed.length > 0) setPanelOrder(parsed);
+        else setPanelOrder([]);
+      } catch {
+        setPanelOrder([]);
+      }
+    } else {
+      setPanelOrder([]);
+    }
   }
 
   // Derive panels from messages
