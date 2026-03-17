@@ -5,14 +5,13 @@ import { ArcLayer, GeoJsonLayer, ScatterplotLayer } from "@deck.gl/layers";
 import { MapboxOverlay } from "@deck.gl/mapbox";
 import {
   GeoArrowArcLayer,
-  _GeoArrowH3HexagonLayer as GeoArrowH3HexagonLayer,
   GeoArrowPathLayer,
   GeoArrowPolygonLayer,
   GeoArrowScatterplotLayer,
 } from "@geoarrow/deck.gl-layers";
 import type { GeoArrowGeomType, GeoArrowResult } from "@walkthru-earth/objex-utils";
 import { buildGeoArrowTables } from "@walkthru-earth/objex-utils";
-import { Field, FixedSizeList, Float64, makeData, makeVector, Table, Utf8, vectorFromArray } from "apache-arrow";
+import { Field, FixedSizeList, Float64, makeData, makeVector, Table, vectorFromArray } from "apache-arrow";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import React, { useEffect, useMemo, useRef } from "react";
@@ -230,23 +229,6 @@ function buildGeoArrowPointTable(
   return new Table(tableData);
 }
 
-/** Build a GeoArrow H3 Table with hex as Utf8 and value columns */
-function buildGeoArrowH3Table(hexArr: ArrayLike<any>, extraColumns: Record<string, ArrayLike<any>>): Table {
-  // Utf8 encoding requires vectorFromArray (strings need offset+value buffers)
-  const hexStrings = Array.isArray(hexArr) ? hexArr : Array.from(hexArr);
-  const tableData: Record<string, any> = {
-    hex: vectorFromArray(hexStrings.map(String), new Utf8()),
-  };
-  for (const [name, arr] of Object.entries(extraColumns)) {
-    if (arr instanceof Float64Array || arr instanceof Float32Array || arr instanceof Int32Array) {
-      tableData[name] = wrapFloat64(arr);
-    } else {
-      tableData[name] = vectorFromArray(Array.from(arr));
-    }
-  }
-  return new Table(tableData);
-}
-
 /** Build a GeoArrow Arc Table with source/target FixedSizeList(2) point columns */
 function buildGeoArrowArcTable(
   srcLatArr: ArrayLike<any>,
@@ -299,10 +281,10 @@ function canUseGeoArrow(config: LayerConfig): boolean {
       const lng = mapping.lngColumn ?? "lng";
       return (lat in cols && lng in cols) || hasIPC;
     }
-    case "h3": {
-      const hex = mapping.hexColumn ?? "hex";
-      return hex in cols || hasIPC;
-    }
+    case "h3":
+      // H3 uses standard H3HexagonLayer — GeoArrowH3HexagonLayer is experimental and unreliable.
+      // deck.gl generates hexagon polygons from hex strings internally, no GeoArrow benefit.
+      return false;
     case "arc": {
       const sLat = mapping.sourceLatColumn ?? "source_lat";
       const sLng = mapping.sourceLngColumn ?? "source_lng";
@@ -344,81 +326,36 @@ function buildLayers(
     switch (config.type) {
       case "h3":
         if (config.data.length > 0) {
-          if (useGeoArrow) {
-            // Zero-copy GeoArrow H3 layer
-            const cols = config.columnArrays!;
-            const hexCol = config.columnMapping?.hexColumn ?? "hex";
-            const valCol = config.columnMapping?.valueColumn ?? "value";
-            const extra: Record<string, ArrayLike<any>> = {};
-            if (valCol in cols) extra.value = cols[valCol];
-            const table = buildGeoArrowH3Table(cols[hexCol], extra);
-
-            result.push(
-              new GeoArrowH3HexagonLayer({
-                id: `h3-ga-${layerId}`,
-                data: table,
-                getHexagon: table.getChild("hex")!,
-                pickable: true,
-                filled: true,
-                extruded,
-                highPrecision: "auto",
-                coverage: 0.92,
-                getFillColor: ({ index, data }: any) => {
-                  const v = data.data.getChild("value")?.get(index);
-                  return v != null ? valueToColor(Number(v), lo, hi, scheme) : [100, 150, 255, 120];
-                },
-                getElevation: ({ index, data }: any) => {
-                  if (!extruded) return 0;
-                  const v = data.data.getChild("value")?.get(index);
-                  if (v == null) return 0;
-                  const range = hi - lo || 1;
-                  return ((Number(v) - lo) / range) * 500;
-                },
-                elevationScale: 50,
-                opacity: layerOpacity,
-                onClick: (info: any) => {
-                  const hex = info?.object?.hex;
-                  if (hex && onFeatureClick) onFeatureClick(hex, "h3");
-                },
-                updateTriggers: {
-                  getFillColor: [lo, hi, scheme],
-                  getElevation: [lo, hi, extruded],
-                },
-              }),
-            );
-          } else {
-            // Standard H3 layer (fallback)
-            result.push(
-              new H3HexagonLayer({
-                id: `h3-${layerId}`,
-                data: config.data,
-                pickable: true,
-                filled: true,
-                extruded,
-                highPrecision: "auto",
-                coverage: 0.92,
-                getHexagon: (d: any) => d.hex ?? "",
-                getFillColor: (d: any) =>
-                  d.value != null ? valueToColor(d.value, lo, hi, scheme) : [100, 150, 255, 120],
-                getElevation: (d: any) => {
-                  if (!extruded || d.value == null) return 0;
-                  const range = hi - lo || 1;
-                  const t = (d.value - lo) / range;
-                  return t * 500;
-                },
-                elevationScale: 50,
-                opacity: layerOpacity,
-                onClick: (info: any) => {
-                  const hex = info?.object?.hex;
-                  if (hex && onFeatureClick) onFeatureClick(hex, "h3");
-                },
-                updateTriggers: {
-                  getFillColor: [lo, hi, scheme],
-                  getElevation: [lo, hi, extruded],
-                },
-              }),
-            );
-          }
+          result.push(
+            new H3HexagonLayer({
+              id: `h3-${layerId}`,
+              data: config.data,
+              pickable: true,
+              filled: true,
+              extruded,
+              highPrecision: "auto",
+              coverage: 0.92,
+              getHexagon: (d: any) => d.hex ?? "",
+              getFillColor: (d: any) =>
+                d.value != null ? valueToColor(d.value, lo, hi, scheme) : [100, 150, 255, 120],
+              getElevation: (d: any) => {
+                if (!extruded || d.value == null) return 0;
+                const range = hi - lo || 1;
+                const t = (d.value - lo) / range;
+                return t * 500;
+              },
+              elevationScale: 50,
+              opacity: layerOpacity,
+              onClick: (info: any) => {
+                const hex = info?.object?.hex;
+                if (hex && onFeatureClick) onFeatureClick(hex, "h3");
+              },
+              updateTriggers: {
+                getFillColor: [lo, hi, scheme],
+                getElevation: [lo, hi, extruded],
+              },
+            }),
+          );
         }
         break;
 
