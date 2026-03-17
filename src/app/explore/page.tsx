@@ -39,6 +39,7 @@ import { ThreadContent, ThreadContentMessages } from "@/components/tambo/thread-
 import { WalkthruLogo } from "@/components/walkthru-logo";
 import { components, tools } from "@/lib/tambo";
 import { useAnonymousUserKey } from "@/lib/use-anonymous-user-key";
+import { cn } from "@/lib/utils";
 import { preloadDuckDB, runQuery } from "@/services/duckdb-wasm";
 import { getQueryResult, storeQueryResultWithId, useCrossFilterEnabled } from "@/services/query-store";
 
@@ -240,11 +241,64 @@ function ThemeSwitcher() {
   );
 }
 
+/** Mobile bottom sheet with swipe-to-expand/collapse via drag handle. */
+function MobileBottomSheet({
+  expanded,
+  onToggle,
+  children,
+}: {
+  expanded: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  const touchStartY = useRef(0);
+  const touchDeltaY = useRef(0);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY;
+    touchDeltaY.current = 0;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchDeltaY.current = e.touches[0].clientY - touchStartY.current;
+  };
+
+  const handleTouchEnd = () => {
+    const dy = touchDeltaY.current;
+    // Swipe up (negative dy) → expand, swipe down (positive dy) → collapse
+    if (dy < -40 && !expanded) onToggle();
+    else if (dy > 40 && expanded) onToggle();
+    touchDeltaY.current = 0;
+  };
+
+  return (
+    <div
+      className={cn(
+        "sm:hidden fixed inset-x-0 bottom-0 z-30 glass-panel transition-all duration-300 ease-out flex flex-col",
+        expanded ? "top-0" : "max-h-[180px]",
+      )}
+      style={{ borderTop: "1px solid var(--border)" }}
+    >
+      {/* Drag handle — swipe up to expand, down to collapse, tap to toggle */}
+      <div
+        className="flex justify-center py-1.5 cursor-grab active:cursor-grabbing flex-shrink-0"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onClick={onToggle}
+      >
+        <div className="w-8 h-1 rounded-full bg-muted-foreground/30" />
+      </div>
+      {children}
+    </div>
+  );
+}
+
 function ExplorerLayout() {
   const [isChatOpen, setIsChatOpen] = useState(true);
   const [showHistory, setShowHistory] = useState(false);
-  // Mobile: "collapsed" = input only, "expanded" = full chat, "hidden" = dashboard only
-  const [mobileChat, setMobileChat] = useState<"collapsed" | "expanded" | "hidden">("collapsed");
+  // Mobile: "collapsed" = input bar at bottom, "expanded" = full-screen chat
+  const [mobileChat, setMobileChat] = useState<"collapsed" | "expanded">("collapsed");
   const { messages, currentThreadId, switchThread } = useTambo();
 
   // Preload DuckDB on mount so it's warm before the first query
@@ -454,47 +508,47 @@ function ExplorerLayout() {
       {/* Dashboard — all AI components become draggable/resizable panels */}
       <DashboardCanvas className="bg-muted/30" />
 
-      {/* ── Mobile: floating chat bubble (visible when chat is hidden) ── */}
-      {mobileChat === "hidden" && (
-        <button
-          type="button"
-          onClick={() => setMobileChat("collapsed")}
-          className="sm:hidden fixed bottom-4 right-4 z-40 w-12 h-12 rounded-full bg-earth-blue text-white shadow-lg flex items-center justify-center hover:brightness-110 transition-all"
-          title="Open chat"
-        >
-          <MessageSquare className="w-5 h-5" />
-        </button>
-      )}
-
-      {/* ── Mobile: bottom sheet chat ────────────────────────────── */}
-      <div
-        className={`sm:hidden fixed inset-x-0 bottom-0 z-30 glass-panel transition-all duration-300 ease-out flex flex-col ${
-          mobileChat === "expanded" ? "top-0" : mobileChat === "collapsed" ? "max-h-[220px]" : "max-h-0 overflow-hidden"
-        }`}
-        style={{ borderTop: "1px solid var(--border)" }}
-      >
-        {/* Mobile header / drag bar */}
-        <div className="flex items-center gap-2 px-3 py-2 border-b border-border/30">
-          <button
-            onClick={() => setMobileChat(mobileChat === "expanded" ? "collapsed" : "expanded")}
-            className="p-1 rounded-lg text-muted-foreground hover:bg-muted/50"
-          >
-            {mobileChat === "expanded" ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
-          </button>
-          <WalkthruLogo size={16} />
-          <span className="text-xs font-bold text-foreground flex-1">walkthru.earth</span>
+      {/* ── Mobile: small toolbar on dashboard (theme + cross-filter) ── */}
+      {mobileChat === "collapsed" && (
+        <div className="sm:hidden fixed top-2 right-2 z-20 flex items-center gap-1 rounded-lg glass-panel-subtle px-1.5 py-1">
           <CrossFilterToggle />
           <ThemeSwitcher />
-          <button
-            onClick={() => setMobileChat(mobileChat === "hidden" ? "collapsed" : "hidden")}
-            className="p-1 rounded-lg text-muted-foreground hover:bg-muted/50 text-xs"
-            title={mobileChat === "hidden" ? "Show chat" : "Hide chat"}
-          >
-            <MessageSquare className="w-3.5 h-3.5" />
-          </button>
         </div>
+      )}
 
-        {/* Messages — only visible when expanded */}
+      {/* ── Mobile: bottom sheet chat (2 states: collapsed / expanded) ── */}
+      <MobileBottomSheet
+        expanded={mobileChat === "expanded"}
+        onToggle={() => setMobileChat((s) => (s === "expanded" ? "collapsed" : "expanded"))}
+      >
+        {/* Expanded: full-screen header with history + new thread */}
+        {mobileChat === "expanded" && (
+          <div className="flex items-center gap-1.5 px-3 py-2 border-b border-border/30 flex-shrink-0">
+            <WalkthruLogo size={16} />
+            <span className="text-xs font-bold text-foreground flex-1">walkthru.earth</span>
+            <button
+              onClick={() => setShowHistory(!showHistory)}
+              className={cn(
+                "p-1.5 rounded-lg transition-all",
+                showHistory ? "bg-earth-blue/15 text-earth-cyan" : "text-muted-foreground hover:bg-muted/50",
+              )}
+              title="Sessions"
+            >
+              <Clock className="w-3.5 h-3.5" />
+            </button>
+            <CrossFilterToggle />
+            <ThemeSwitcher />
+            <button
+              onClick={() => setMobileChat("collapsed")}
+              className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted/50"
+              title="Minimize chat"
+            >
+              <ChevronDown className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Messages — only when expanded */}
         {mobileChat === "expanded" && (
           <>
             {showHistory ? (
@@ -512,27 +566,24 @@ function ExplorerLayout() {
           </>
         )}
 
-        {/* Input — always visible when not hidden */}
-        {mobileChat !== "hidden" && (
-          <>
-            <div className="p-2 border-t border-border/30">
-              <MessageInput variant="bordered">
-                <MessageInputTextarea placeholder="Ask about weather, terrain, buildings, population..." />
-                <MessageInputToolbar>
-                  <MessageInputSubmitButton />
-                </MessageInputToolbar>
-                <MessageInputError />
-              </MessageInput>
-            </div>
+        {/* Input bar — always visible */}
+        <div className={cn("p-2", mobileChat === "expanded" && "border-t border-border/30")}>
+          <MessageInput variant="bordered">
+            <MessageInputTextarea placeholder="Ask about weather, terrain, buildings, population..." />
+            <MessageInputToolbar>
+              <MessageInputSubmitButton />
+            </MessageInputToolbar>
+            <MessageInputError />
+          </MessageInput>
+        </div>
 
-            {mobileChat === "collapsed" && (
-              <MessageSuggestions initialSuggestions={isEmpty ? defaultSuggestions : undefined}>
-                <MessageSuggestionsList className="px-2 pb-2" />
-              </MessageSuggestions>
-            )}
-          </>
+        {/* Suggestions — only when collapsed and empty thread */}
+        {mobileChat === "collapsed" && (
+          <MessageSuggestions initialSuggestions={isEmpty ? defaultSuggestions : undefined}>
+            <MessageSuggestionsList className="px-2 pb-2" />
+          </MessageSuggestions>
         )}
-      </div>
+      </MobileBottomSheet>
     </div>
   );
 }
