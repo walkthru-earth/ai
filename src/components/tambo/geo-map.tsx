@@ -233,11 +233,56 @@ function transformQueryToLayer(
     opacity?: number;
     columnArrays?: Record<string, ArrayLike<any>>;
     arrowIPC?: Uint8Array;
+    wkbArrays?: Uint8Array[];
   },
   boundsAcc: BoundsAccumulator,
 ): TransformResult {
-  if (rows.length === 0) {
+  if (rows.length === 0 && !(opts.wkbArrays && opts.wkbArrays.length > 0)) {
     return { layerConfig: null, type: opts.layerType ?? "h3", values: [], featureCount: 0 };
+  }
+
+  // WKB fast path: auto-detected GEOMETRY column → zero-copy GeoArrow rendering
+  if (opts.wkbArrays && opts.wkbArrays.length > 0) {
+    const vals: number[] = [];
+    // Use lat/lng from rows (auto-injected by runQuery geometry wrapping) for bounds
+    for (const row of rows) {
+      const lat = resolveColumn(row, opts.latColumn, "lat", "latitude") as number | undefined;
+      const lng = resolveColumn(row, opts.lngColumn, "lng", "longitude") as number | undefined;
+      if (typeof lat === "number" && typeof lng === "number") {
+        updateBoundsAcc(boundsAcc, lat, lng);
+      }
+      const val = row[opts.valueColumn];
+      if (typeof val === "number") vals.push(val);
+    }
+    const { min, max } = computePercentileRange(vals);
+    return {
+      layerConfig: {
+        id: opts.id,
+        type: "geojson" as LayerType,
+        data: [], // WKB path uses wkbArrays, not JS data array
+        wkbArrays: opts.wkbArrays,
+        colorScheme: opts.colorScheme,
+        opacity: opts.opacity,
+        minVal: min,
+        maxVal: max,
+        columnArrays: opts.columnArrays,
+        arrowIPC: opts.arrowIPC,
+        columnMapping: {
+          hexColumn: opts.hexColumn,
+          valueColumn: opts.valueColumn,
+          latColumn: opts.latColumn,
+          lngColumn: opts.lngColumn,
+          geometryColumn: opts.geometryColumn,
+          sourceLatColumn: opts.sourceLatColumn,
+          sourceLngColumn: opts.sourceLngColumn,
+          destLatColumn: opts.destLatColumn,
+          destLngColumn: opts.destLngColumn,
+        },
+      },
+      type: "geojson",
+      values: vals,
+      featureCount: opts.wkbArrays.length,
+    };
   }
 
   const columns = Object.keys(rows[0]);
@@ -483,6 +528,7 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
             opacity: layer.opacity,
             columnArrays: qr.columnArrays,
             arrowIPC: qr.arrowIPC,
+            wkbArrays: qr.wkbArrays,
           },
           boundsAcc,
         );
@@ -523,6 +569,7 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
             destLngColumn,
             columnArrays: qr.columnArrays,
             arrowIPC: qr.arrowIPC,
+            wkbArrays: qr.wkbArrays,
           },
           boundsAcc,
         );

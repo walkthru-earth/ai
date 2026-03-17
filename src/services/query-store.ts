@@ -23,6 +23,10 @@ export interface StoredQuery {
   columnArrays?: Record<string, ArrayLike<any>>;
   /** Arrow IPC bytes for true zero-copy deserialization with GeoArrow layers */
   arrowIPC?: Uint8Array;
+  /** Raw WKB geometry arrays — auto-extracted from GEOMETRY columns for zero-copy GeoArrow rendering */
+  wkbArrays?: Uint8Array[];
+  /** Name of the auto-detected geometry column (e.g. "geom") */
+  geometryColumn?: string;
 }
 
 const store = new Map<string, StoredQuery>();

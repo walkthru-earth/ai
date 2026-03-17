@@ -151,8 +151,57 @@ function cleanSql(raw: string): string | null {
 }
 
 /**
+ * Detect GEOMETRY columns via DESCRIBE. Returns { geomColumn, allColumns } or null on failure.
+ * DESCRIBE reads Parquet metadata (no data scan) — fast even for remote files.
+ */
+async function detectGeometryColumns(
+  conn: any,
+  sql: string,
+): Promise<{ geomColumn: string; allColumns: string[] } | null> {
+  try {
+    const descResult = await conn.query(`DESCRIBE (${sql})`);
+    const nameVec = descResult.getChild("column_name");
+    const typeVec = descResult.getChild("column_type");
+    if (!nameVec || !typeVec) return null;
+
+    let geomColumn: string | null = null;
+    const allColumns: string[] = [];
+    for (let i = 0; i < descResult.numRows; i++) {
+      const name = String(nameVec.get(i));
+      const colType = String(typeVec.get(i) ?? "").toUpperCase();
+      allColumns.push(name);
+      if (colType === "GEOMETRY" && !geomColumn) {
+        geomColumn = name;
+      }
+    }
+    return geomColumn ? { geomColumn, allColumns } : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Wrap SQL to auto-extract coordinates + standard WKB from a GEOMETRY column.
+ * Adds lat/lng (via ST_Centroid) only if they don't already exist.
+ * Adds __geo_wkb for zero-copy GeoArrow rendering.
+ */
+function wrapSqlForGeometry(sql: string, geomColumn: string, existingColumns: string[]): string {
+  const lowerCols = new Set(existingColumns.map((c) => c.toLowerCase()));
+  const hasLat = lowerCols.has("lat") || lowerCols.has("latitude");
+  const hasLng = lowerCols.has("lng") || lowerCols.has("longitude");
+  const coordCols =
+    !hasLat && !hasLng ? `, ST_Y(ST_Centroid("${geomColumn}")) AS lat, ST_X(ST_Centroid("${geomColumn}")) AS lng` : "";
+  return `SELECT __src.*${coordCols}, ST_AsWKB("${geomColumn}") AS __geo_wkb FROM (${sql}) __src`;
+}
+
+/**
  * Run a SQL query. Stores full result in query-store.
  * Returns only metadata to the LLM (queryId, rowCount, columns, duration, sample).
+ *
+ * Auto-detects GEOMETRY columns in the result. When found:
+ * - Wraps the query to extract lat/lng coordinates + standard WKB
+ * - Stores WKB arrays for zero-copy GeoArrow rendering (no ST_AsGeoJSON needed)
+ * - Strips useless geometry hex from rows/columns
  *
  * On init failure, retries DuckDB initialization automatically.
  */
@@ -180,16 +229,48 @@ export async function runQuery(input: { sql: string } | string): Promise<{
   const start = performance.now();
 
   try {
-    const result = await conn.query(sql);
+    // Auto-detect GEOMETRY columns (fast DESCRIBE — reads Parquet metadata only)
+    const geomInfo = await detectGeometryColumns(conn, sql);
+    const geomColumn = geomInfo?.geomColumn ?? null;
+    const finalSql = geomColumn ? wrapSqlForGeometry(sql, geomColumn, geomInfo!.allColumns) : sql;
+
+    const result = await conn.query(finalSql);
     const duration = Math.round(performance.now() - start);
-    const columns = result.schema.fields.map((f: any) => f.name);
+    const rawColumns: string[] = result.schema.fields.map((f: any) => f.name);
     const numRows = result.numRows;
+
+    // Columns to strip from public result (internal geo helpers)
+    const stripCols = new Set<string>();
+    if (geomColumn) {
+      stripCols.add("__geo_wkb");
+      stripCols.add(geomColumn); // DuckDB internal geometry hex is useless
+    }
+
+    // Extract WKB arrays from __geo_wkb column (standard WKB, not DuckDB internal format)
+    let wkbArrays: Uint8Array[] | undefined;
+    if (geomColumn) {
+      const wkbVec = result.getChild("__geo_wkb");
+      if (wkbVec) {
+        const wkbs: Uint8Array[] = [];
+        for (let i = 0; i < numRows; i++) {
+          const val = wkbVec.get(i);
+          if (val instanceof Uint8Array) {
+            wkbs.push(val.slice()); // copy — DuckDB may invalidate buffer
+          }
+        }
+        if (wkbs.length > 0) wkbArrays = wkbs;
+      }
+    }
+
+    // Public columns — strip internal geo columns
+    const columns = rawColumns.filter((c) => !stripCols.has(c));
 
     // Convert Arrow → plain JS objects (once, stored client-side)
     const rows: Record<string, unknown>[] = [];
     for (let i = 0; i < numRows; i++) {
       const row: Record<string, unknown> = {};
-      for (const col of columns) {
+      for (const col of rawColumns) {
+        if (stripCols.has(col)) continue;
         const vec = result.getChild(col);
         if (vec) {
           const val = vec.get(i);
@@ -201,7 +282,8 @@ export async function runQuery(input: { sql: string } | string): Promise<{
 
     // Extract raw column typed arrays for zero-copy GeoArrow rendering
     const columnArrays: Record<string, ArrayLike<any>> = {};
-    for (const col of columns) {
+    for (const col of rawColumns) {
+      if (stripCols.has(col)) continue;
       const vec = result.getChild(col);
       if (vec) {
         try {
@@ -226,7 +308,17 @@ export async function runQuery(input: { sql: string } | string): Promise<{
     }
 
     // Store full result client-side (JS rows for tables/graphs, Arrow for map layers)
-    const queryId = storeQueryResult({ rows, columns, duration, rowCount: numRows, sql, columnArrays, arrowIPC });
+    const queryId = storeQueryResult({
+      rows,
+      columns,
+      duration,
+      rowCount: numRows,
+      sql,
+      columnArrays,
+      arrowIPC,
+      wkbArrays,
+      geometryColumn: geomColumn ?? undefined,
+    });
 
     // Return only metadata + 3 sample rows to the LLM (saves tokens!)
     return {

@@ -31,6 +31,8 @@ export const tools: TamboTool[] = [
     name: "runSQL",
     description:
       "Execute a DuckDB SQL query in-browser via DuckDB-WASM. H3 extension is pre-loaded. " +
+      "GEOMETRY AUTO-DETECTION: Parquet files with GEOMETRY columns are auto-handled — just SELECT * FROM file. " +
+      "The system auto-wraps to extract lat/lng + WKB for zero-copy map rendering. No ST_AsGeoJSON or ST_GeomFromWKB needed. " +
       "COORDINATE ORDER: lat = latitude (north/south, e.g. 30.05 for Cairo), lng = longitude (east/west, e.g. 31.25 for Cairo). " +
       "H3 functions: h3_latlng_to_cell(lat, lng, res) — lat FIRST, lng SECOND. " +
       "DuckDB spatial: ST_Point(lng, lat) — lng FIRST (x), lat SECOND (y). Do NOT reverse these. " +
@@ -170,6 +172,8 @@ export const components: TamboComponent[] = [
       "H3: SELECT h3_h3_to_string(h3_index) AS hex, <metric> AS value ... ; " +
       "Points: SELECT lat, lng, <metric> AS value ... ; " +
       "GeoJSON: SELECT ST_AsGeoJSON(geometry) AS geometry, <metric> AS value ... ; " +
+      "Native geometry: Parquet files with GEOMETRY columns auto-render — just SELECT *, <metric> AS value. NO ST_AsGeoJSON needed. " +
+      "The system auto-detects GEOMETRY columns, extracts WKB + coordinates, and renders via zero-copy GeoArrow. " +
       "Arcs: SELECT source_lat, source_lng, dest_lat, dest_lng, <metric> AS value ... ; " +
       "MULTI-LAYER: set `layers` array (max 5). Each layer has id, queryId, layerType, column mappings, colorScheme, opacity, visible. " +
       "To add a layer: update_component_props with layers array including existing + new layer. " +

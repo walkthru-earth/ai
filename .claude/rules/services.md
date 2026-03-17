@@ -9,13 +9,15 @@ paths:
 
 - `initDuckDB()`: singleton, jsDelivr bundles, Blob URL worker, extensions: httpfs → spatial → h3 → a5, retries 3x
 - `preloadDuckDB()`: non-blocking warmup on page mount
-- `runQuery({sql})`: cleanSql → execute → Arrow→JS rows + columnArrays (typed array views) + arrowIPC (bytes) → store in query-store → return metadata + 3 sample rows
+- `runQuery({sql})`: cleanSql → detectGeometryColumns (DESCRIBE) → wrapSqlForGeometry (if GEOMETRY found) → execute → Arrow→JS rows + columnArrays (typed array views) + arrowIPC (bytes) + wkbArrays (if geometry) → store in query-store → return metadata + 3 sample rows
+- `detectGeometryColumns(conn, sql)`: runs `DESCRIBE (sql)`, checks column_type for GEOMETRY. Fast — reads Parquet metadata only.
+- `wrapSqlForGeometry(sql, geomCol, cols)`: wraps as `SELECT __src.*, ST_Y(ST_Centroid(geom)) AS lat, ST_X(ST_Centroid(geom)) AS lng, ST_AsWKB(geom) AS __geo_wkb FROM (sql) __src`. Skips lat/lng if they already exist. Strips geom column + __geo_wkb from public columns/rows.
 - `arrowToJs(val)`: BigInt→Number, Uint8Array→hex, Struct→.toJSON(), Array→recursive
 - Column arrays extracted via `vec.toArray()` — zero-copy views for single-chunk results. Used by GeoArrow layers for map rendering.
 
 ## `query-store.ts`
 
-- `Map<string, StoredQuery>`, keeps last 20 results. `StoredQuery` has `rows` (JS objects), `columnArrays` (typed arrays for GeoArrow), `arrowIPC` (IPC bytes).
+- `Map<string, StoredQuery>`, keeps last 20 results. `StoredQuery` has `rows` (JS objects), `columnArrays` (typed arrays for GeoArrow), `arrowIPC` (IPC bytes), `wkbArrays` (Uint8Array[] for auto-detected geometry), `geometryColumn` (name of detected geom col).
 - `storeQueryResult()` → auto-incremented `qr_N` ID
 - `storeQueryResultWithId(id, result)` → specific ID (thread replay)
 - `useQueryResult(queryId)` — `useSyncExternalStore` reactive hook. Components MUST use this, not `getQueryResult()`
