@@ -48,7 +48,7 @@ async function initDuckDB(): Promise<any> {
         URL.revokeObjectURL(worker_url);
 
         // Try JS API extension loading
-        for (const ext of ["httpfs", "h3", "spatial"]) {
+        for (const ext of ["httpfs", "spatial", "h3", "a5"]) {
           try {
             if (typeof (instance as any).loadExtension === "function") {
               await (instance as any).loadExtension(ext);
@@ -64,10 +64,12 @@ async function initDuckDB(): Promise<any> {
           for (const stmt of [
             "INSTALL httpfs",
             "LOAD httpfs",
-            "INSTALL h3 FROM community",
-            "LOAD h3",
             "INSTALL spatial",
             "LOAD spatial",
+            "INSTALL h3 FROM community",
+            "LOAD h3",
+            "INSTALL a5 FROM community",
+            "LOAD a5",
             "SET s3_region = 'us-west-2'",
             "SET s3_url_style = 'path'",
           ]) {

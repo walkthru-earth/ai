@@ -24,7 +24,7 @@ pnpm lint:fix     # biome auto-fix
 
 ## DuckDB Rules (for AI tool descriptions)
 
-- Extensions loaded: `httpfs`, `h3`, `spatial`
+- Extensions loaded: `httpfs`, `spatial`, `h3`, `a5`
 - `h3_cell_to_latlng()` returns `DOUBLE[2]` list, NOT a struct
 - Use `h3_grid_ring` not `h3_k_ring` (deprecated)
 - `h3_cell_area(h3_index, 'km^2')` not `h3_cell_area_km2`
@@ -153,7 +153,8 @@ DuckDB-WASM → Arrow Table → columnArrays (typed array views) + arrowIPC (byt
   → GeoArrow layers render directly from Arrow buffers
 ```
 
-- **H3**: `buildGeoArrowH3Table()` — hex strings via `vectorFromArray(Utf8)`, values via `wrapFloat64()` (zero-copy)
+- **H3**: Always uses standard deck.gl `H3HexagonLayer` (not GeoArrow). deck.gl natively generates hexagon polygons from H3 hex strings on the GPU — this is more efficient than passing pre-computed lat/lng, polygon/WKB, or Arrow geometry. Just pass `hex` (string) + `value` (number) per row. GeoArrowH3HexagonLayer is experimental and unreliable.
+- **A5** (future): deck.gl 9.2+ has `A5Layer` for pentagonal DGGS cells. A5 is a pentagonal global grid (vs H3's hexagons) with exactly equal-area cells and lower distortion. Uses `getPentagon` accessor (BigInt or hex string). Same GPU-native approach as H3 — deck.gl generates pentagon polygons from cell IDs, no geometry passthrough needed. DuckDB: `INSTALL a5 FROM community; LOAD a5;` — functions: `a5_lonlat_to_cell(lon, lat, res)`, `a5_cell_to_lonlat(cell)`, `a5_cell_to_boundary(cell)`, `a5_cell_to_children(cell, res)`, `a5_cell_area(res)`. All cells at same resolution have exactly equal area.
 - **Scatterplot**: `buildPointGeomVector()` interleaves lat/lng into `Float64Array(2*N)`, wraps as `FixedSizeList(2, Float64)` via `makeData`
 - **Arc**: `buildGeoArrowArcTable()` — source/target point geometry columns, same interleave pattern
 - **WKB/GeoJSON geometry**: `@walkthru-earth/objex-utils` `buildGeoArrowTables()` — direct WKB binary → DataView reads → pre-allocated Float64Array → Arrow Table. Supports point, linestring, polygon, multi* geometries. No GeoJSON parsing, no intermediate JS objects.
