@@ -6,6 +6,7 @@ import * as React from "react";
 import { useMemo } from "react";
 import { z } from "zod";
 import { setCrossFilter, useQueryResult } from "@/services/query-store";
+import { useInDashboardPanel } from "./panel-context";
 
 /* ── Schema ────────────────────────────────────────────────────────── */
 
@@ -64,6 +65,7 @@ export const H3Map = React.forwardRef<HTMLDivElement, H3MapProps>((props, ref) =
     colorScheme = "blue-red",
     extruded = false,
   } = props;
+  const inPanel = useInDashboardPanel();
 
   // Read data from query store — reactive, re-renders when replay populates data
   const queryResult = useQueryResult(queryId);
@@ -193,18 +195,18 @@ export const H3Map = React.forwardRef<HTMLDivElement, H3MapProps>((props, ref) =
 
   return (
     <div ref={ref} className="rounded-xl border overflow-hidden bg-card w-full h-full flex flex-col">
-      {/* Header */}
-      {title && (
-        <div className="px-5 py-2.5 border-b bg-muted/30 flex items-center gap-3 flex-shrink-0">
-          <Map className="w-4 h-4 text-muted-foreground" />
-          <span className="text-base font-semibold text-foreground">{title}</span>
-          {colorMetric && <span className="text-sm text-muted-foreground ml-auto font-mono">{colorMetric}</span>}
+      {/* Header — hidden when inside dashboard panel (panel provides its own) */}
+      {title && !inPanel && (
+        <div className="px-3 py-1.5 border-b bg-muted/30 flex items-center gap-2 flex-shrink-0">
+          <Map className="w-3.5 h-3.5 text-muted-foreground" />
+          <span className="text-sm font-semibold text-foreground truncate">{title}</span>
+          {colorMetric && <span className="text-xs text-muted-foreground ml-auto font-mono">{colorMetric}</span>}
         </div>
       )}
 
-      {/* Map — fills remaining space between header and legend */}
+      {/* Map — fills remaining space between header and legend, min-h ensures it's visible */}
       <div
-        className="relative flex-1 min-h-0"
+        className="relative flex-1 min-h-[200px]"
         style={{ touchAction: "none" }}
         onPointerDown={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
@@ -232,22 +234,27 @@ export const H3Map = React.forwardRef<HTMLDivElement, H3MapProps>((props, ref) =
         )}
       </div>
 
-      {/* Legend — always visible at bottom */}
-      <div className="px-4 py-2 border-t bg-muted/10 flex items-center gap-3 flex-shrink-0">
+      {/* Legend — compact bar at bottom */}
+      <div className="px-3 py-1 border-t bg-muted/10 flex items-center gap-2 flex-shrink-0">
         {values.length > 0 && (
           <>
-            <span className="text-sm text-muted-foreground font-mono">
+            <span className="text-xs text-muted-foreground font-mono">
               {minVal.toLocaleString(undefined, { maximumFractionDigits: 1 })}
             </span>
-            <div className="flex-1 h-3 rounded-full max-w-sm" style={{ background: LEGEND_GRADIENTS[colorScheme] }} />
-            <span className="text-sm text-muted-foreground font-mono">
+            <div
+              className="flex-1 h-2 rounded-full max-w-[200px]"
+              style={{ background: LEGEND_GRADIENTS[colorScheme] }}
+            />
+            <span className="text-xs text-muted-foreground font-mono">
               {maxVal.toLocaleString(undefined, { maximumFractionDigits: 1 })}
             </span>
           </>
         )}
-        {colorMetric && <span className="text-xs text-muted-foreground uppercase tracking-wider">{colorMetric}</span>}
+        {colorMetric && (
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{colorMetric}</span>
+        )}
         {hasData && (
-          <span className="text-sm text-muted-foreground ml-auto">{hexagons.length.toLocaleString()} hexagons</span>
+          <span className="text-xs text-muted-foreground ml-auto">{hexagons.length.toLocaleString()} hex</span>
         )}
       </div>
     </div>

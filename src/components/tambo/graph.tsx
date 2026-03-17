@@ -7,6 +7,7 @@ import * as RechartsCore from "recharts";
 import { z } from "zod/v3";
 import { cn } from "@/lib/utils";
 import { setCrossFilter, useCrossFilter, useQueryResult } from "@/services/query-store";
+import { useInDashboardPanel } from "./panel-context";
 
 /* ── Variants ─────────────────────────────────────────────────────── */
 
@@ -117,6 +118,7 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
   ({ className, variant, size, data, title, showLegend = true, queryId, xColumn, yColumns, chartType }, ref) => {
     const crossFilter = useCrossFilter();
     const queryResult = useQueryResult(queryId);
+    const inPanel = useInDashboardPanel();
 
     // Resolve data: queryId mode (preferred) → inline mode (legacy)
     // Applies cross-filter: when map viewport changes, only show data for visible hexes
@@ -294,7 +296,7 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
       <GraphErrorBoundary className={className} variant={variant} size={size}>
         <div ref={ref} className={cn(graphVariants({ variant, size }), className)}>
           <div className="p-4 h-full">
-            {title && <h3 className="text-sm font-semibold mb-3 text-foreground">{title}</h3>}
+            {title && !inPanel && <h3 className="text-sm font-semibold mb-3 text-foreground">{title}</h3>}
             <div className="w-full h-[calc(100%-2rem)]">
               <RechartsCore.ResponsiveContainer width="100%" height="100%">
                 {renderChart() ?? <></>}

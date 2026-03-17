@@ -258,7 +258,13 @@
   border-color: hsl(158 64% 42% / 0.5);
 }
 
-/* Prevent grid drag from stealing map/scroll interactions */
+/* Touch: grid items allow native scroll/pan, only drag handle captures touch */
+.react-grid-item {
+  touch-action: auto;
+}
+.panel-drag-handle {
+  touch-action: none;
+}
 .panel-content {
   touch-action: auto;
   pointer-events: auto;

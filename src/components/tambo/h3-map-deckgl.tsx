@@ -158,6 +158,11 @@ export default function DeckGLMap({
   const mapRef = useRef<maplibregl.Map | null>(null);
   const overlayRef = useRef<MapboxOverlay | null>(null);
   const isDark = useIsDark();
+  // Track whether we've done a data-driven fitBounds so we don't flyTo on top of it
+  const hasFitBoundsRef = useRef(false);
+  // Store latest onBoundsChange in ref to avoid re-creating map when callback changes
+  const onBoundsChangeRef = useRef(onBoundsChange);
+  onBoundsChangeRef.current = onBoundsChange;
 
   const layers = useMemo(() => {
     const result: any[] = [];
@@ -179,7 +184,7 @@ export default function DeckGLMap({
             if (!extruded || d.value == null) return 0;
             const range = maxVal - minVal || 1;
             const t = (d.value - minVal) / range;
-            return t * 500; // meters — deck.gl auto-scales with elevationScale
+            return t * 500;
           },
           elevationScale: 50,
           opacity: 0.85,
@@ -187,7 +192,6 @@ export default function DeckGLMap({
             const hex = info?.object?.hex;
             if (hex && onHexClick) onHexClick(hex);
           },
-          // Only update when data actually changes (prevents per-hex re-render)
           updateTriggers: {
             getFillColor: [minVal, maxVal, colorScheme],
             getElevation: [minVal, maxVal, extruded],
@@ -227,7 +231,7 @@ export default function DeckGLMap({
     return result;
   }, [hexagons, markers, extruded, minVal, maxVal, colorScheme, onHexClick]);
 
-  // Initialize MapLibre + deck.gl overlay once
+  // 1. Initialize MapLibre + deck.gl overlay ONCE
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
@@ -255,9 +259,9 @@ export default function DeckGLMap({
     map.on("moveend", () => {
       clearTimeout(boundsTimer);
       boundsTimer = setTimeout(() => {
-        if (!onBoundsChange) return;
+        if (!onBoundsChangeRef.current) return;
         const b = map.getBounds();
-        onBoundsChange([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]);
+        onBoundsChangeRef.current([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]);
       }, 300);
     });
 
@@ -265,34 +269,97 @@ export default function DeckGLMap({
     overlayRef.current = overlay;
 
     return () => {
+      clearTimeout(boundsTimer);
       map.remove();
       mapRef.current = null;
       overlayRef.current = null;
+      hasFitBoundsRef.current = false;
     };
+    // Only run once on mount — all other updates handled by separate effects
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [extruded, isDark, latitude, layers, longitude, onBoundsChange, zoom]);
+  }, []);
 
-  // Switch basemap style when theme changes
-  useEffect(() => {
-    if (!mapRef.current) return;
-    const newStyle = isDark ? CARTO_DARK : CARTO_LIGHT;
-    mapRef.current.setStyle(newStyle);
-    // Re-attach deck.gl overlay after style reload
-    mapRef.current.once("styledata", () => {
-      if (overlayRef.current) {
-        overlayRef.current.setProps({ layers });
-      }
-    });
-  }, [isDark, layers]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Update layers when data changes
+  // 2. Update layers when data/styling changes
   useEffect(() => {
     overlayRef.current?.setProps({ layers });
   }, [layers]);
 
-  // Fly to new center
+  // 3. Switch basemap style when theme changes
   useEffect(() => {
     if (!mapRef.current) return;
+    const map = mapRef.current;
+    const newStyle = isDark ? CARTO_DARK : CARTO_LIGHT;
+    // Only switch if style actually changed
+    const currentStyle = (map.getStyle() as any)?.name;
+    if ((isDark && currentStyle === "Dark Matter") || (!isDark && currentStyle === "Positron")) return;
+    map.setStyle(newStyle);
+    map.once("styledata", () => {
+      if (overlayRef.current) {
+        overlayRef.current.setProps({ layers });
+      }
+    });
+  }, [isDark, layers]);
+
+  // 4. Auto-fitBounds when hex data changes — dynamically fits all data
+  useEffect(() => {
+    if (!mapRef.current || !hexagons || hexagons.length === 0) return;
+    const map = mapRef.current;
+
+    // Use h3-js to compute bounding box from hex centroids
+    import("h3-js")
+      .then((h3) => {
+        let minLat = 90;
+        let maxLat = -90;
+        let minLng = 180;
+        let maxLng = -180;
+
+        for (const hex of hexagons) {
+          if (!hex.hex) continue;
+          try {
+            const [lat, lng] = h3.cellToLatLng(hex.hex);
+            if (lat < minLat) minLat = lat;
+            if (lat > maxLat) maxLat = lat;
+            if (lng < minLng) minLng = lng;
+            if (lng > maxLng) maxLng = lng;
+          } catch {
+            // invalid hex — skip
+          }
+        }
+
+        if (minLat > maxLat) return; // no valid coords
+
+        hasFitBoundsRef.current = true;
+        map.fitBounds(
+          [
+            [minLng, minLat],
+            [maxLng, maxLat],
+          ],
+          {
+            padding: { top: 40, bottom: 40, left: 40, right: 40 },
+            maxZoom: 14,
+            duration: 1200,
+            pitch: extruded ? 45 : 0,
+            bearing: extruded ? -15 : 0,
+          },
+        );
+      })
+      .catch(() => {
+        // h3-js unavailable — fallback to flyTo
+        map.flyTo({
+          center: [longitude, latitude],
+          zoom,
+          pitch: extruded ? 45 : 0,
+          bearing: extruded ? -15 : 0,
+          duration: 1200,
+        });
+      });
+    // Re-fit when hex data identity changes (new query result)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hexagons]);
+
+  // 5. Fallback flyTo only when explicit lat/lng/zoom props change AND we haven't done fitBounds
+  useEffect(() => {
+    if (!mapRef.current || hasFitBoundsRef.current) return;
     mapRef.current.flyTo({
       center: [longitude, latitude],
       zoom,

@@ -1,10 +1,12 @@
 "use client";
 
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import * as React from "react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { z } from "zod";
 import { cn } from "@/lib/utils";
 import { setCrossFilter, useCrossFilter, useQueryResult } from "@/services/query-store";
+import { useInDashboardPanel } from "./panel-context";
 
 /* ── Schema ────────────────────────────────────────────────────────── */
 
@@ -62,18 +64,22 @@ function formatCell(val: unknown): string {
   return String(val);
 }
 
+const PAGE_SIZE = 20;
+
 /* ── Component ─────────────────────────────────────────────────────── */
 
 export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
   ({ title, queryId, visibleColumns, columns, rows, caption, highlight = "alternating" }, ref) => {
     const crossFilter = useCrossFilter();
     const queryResult = useQueryResult(queryId);
+    const inPanel = useInDashboardPanel();
+    const [page, setPage] = useState(0);
 
     // Resolve data: queryId mode (preferred) → inline mode (legacy)
     // Applies spatial cross-filter: when map viewport changes, only show rows for visible hexes
-    const { resolvedColumns, resolvedRows, rawRows } = useMemo(() => {
+    const { resolvedColumns, resolvedRows } = useMemo(() => {
       if (queryId) {
-        if (!queryResult) return { resolvedColumns: null, resolvedRows: null, rawRows: null };
+        if (!queryResult) return { resolvedColumns: null, resolvedRows: null };
 
         const colNames = visibleColumns ?? queryResult.columns;
         const cols = colNames.map((c) => ({ id: c, label: c, align: "left" as const }));
@@ -97,10 +103,18 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
           id: String(i),
           cells: cols.map((c) => formatCell(row[c.id])),
         }));
-        return { resolvedColumns: cols, resolvedRows: fRows, rawRows: rRows };
+        return { resolvedColumns: cols, resolvedRows: fRows };
       }
-      return { resolvedColumns: columns ?? null, resolvedRows: rows ?? null, rawRows: null };
+      return { resolvedColumns: columns ?? null, resolvedRows: rows ?? null };
     }, [queryId, queryResult, visibleColumns, columns, rows, crossFilter]);
+
+    // Reset page when data changes
+    const totalRows = resolvedRows?.length ?? 0;
+    const totalPages = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
+    const safePage = Math.min(page, totalPages - 1);
+    if (safePage !== page) setPage(safePage);
+
+    const pageRows = resolvedRows?.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE) ?? [];
 
     // Loading state
     if (!resolvedColumns || !resolvedRows) {
@@ -125,7 +139,8 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
     const handleRowClick = (rowIdx: number) => {
       if (!queryId || !resolvedColumns.length) return;
       const firstCol = resolvedColumns[0].id;
-      const val = resolvedRows[rowIdx]?.cells[0];
+      const globalIdx = safePage * PAGE_SIZE + rowIdx;
+      const val = resolvedRows[globalIdx]?.cells[0];
       if (val != null) {
         setCrossFilter({
           sourceQueryId: queryId,
@@ -139,20 +154,20 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
 
     return (
       <div ref={ref} className="rounded-xl border overflow-hidden bg-card h-full flex flex-col">
-        {title && (
-          <div className="px-4 py-2.5 border-b bg-muted/30 flex-shrink-0">
+        {title && !inPanel && (
+          <div className="px-4 py-2 border-b bg-muted/30 flex-shrink-0">
             <h3 className="text-sm font-semibold text-foreground">{title}</h3>
           </div>
         )}
         <div className="overflow-auto flex-1 min-h-0">
           <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-muted/20">
+            <thead className="sticky top-0 z-10">
+              <tr className="border-b bg-muted/40">
                 {resolvedColumns.map((col) => (
                   <th
                     key={col.id}
                     className={cn(
-                      "px-4 py-2.5 font-semibold text-muted-foreground whitespace-nowrap text-xs",
+                      "px-3 py-1.5 font-semibold text-muted-foreground whitespace-nowrap text-xs bg-muted/40",
                       col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : "text-left",
                     )}
                   >
@@ -162,9 +177,12 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
               </tr>
             </thead>
             <tbody>
-              {resolvedRows.map((row, rowIdx) => {
+              {pageRows.map((row, rowIdx) => {
+                const globalIdx = safePage * PAGE_SIZE + rowIdx;
                 const isFilterMatch =
-                  filterColIdx >= 0 && crossFilter ? crossFilter.values.includes(row.cells[filterColIdx]) : false;
+                  filterColIdx >= 0 && crossFilter
+                    ? crossFilter.values.includes(resolvedRows[globalIdx]?.cells[filterColIdx])
+                    : false;
 
                 return (
                   <tr
@@ -182,7 +200,7 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
                         <td
                           key={`${row.id ?? rowIdx}-${cellIdx}`}
                           className={cn(
-                            "px-4 py-2 text-foreground whitespace-nowrap text-sm",
+                            "px-3 py-1.5 text-foreground whitespace-nowrap text-xs",
                             col?.align === "right"
                               ? "text-right"
                               : col?.align === "center"
@@ -200,11 +218,37 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
             </tbody>
           </table>
         </div>
-        {caption && (
-          <div className="px-4 py-2 border-t bg-muted/10">
-            <p className="text-xs text-muted-foreground">{caption}</p>
-          </div>
-        )}
+
+        {/* Footer: pagination + caption */}
+        <div className="px-3 py-1.5 border-t bg-muted/10 flex items-center gap-2 flex-shrink-0">
+          <span className="text-xs text-muted-foreground">
+            {totalRows > PAGE_SIZE
+              ? `${safePage * PAGE_SIZE + 1}–${Math.min((safePage + 1) * PAGE_SIZE, totalRows)} of ${totalRows.toLocaleString()}`
+              : `${totalRows.toLocaleString()} rows`}
+          </span>
+          {caption && <span className="text-xs text-muted-foreground/60 truncate flex-1 text-right">{caption}</span>}
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1 ml-auto">
+              <button
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={safePage === 0}
+                className="p-0.5 rounded hover:bg-muted/50 disabled:opacity-30 transition-colors"
+              >
+                <ChevronLeft className="w-3.5 h-3.5 text-muted-foreground" />
+              </button>
+              <span className="text-xs text-muted-foreground tabular-nums min-w-[3ch] text-center">
+                {safePage + 1}/{totalPages}
+              </span>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                disabled={safePage >= totalPages - 1}
+                className="p-0.5 rounded hover:bg-muted/50 disabled:opacity-30 transition-colors"
+              >
+                <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" />
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     );
   },
