@@ -47,6 +47,25 @@ pnpm lint:fix     # biome auto-fix
 - **Spatial filter pushdown**: `geom && ST_MakeEnvelope(w,s,e,n)` prunes Parquet row groups for bbox queries (uses column stats).
 - **Coordinate order**: `lat` = latitude (north/south, e.g. 30.05 for Cairo), `lng` = longitude (east/west, e.g. 31.25 for Cairo). H3: `h3_latlng_to_cell(lat, lng, res)`. DuckDB spatial: `ST_Point(lng, lat)` (x=lon, y=lat). deck.gl GeoMap props: `latitude`/`longitude`.
 - **NEVER hardcode H3 hex strings** — AI will hallucinate wrong indices. Always compute from coordinates: `h3_latlng_to_cell(lat, lng, res)::BIGINT`. For area queries: `h3_grid_disk(h3_latlng_to_cell(lat, lng, res)::BIGINT, radius)`. If user's pre-computed H3 cells are available in context, use those directly.
+- **Geometry detection skips CTEs** — `DESCRIBE (WITH ...)` is invalid DuckDB syntax. CTE queries bypass geometry auto-detection (they're computed queries, not raw Parquet geometry).
+
+### DuckDB Friendly SQL (use these for cleaner queries)
+
+- **`FROM`-first syntax**: `FROM tbl` selects all columns — no `SELECT *` needed. `FROM tbl SELECT col1, col2` also works.
+- **`GROUP BY ALL`**: Auto-infer grouping columns from non-aggregated `SELECT` expressions. No need to repeat column names.
+- **`ORDER BY ALL`**: Order on all columns for deterministic results.
+- **`SELECT * EXCLUDE (col)`**: Select all columns except specific ones. E.g. `SELECT * EXCLUDE (h3_index, __geo_wkb) FROM tbl`.
+- **`SELECT * REPLACE (expr AS col)`**: Replace a column with an expression. E.g. `SELECT * REPLACE (ROUND(pop_2100) AS pop_2100)`.
+- **`UNION BY NAME`**: Union tables by column names (not positions) — handles different column orders gracefully.
+- **Column aliases in `WHERE`/`GROUP BY`/`HAVING`**: Reference aliases defined in `SELECT` directly — no subquery needed.
+- **Reusable column aliases**: Use an alias defined earlier in the same `SELECT` clause. E.g. `SELECT pop_2100 - pop_2025 AS growth, growth / pop_2025 AS pct`.
+- **`LIMIT` with percentage**: `LIMIT 10%` returns 10% of rows.
+- **`count()` shorthand**: `count()` works as `count(*)`.
+- **Trailing commas**: Allowed in column lists and `LIST` construction.
+- **Dot operator chaining**: `'hello'.upper()` works as `upper('hello')`.
+- **`PIVOT`/`UNPIVOT`**: Transform between wide and long table formats.
+- **`ASOF` joins**: Join on nearest timestamp/value match.
+- **List slicing**: Negative indexing `[-1]` and Python-style slicing `[2:5]`.
 
 ## Data
 
