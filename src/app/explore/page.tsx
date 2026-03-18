@@ -328,13 +328,18 @@ function ExplorerLayout({ geo }: { geo: GeoIP | null }) {
   }, [currentThreadId, switchThread]);
 
   // Update URL when thread changes (without full navigation).
-  // Skip placeholder/temporary IDs — only set URL for real thread IDs (e.g. "thr_...")
+  // Real thread IDs (thr_...) → set param. New/placeholder threads → clear param.
   useEffect(() => {
-    if (!currentThreadId || currentThreadId === "placeholder" || !currentThreadId.startsWith("thr_")) return;
     const params = new URLSearchParams(window.location.search);
-    if (params.get("thread") !== currentThreadId) {
-      params.set("thread", currentThreadId);
-      window.history.replaceState(null, "", `?${params.toString()}`);
+    if (currentThreadId?.startsWith("thr_")) {
+      if (params.get("thread") !== currentThreadId) {
+        params.set("thread", currentThreadId);
+        window.history.replaceState(null, "", `?${params.toString()}`);
+      }
+    } else if (params.has("thread")) {
+      params.delete("thread");
+      const qs = params.toString();
+      window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
     }
   }, [currentThreadId]);
 
