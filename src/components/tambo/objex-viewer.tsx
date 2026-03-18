@@ -75,7 +75,10 @@ export const ObjexViewer = React.forwardRef<HTMLDivElement, ObjexViewerProps>(({
 
       {/* Backdrop for expanded mode */}
       {expanded && (
-        <div className="fixed inset-0 bg-background/80 -z-10" onClick={toggleExpand} onKeyDown={undefined} />
+        // biome-ignore lint/a11y/useKeyWithClickEvents: backdrop dismiss pattern
+        // biome-ignore lint/a11y/noNoninteractiveElementInteractions: backdrop dismiss pattern
+        // biome-ignore lint/a11y/noStaticElementInteractions: backdrop dismiss pattern
+        <div className="fixed inset-0 bg-background/80 -z-10" onClick={toggleExpand} />
       )}
     </div>
   );
