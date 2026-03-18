@@ -313,8 +313,13 @@ function ExplorerLayout({ geo }: { geo: GeoIP | null }) {
     prevComponentCount.current = count;
   }, [messages]);
 
-  // Sync thread ID from URL → Tambo on initial load (for shared links)
+  // Sync thread ID from URL → Tambo on initial load only (for shared links).
+  // Must NOT re-run on currentThreadId changes — otherwise startNewThread() gets
+  // overridden by the stale URL param before the URL-update effect clears it.
+  const initialSyncDone = useRef(false);
   useEffect(() => {
+    if (initialSyncDone.current) return;
+    initialSyncDone.current = true;
     const params = new URLSearchParams(window.location.search);
     const urlThread = params.get("thread");
     if (urlThread?.startsWith("thr_") && urlThread !== currentThreadId) {
