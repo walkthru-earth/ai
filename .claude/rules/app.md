@@ -7,7 +7,7 @@ paths:
 
 ## Entry Point
 
-`index.html` → `src/main.tsx` → `src/App.tsx` (React Router). Theme detection script + `crypto.randomUUID` polyfill in `index.html`. Fonts loaded via `@font-face` in `globals.css`.
+`index.html` → `src/main.tsx` → `src/App.tsx` (React Router). Theme detection script + `crypto.randomUUID` polyfill in `index.html`. Fonts: Quicksand (local woff2 via `@font-face` in `globals.css`) + DM Mono (`@fontsource/dm-mono` imported in `main.tsx`) — fully self-hosted, no CDN.
 
 ## `globals.css`
 

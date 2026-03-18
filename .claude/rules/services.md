@@ -9,10 +9,10 @@ paths:
 
 - `initDuckDB()`: singleton, jsDelivr bundles, Blob URL worker, extensions: httpfs → spatial → h3 → a5, `geometry_always_xy = true`, retries 3x
 - `preloadDuckDB()`: non-blocking warmup on page mount
-- `runQuery({sql})`: cleanSql → detectGeometryColumns (DESCRIBE) → wrapSqlForGeometry (if GEOMETRY found) → execute → Arrow→JS rows + columnArrays (typed array views) + arrowIPC (bytes) + wkbArrays (if geometry) → store in query-store → return metadata + 3 sample rows
-- `detectGeometryColumns(conn, sql)`: runs `DESCRIBE (sql)`, checks column_type for GEOMETRY. Fast — reads Parquet metadata only.
-- `wrapSqlForGeometry(sql, geomCol, cols)`: wraps as `SELECT __src.*, ST_Y(ST_Centroid(geom)) AS lat, ST_X(ST_Centroid(geom)) AS lng, ST_AsWKB(geom) AS __geo_wkb FROM (sql) __src`. Skips lat/lng if they already exist. Strips geom column + __geo_wkb from public columns/rows.
-- `arrowToJs(val)`: BigInt→Number, Uint8Array→hex, Struct→.toJSON(), Array→recursive
+- `runQuery({sql})`: cleanSql → detectGeometryColumns (DESCRIBE) → wrapSqlForGeometry (if GEOMETRY found) → execute → Arrow→JS rows + columnArrays (typed array views) + arrowIPC (bytes) + wkbArrays (if geometry) → store in query-store → return metadata + 3 sample rows + `geometryNote` (if geometry detected)
+- `detectGeometryColumns(conn, sql)`: runs `DESCRIBE (sql)`, checks column_type for GEOMETRY or WKB BLOB with well-known geo names. Skips CTE queries (`WITH ...`). Fast — reads Parquet metadata only.
+- `wrapSqlForGeometry(sql, geomCol, cols)`: wraps as `SELECT __src.*, ST_Y(ST_Centroid(geom)) AS lat, ST_X(ST_Centroid(geom)) AS lng, ST_AsWKB(geom) AS __geo_wkb FROM (sql) __src`. Skips lat/lng if they already exist. Strips geom column + __geo_wkb from public columns/rows. **lat/lng are synthetic** — they do NOT exist in the raw Parquet file. `geometryNote` in the return value tells the AI which column holds the actual geometry.
+- `arrowToJs(val)`: BigInt→Number, Uint8Array→hex, Struct→recursive .toJSON() (converts nested BigInts), plain objects→recursive, Array→recursive
 - Column arrays extracted via `vec.toArray()` — zero-copy views for single-chunk results. Used by GeoArrow layers for map rendering.
 
 ## `query-store.ts`

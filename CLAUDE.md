@@ -19,7 +19,7 @@ pnpm lint:fix     # biome auto-fix
 - **Pre-commit**: lefthook runs `pnpx @biomejs/biome check --write` on staged files
 - **Env vars**: Use `import.meta.env.VITE_*` (not `process.env.NEXT_PUBLIC_*`). Defined in `.env.local`, typed in `vite-env.d.ts`
 - **No SSR**: Pure SPA — all pages are client-rendered. No `"use server"`, no API routes
-- **Fonts**: Quicksand (local woff2 via `@font-face` in `globals.css`) + DM Mono (Google Fonts CDN)
+- **Fonts**: Quicksand (local woff2 via `@font-face` in `globals.css`) + DM Mono (`@fontsource/dm-mono` in `main.tsx`) — fully offline, no CDN
 - **Lazy loading**: Use `React.lazy()` + `<Suspense>` instead of `next/dynamic`
 - **Static assets**: `basePath` from `import.meta.env.BASE_URL` (set by Vite `base` config)
 
@@ -27,7 +27,7 @@ pnpm lint:fix     # biome auto-fix
 
 **queryId pattern** (zero-token data bridge): AI calls `runSQL` → DuckDB executes → full result stored in `query-store.ts` → only `queryId` returned to LLM (~10 tokens). Components read data from store via `useQueryResult(queryId)`.
 
-**Geometry auto-detection**: `runQuery()` auto-detects geometry columns via `DESCRIBE` (fast, metadata-only). Two paths: (1) native GEOMETRY type → `ST_AsWKB` + `ST_Centroid`, (2) WKB BLOB with well-known column name (geom, geometry, shape, etc.) → `ST_GeomFromWKB` + direct WKB passthrough. `enable_geoparquet_conversion = false` in init prevents WASM `stoi` crash on some GeoParquet files — our wrapping handles geometry instead. WKB arrays stored in query-store → GeoArrow zero-copy rendering. AI just writes `SELECT * FROM parquet_file`.
+**Geometry auto-detection**: `runQuery()` auto-detects geometry columns via `DESCRIBE` (fast, metadata-only). Two paths: (1) native GEOMETRY type → `ST_AsWKB` + `ST_Centroid`, (2) WKB BLOB with well-known column name (geom, geometry, shape, etc.) → `ST_GeomFromWKB` + direct WKB passthrough. `enable_geoparquet_conversion = false` in init prevents WASM `stoi` crash on some GeoParquet files — our wrapping handles geometry instead. WKB arrays stored in query-store → GeoArrow zero-copy rendering. AI just writes `SELECT * FROM parquet_file`. **Synthetic lat/lng**: When geometry is auto-detected, `lat`/`lng` columns are injected into results — they do NOT exist in the raw Parquet file. `runQuery` returns a `geometryNote` field explaining which column holds the actual geometry. AI must use `SELECT *` (auto-wrapping re-generates lat/lng) — never reference `lat`/`lng` directly on the raw file.
 
 **Cross-filter bus**: Lightweight pub/sub in `query-store.ts`. Components emit/consume `bbox` (map viewport) and `value` (click) filters. Requires shared `queryId` + `hex` column.
 
@@ -48,6 +48,8 @@ pnpm lint:fix     # biome auto-fix
 - **Coordinate order**: `lat` = latitude (north/south, e.g. 30.05 for Cairo), `lng` = longitude (east/west, e.g. 31.25 for Cairo). H3: `h3_latlng_to_cell(lat, lng, res)`. DuckDB spatial: `ST_Point(lng, lat)` (x=lon, y=lat). deck.gl GeoMap props: `latitude`/`longitude`.
 - **NEVER hardcode H3 hex strings** — AI will hallucinate wrong indices. Always compute from coordinates: `h3_latlng_to_cell(lat, lng, res)::BIGINT`. For area queries: `h3_grid_disk(h3_latlng_to_cell(lat, lng, res)::BIGINT, radius)`. If user's pre-computed H3 cells are available in context, use those directly.
 - **Geometry detection skips CTEs** — `DESCRIBE (WITH ...)` is invalid DuckDB syntax. CTE queries bypass geometry auto-detection (they're computed queries, not raw Parquet geometry).
+- **No same-name column aliasing** — `SELECT ST_AsWKB(geom) AS geom` fails in DuckDB v1.5 (circular alias due to friendly SQL reusable aliases). Use a different alias name like `wkb_data`.
+- **Prefer `SELECT *` for geometry files** — the system auto-handles geometry extraction. Do NOT manually call `ST_AsWKB`/`ST_GeomFromWKB`/`ST_AsGeoJSON`.
 
 ### DuckDB Friendly SQL (use these for cleaner queries)
 
@@ -58,7 +60,7 @@ pnpm lint:fix     # biome auto-fix
 - **`SELECT * REPLACE (expr AS col)`**: Replace a column with an expression. E.g. `SELECT * REPLACE (ROUND(pop_2100) AS pop_2100)`.
 - **`UNION BY NAME`**: Union tables by column names (not positions) — handles different column orders gracefully.
 - **Column aliases in `WHERE`/`GROUP BY`/`HAVING`**: Reference aliases defined in `SELECT` directly — no subquery needed.
-- **Reusable column aliases**: Use an alias defined earlier in the same `SELECT` clause. E.g. `SELECT pop_2100 - pop_2025 AS growth, growth / pop_2025 AS pct`.
+- **Reusable column aliases**: Use an alias defined earlier in the same `SELECT` clause. E.g. `SELECT pop_2100 - pop_2025 AS growth, growth / pop_2025 AS pct`. **Caveat**: never alias a column with the same name as the source column — DuckDB treats it as a circular reference (e.g. `SELECT col + 1 AS col` fails).
 - **`LIMIT` with percentage**: `LIMIT 10%` returns 10% of rows.
 - **`count()` shorthand**: `count()` works as `count(*)`.
 - **Trailing commas**: Allowed in column lists and `LIST` construction.

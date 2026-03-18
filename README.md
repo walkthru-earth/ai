@@ -19,7 +19,7 @@ pnpm dev                           # localhost:5173/ai
 - **Tambo AI SDK** — bidirectional AI ↔ component framework
 - **DuckDB-WASM v1.5** — in-browser SQL engine (spatial, H3, A5 extensions)
 - **deck.gl** + **GeoArrow** — GPU-accelerated map rendering with zero-copy Arrow buffers
-- **Tailwind CSS v4** — utility-first styling with CSS variables for theming
+- **Tailwind CSS v4** — utility-first styling with CSS variables for theming. Fonts: Quicksand (local woff2) + DM Mono (`@fontsource`) — fully self-hosted, no CDN
 - **Biome** — linting and formatting
 
 ## Routes
@@ -66,7 +66,7 @@ All data is open and hosted on S3 as H3-indexed Parquet files.
 - **Charts** — Bar, line, pie via Recharts with smart axis labels
 - **Data tables** — Auto-derived columns with sorting and cross-filter highlighting
 - **Insight cards** — AI-generated analysis summaries with severity levels
-- **GeoArrow zero-copy** — DuckDB Arrow tables → GPU buffers with no JS intermediary
+- **GeoArrow zero-copy** — DuckDB Arrow tables → GPU buffers with no JS intermediary. Auto-detects geometry columns and returns `geometryNote` to AI
 - **Mobile responsive** — Bottom sheet chat on mobile, touch-optimized dashboard
 - **Theme** — Dark/light/system with full CSS variable theming
 
