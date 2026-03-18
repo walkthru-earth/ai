@@ -1,12 +1,12 @@
 "use client";
 
 import { withTamboInteractable } from "@tambo-ai/react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Clipboard, Locate } from "lucide-react";
 import * as React from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { z } from "zod";
 import { cn } from "@/lib/utils";
-import { setCrossFilter, useCrossFilter, useQueryResult } from "@/services/query-store";
+import { requestFlyTo, setCrossFilter, useCrossFilter, useQueryResult } from "@/services/query-store";
 import { useInDashboardPanel } from "./panel-context";
 
 /* ── Schema ────────────────────────────────────────────────────────── */
@@ -119,6 +119,64 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
 
     const pageRows = resolvedRows?.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE) ?? [];
 
+    const [expandedRow, setExpandedRow] = useState<number | null>(null);
+    const [copied, setCopied] = useState(false);
+
+    // Close expanded row on page change
+    useEffect(() => {
+      setExpandedRow(null);
+    }, [safePage]);
+
+    const handleCopyRecord = useCallback(
+      (globalIdx: number, e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!resolvedColumns || !resolvedRows) return;
+        const row = resolvedRows[globalIdx];
+        if (!row) return;
+        const record: Record<string, string> = {};
+        for (let i = 0; i < resolvedColumns.length; i++) {
+          record[resolvedColumns[i].id] = row.cells[i] ?? "";
+        }
+        navigator.clipboard.writeText(JSON.stringify(record, null, 2)).then(() => {
+          setCopied(true);
+          setTimeout(() => setCopied(false), 1500);
+        });
+      },
+      [resolvedColumns, resolvedRows],
+    );
+
+    const handleZoomToRecord = useCallback(
+      (globalIdx: number, e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!queryResult) return;
+        const rawRow = queryResult.rows[globalIdx];
+        if (!rawRow) return;
+
+        // Try to find lat/lng from the row (may be synthetic from geometry detection, or explicit)
+        const lat = (rawRow.lat ?? rawRow.latitude) as number | undefined;
+        const lng = (rawRow.lng ?? rawRow.longitude) as number | undefined;
+
+        if (typeof lat === "number" && typeof lng === "number") {
+          requestFlyTo({ latitude: lat, longitude: lng, zoom: 12 });
+          return;
+        }
+
+        // Try H3 hex → centroid
+        const hex = (rawRow.hex ?? rawRow.h3_index) as string | undefined;
+        if (typeof hex === "string" && hex.length > 0) {
+          import("h3-js").then((h3) => {
+            try {
+              const [hLat, hLng] = h3.cellToLatLng(hex);
+              requestFlyTo({ latitude: hLat, longitude: hLng, zoom: 12 });
+            } catch {
+              /* invalid hex */
+            }
+          });
+        }
+      },
+      [queryResult],
+    );
+
     // Loading state
     if (!resolvedColumns || !resolvedRows) {
       return (
@@ -141,6 +199,9 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
 
     const handleRowClick = (rowIdx: number) => {
       const globalIdx = safePage * PAGE_SIZE + rowIdx;
+      // Toggle expanded row
+      setExpandedRow((prev) => (prev === globalIdx ? null : globalIdx));
+      // Emit cross-filter
       const val = resolvedRows[globalIdx]?.cells[0];
       if (!queryId || !resolvedColumns.length || val == null) return;
       const firstCol = resolvedColumns[0].id;
@@ -186,36 +247,63 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
                   filterColIdx >= 0 && crossFilter
                     ? crossFilter.values.includes(resolvedRows[globalIdx]?.cells[filterColIdx])
                     : false;
+                const isExpanded = expandedRow === globalIdx;
 
                 return (
-                  <tr
-                    key={row.id ?? `row-${rowIdx}`}
-                    onClick={() => handleRowClick(rowIdx)}
-                    className={cn(
-                      "border-b last:border-0 transition-colors cursor-pointer hover:bg-muted/20",
-                      highlight === "alternating" && rowIdx % 2 === 1 && "bg-muted/10",
-                      isFilterMatch && "bg-primary/10 border-l-2 border-l-primary",
-                    )}
-                  >
-                    {row.cells?.map((cell, cellIdx) => {
-                      const col = resolvedColumns[cellIdx];
-                      return (
-                        <td
-                          key={`${row.id ?? rowIdx}-${cellIdx}`}
-                          className={cn(
-                            "px-3 py-1.5 text-foreground whitespace-nowrap text-xs",
-                            col?.align === "right"
-                              ? "text-right"
-                              : col?.align === "center"
-                                ? "text-center"
-                                : "text-left",
-                          )}
-                        >
-                          {cell}
+                  <React.Fragment key={row.id ?? `row-${rowIdx}`}>
+                    <tr
+                      onClick={() => handleRowClick(rowIdx)}
+                      className={cn(
+                        "border-b last:border-0 transition-colors cursor-pointer hover:bg-muted/20",
+                        highlight === "alternating" && rowIdx % 2 === 1 && "bg-muted/10",
+                        isFilterMatch && "bg-primary/10 border-l-2 border-l-primary",
+                        isExpanded && "bg-primary/5",
+                      )}
+                    >
+                      {row.cells?.map((cell, cellIdx) => {
+                        const col = resolvedColumns[cellIdx];
+                        return (
+                          <td
+                            key={`${row.id ?? rowIdx}-${cellIdx}`}
+                            className={cn(
+                              "px-3 py-1.5 text-foreground whitespace-nowrap text-xs",
+                              col?.align === "right"
+                                ? "text-right"
+                                : col?.align === "center"
+                                  ? "text-center"
+                                  : "text-left",
+                            )}
+                          >
+                            {cell}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                    {isExpanded && (
+                      <tr className="border-b bg-muted/20">
+                        <td colSpan={resolvedColumns.length} className="px-3 py-1.5">
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={(e) => handleZoomToRecord(globalIdx, e)}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                            >
+                              <Locate className="w-3 h-3" />
+                              Zoom to record
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => handleCopyRecord(globalIdx, e)}
+                              className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-muted text-foreground hover:bg-muted/80 transition-colors"
+                            >
+                              {copied ? <Check className="w-3 h-3" /> : <Clipboard className="w-3 h-3" />}
+                              {copied ? "Copied" : "Copy record"}
+                            </button>
+                          </div>
                         </td>
-                      );
-                    })}
-                  </tr>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 );
               })}
             </tbody>

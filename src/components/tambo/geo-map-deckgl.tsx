@@ -15,6 +15,7 @@ import { Field, FixedSizeList, Float64, makeData, makeVector, Table, vectorFromA
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import React, { useEffect, useMemo, useRef } from "react";
+import { consumeFlyTo, useFlyToVersion } from "@/services/query-store";
 
 /* ── Types ──────────────────────────────────────────────────────── */
 
@@ -51,6 +52,13 @@ export interface LayerConfig {
 }
 
 export type Basemap = "auto" | "dark" | "light";
+
+export interface HoverInfo {
+  x: number;
+  y: number;
+  object: Record<string, unknown>;
+  layerType: LayerType;
+}
 
 export interface DeckGLMapProps {
   latitude: number;
@@ -304,6 +312,39 @@ function canUseGeoArrow(config: LayerConfig): boolean {
 
 /* ── Layer factory ──────────────────────────────────────────────── */
 
+function extractHoverProps(info: any, layerType: LayerType): Record<string, unknown> | null {
+  if (!info?.object) return null;
+  const obj = info.object;
+  // GeoArrow layers: data is in Arrow table, extract from index
+  if (info.index != null && info.data?.data) {
+    const table = info.data.data;
+    const props: Record<string, unknown> = {};
+    const schema = table.schema;
+    if (schema?.fields) {
+      for (const field of schema.fields) {
+        const name = field.name;
+        if (name === "geom" || name === "geometry" || name === "source" || name === "target") continue;
+        const col = table.getChild(name);
+        if (col) {
+          const val = col.get(info.index);
+          props[name] = typeof val === "bigint" ? Number(val) : val;
+        }
+      }
+    }
+    return Object.keys(props).length > 0 ? props : null;
+  }
+  // Standard layers: object is a JS object
+  if (layerType === "h3") return { hex: obj.hex, value: obj.value };
+  if (layerType === "geojson" && obj.properties) return obj.properties;
+  // Scatterplot, arc, wkb: return all props except internal
+  const result: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (k.startsWith("_") || k === "geometry" || k === "geom") continue;
+    result[k] = v;
+  }
+  return Object.keys(result).length > 0 ? result : null;
+}
+
 function buildLayers(
   configs: LayerConfig[],
   minVal: number,
@@ -311,7 +352,21 @@ function buildLayers(
   colorScheme: ColorScheme,
   extruded: boolean,
   onFeatureClick?: (feature: any, layerType: LayerType) => void,
+  onHover?: (info: HoverInfo | null) => void,
+  isTouch?: boolean,
 ): any[] {
+  // On touch: click toggles tooltip (since hover doesn't work on mobile)
+  const makeClickHandler = (origClick: (info: any) => void, lt: LayerType) => {
+    return (info: any) => {
+      origClick(info);
+      if (isTouch && onHover) {
+        const props = info?.object ? extractHoverProps(info, lt) : null;
+        // Toggle: if clicking same spot, dismiss
+        onHover(props ? { x: info.x, y: info.y, object: props, layerType: lt } : null);
+      }
+    };
+  };
+
   const result: any[] = [];
 
   for (let i = 0; i < configs.length; i++) {
@@ -346,9 +401,14 @@ function buildLayers(
               },
               elevationScale: 50,
               opacity: layerOpacity,
-              onClick: (info: any) => {
+              onClick: makeClickHandler((info: any) => {
                 const hex = info?.object?.hex;
                 if (hex && onFeatureClick) onFeatureClick(hex, "h3");
+              }, "h3"),
+              onHover: (info: any) => {
+                if (!onHover) return;
+                const props = info?.object ? extractHoverProps(info, "h3") : null;
+                onHover(props ? { x: info.x, y: info.y, object: props, layerType: "h3" } : null);
               },
               updateTriggers: {
                 getFillColor: [lo, hi, scheme],
@@ -398,8 +458,13 @@ function buildLayers(
                 radiusMinPixels: 3,
                 radiusMaxPixels: 20,
                 opacity: layerOpacity,
-                onClick: (info: any) => {
+                onClick: makeClickHandler((info: any) => {
                   if (info?.object && onFeatureClick) onFeatureClick(info.object, "scatterplot");
+                }, "scatterplot"),
+                onHover: (info: any) => {
+                  if (!onHover) return;
+                  const props = info?.object ? extractHoverProps(info, "scatterplot") : null;
+                  onHover(props ? { x: info.x, y: info.y, object: props, layerType: "scatterplot" } : null);
                 },
                 updateTriggers: {
                   getFillColor: [lo, hi, scheme],
@@ -430,8 +495,13 @@ function buildLayers(
                 radiusMinPixels: 3,
                 radiusMaxPixels: 20,
                 opacity: layerOpacity,
-                onClick: (info: any) => {
+                onClick: makeClickHandler((info: any) => {
                   if (info?.object && onFeatureClick) onFeatureClick(info.object, "scatterplot");
+                }, "scatterplot"),
+                onHover: (info: any) => {
+                  if (!onHover) return;
+                  const props = info?.object ? extractHoverProps(info, "scatterplot") : null;
+                  onHover(props ? { x: info.x, y: info.y, object: props, layerType: "scatterplot" } : null);
                 },
                 updateTriggers: {
                   getFillColor: [lo, hi, scheme],
@@ -494,8 +564,13 @@ function buildLayers(
                     radiusMinPixels: 3,
                     radiusMaxPixels: 20,
                     opacity: layerOpacity,
-                    onClick: (info: any) => {
+                    onClick: makeClickHandler((info: any) => {
                       if (info?.object && onFeatureClick) onFeatureClick(info.object, "geojson");
+                    }, "geojson"),
+                    onHover: (info: any) => {
+                      if (!onHover) return;
+                      const props = info?.object ? extractHoverProps(info, "wkb") : null;
+                      onHover(props ? { x: info.x, y: info.y, object: props, layerType: "wkb" } : null);
                     },
                     updateTriggers: { getFillColor: [lo, hi, scheme], getRadius: [lo, hi] },
                   }),
@@ -515,8 +590,13 @@ function buildLayers(
                     widthMinPixels: 1,
                     widthMaxPixels: 8,
                     opacity: layerOpacity,
-                    onClick: (info: any) => {
+                    onClick: makeClickHandler((info: any) => {
                       if (info?.object && onFeatureClick) onFeatureClick(info.object, "geojson");
+                    }, "geojson"),
+                    onHover: (info: any) => {
+                      if (!onHover) return;
+                      const props = info?.object ? extractHoverProps(info, "wkb") : null;
+                      onHover(props ? { x: info.x, y: info.y, object: props, layerType: "wkb" } : null);
                     },
                     updateTriggers: { getColor: [lo, hi, scheme] },
                   }),
@@ -550,8 +630,13 @@ function buildLayers(
                     },
                     elevationScale: 50,
                     opacity: layerOpacity,
-                    onClick: (info: any) => {
+                    onClick: makeClickHandler((info: any) => {
                       if (info?.object && onFeatureClick) onFeatureClick(info.object, "geojson");
+                    }, "geojson"),
+                    onHover: (info: any) => {
+                      if (!onHover) return;
+                      const props = info?.object ? extractHoverProps(info, "wkb") : null;
+                      onHover(props ? { x: info.x, y: info.y, object: props, layerType: "wkb" } : null);
                     },
                     updateTriggers: {
                       getFillColor: [lo, hi, scheme],
@@ -595,6 +680,11 @@ function buildLayers(
                 opacity: layerOpacity,
                 onClick: (info: any) => {
                   if (info?.object && onFeatureClick) onFeatureClick(info.object, "geojson");
+                },
+                onHover: (info: any) => {
+                  if (!onHover) return;
+                  const props = info?.object ? extractHoverProps(info, "geojson") : null;
+                  onHover(props ? { x: info.x, y: info.y, object: props, layerType: "geojson" } : null);
                 },
                 updateTriggers: {
                   getFillColor: [lo, hi, scheme],
@@ -640,8 +730,13 @@ function buildLayers(
                 widthMinPixels: 1,
                 widthMaxPixels: 8,
                 opacity: layerOpacity,
-                onClick: (info: any) => {
+                onClick: makeClickHandler((info: any) => {
                   if (info?.object && onFeatureClick) onFeatureClick(info.object, "arc");
+                }, "arc"),
+                onHover: (info: any) => {
+                  if (!onHover) return;
+                  const props = info?.object ? extractHoverProps(info, "arc") : null;
+                  onHover(props ? { x: info.x, y: info.y, object: props, layerType: "arc" } : null);
                 },
                 updateTriggers: {
                   getSourceColor: [lo, hi, scheme],
@@ -666,8 +761,13 @@ function buildLayers(
                 widthMinPixels: 1,
                 widthMaxPixels: 8,
                 opacity: layerOpacity,
-                onClick: (info: any) => {
+                onClick: makeClickHandler((info: any) => {
                   if (info?.object && onFeatureClick) onFeatureClick(info.object, "arc");
+                }, "arc"),
+                onHover: (info: any) => {
+                  if (!onHover) return;
+                  const props = info?.object ? extractHoverProps(info, "arc") : null;
+                  onHover(props ? { x: info.x, y: info.y, object: props, layerType: "arc" } : null);
                 },
                 updateTriggers: {
                   getSourceColor: [lo, hi, scheme],
@@ -685,6 +785,54 @@ function buildLayers(
 }
 
 /* ── Main component ─────────────────────────────────────────────── */
+
+/* ── Tooltip formatting ─────────────────────────────────────────── */
+
+const MAX_TOOLTIP_FIELDS = 6;
+
+function formatTooltipValue(val: unknown): string {
+  if (val == null) return "—";
+  if (typeof val === "number") {
+    if (Number.isInteger(val) && Math.abs(val) >= 1000) return val.toLocaleString();
+    if (!Number.isInteger(val)) return val.toLocaleString(undefined, { maximumFractionDigits: 4 });
+  }
+  const s = String(val);
+  return s.length > 60 ? `${s.slice(0, 57)}...` : s;
+}
+
+function MapTooltip({ hover, containerRect }: { hover: HoverInfo; containerRect: DOMRect | null }) {
+  const entries = Object.entries(hover.object).slice(0, MAX_TOOLTIP_FIELDS);
+  if (entries.length === 0) return null;
+
+  // Position tooltip, keeping it within bounds
+  const tooltipW = 220;
+  const tooltipH = entries.length * 24 + 16;
+  const cw = containerRect?.width ?? 800;
+  const ch = containerRect?.height ?? 600;
+  const x = hover.x + tooltipW + 16 > cw ? hover.x - tooltipW - 8 : hover.x + 12;
+  const y = hover.y + tooltipH + 16 > ch ? Math.max(4, hover.y - tooltipH - 8) : hover.y + 12;
+
+  return (
+    <div
+      className="absolute z-20 pointer-events-none rounded-lg border bg-card/95 shadow-lg backdrop-blur-sm overflow-hidden"
+      style={{ left: x, top: y, maxWidth: tooltipW }}
+    >
+      <div className="px-2.5 py-1.5 space-y-0.5">
+        {entries.map(([key, val]) => (
+          <div key={key} className="flex items-baseline gap-1.5 text-xs">
+            <span className="text-muted-foreground truncate shrink-0 max-w-[80px]">{key}</span>
+            <span className="text-foreground font-medium truncate">{formatTooltipValue(val)}</span>
+          </div>
+        ))}
+        {Object.keys(hover.object).length > MAX_TOOLTIP_FIELDS && (
+          <div className="text-[10px] text-muted-foreground/60">
+            +{Object.keys(hover.object).length - MAX_TOOLTIP_FIELDS} more
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function DeckGLMap({
   latitude,
@@ -714,11 +862,53 @@ export default function DeckGLMap({
   const onViewStateChangeRef = useRef(onViewStateChange);
   onViewStateChangeRef.current = onViewStateChange;
 
+  // Hover/tap tooltip state
+  const [hoverInfo, setHoverInfo] = React.useState<HoverInfo | null>(null);
+  // Right-click context menu
+  const [contextMenu, setContextMenu] = React.useState<{ x: number; y: number; data: Record<string, unknown> } | null>(
+    null,
+  );
+  const [ctxCopied, setCtxCopied] = React.useState(false);
+  const isTouchRef = useRef(false);
+  useEffect(() => {
+    isTouchRef.current = "ontouchstart" in window || navigator.maxTouchPoints > 0;
+  }, []);
+
+  const handleHover = React.useCallback((info: HoverInfo | null) => {
+    setHoverInfo(info);
+    // Change cursor based on hover state
+    if (mapRef.current) {
+      mapRef.current.getCanvas().style.cursor = info ? "crosshair" : "";
+    }
+  }, []);
+
+  const containerRectRef = useRef<DOMRect | null>(null);
+  useEffect(() => {
+    if (containerRef.current) {
+      containerRectRef.current = containerRef.current.getBoundingClientRect();
+    }
+    const handleResize = () => {
+      if (containerRef.current) containerRectRef.current = containerRef.current.getBoundingClientRect();
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   const totalDataCount = layerConfigs.reduce((sum, c) => sum + c.data.length, 0);
 
   const layers = useMemo(
-    () => buildLayers(layerConfigs, minVal, maxVal, colorScheme, extruded, onFeatureClickRef.current),
-    [layerConfigs, minVal, maxVal, colorScheme, extruded],
+    () =>
+      buildLayers(
+        layerConfigs,
+        minVal,
+        maxVal,
+        colorScheme,
+        extruded,
+        onFeatureClickRef.current,
+        handleHover,
+        isTouchRef.current,
+      ),
+    [layerConfigs, minVal, maxVal, colorScheme, extruded, handleHover],
   );
 
   // 1. Initialize MapLibre + deck.gl overlay ONCE
@@ -759,6 +949,12 @@ export default function DeckGLMap({
           zoom: map.getZoom(),
         });
       }, 300);
+    });
+
+    // Dismiss tooltip on map interaction (natural on mobile)
+    map.on("movestart", () => {
+      setHoverInfo(null);
+      setContextMenu(null);
     });
 
     mapRef.current = map;
@@ -829,5 +1025,67 @@ export default function DeckGLMap({
     });
   }, [latitude, longitude, zoom, extruded]);
 
-  return <div ref={containerRef} style={{ width: "100%", height: "100%", position: "absolute", inset: 0 }} />;
+  // 6. FlyTo from external request (e.g. DataTable "Zoom to record")
+  const flyToVer = useFlyToVersion();
+  useEffect(() => {
+    if (!mapRef.current || flyToVer === 0) return;
+    const target = consumeFlyTo();
+    if (!target) return;
+    mapRef.current.flyTo({
+      center: [target.longitude, target.latitude],
+      zoom: target.zoom ?? 12,
+      duration: 1200,
+    });
+  }, [flyToVer]);
+
+  const handleContextMenu = React.useCallback(
+    (e: React.MouseEvent) => {
+      // If hovering a feature, show context menu instead of browser default
+      if (hoverInfo) {
+        e.preventDefault();
+        setContextMenu({ x: e.nativeEvent.offsetX, y: e.nativeEvent.offsetY, data: hoverInfo.object });
+      }
+    },
+    [hoverInfo],
+  );
+
+  const handleCopyFromContextMenu = React.useCallback(() => {
+    if (!contextMenu) return;
+    navigator.clipboard.writeText(JSON.stringify(contextMenu.data, null, 2)).then(() => {
+      setCtxCopied(true);
+      setTimeout(() => {
+        setCtxCopied(false);
+        setContextMenu(null);
+      }, 1000);
+    });
+  }, [contextMenu]);
+
+  // Dismiss context menu on click anywhere
+  useEffect(() => {
+    if (!contextMenu) return;
+    const dismiss = () => setContextMenu(null);
+    window.addEventListener("click", dismiss);
+    return () => window.removeEventListener("click", dismiss);
+  }, [contextMenu]);
+
+  return (
+    <div style={{ width: "100%", height: "100%", position: "absolute", inset: 0 }} onContextMenu={handleContextMenu}>
+      <div ref={containerRef} style={{ width: "100%", height: "100%", position: "absolute", inset: 0 }} />
+      {hoverInfo && !contextMenu && <MapTooltip hover={hoverInfo} containerRect={containerRectRef.current} />}
+      {contextMenu && (
+        <div
+          className="absolute z-30 rounded-lg border bg-card shadow-lg overflow-hidden"
+          style={{ left: contextMenu.x, top: contextMenu.y }}
+        >
+          <button
+            type="button"
+            onClick={handleCopyFromContextMenu}
+            className="flex items-center gap-2 px-3 py-2 text-xs font-medium text-foreground hover:bg-muted/60 transition-colors w-full"
+          >
+            {ctxCopied ? "Copied!" : "Copy record"}
+          </button>
+        </div>
+      )}
+    </div>
+  );
 }

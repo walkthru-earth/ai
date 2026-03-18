@@ -163,3 +163,45 @@ export function useCrossFilterEnabled(): [boolean, (v: boolean) => void] {
   const enabled = useSyncExternalStore(subscribeToggle, isCrossFilterEnabled, () => true);
   return [enabled, setCrossFilterEnabled];
 }
+
+/* ── Fly-To Bus ────────────────────────────────────────────────────── */
+
+export interface FlyToTarget {
+  latitude: number;
+  longitude: number;
+  zoom?: number;
+}
+
+let flyToTarget: FlyToTarget | null = null;
+let flyToVersion = 0;
+const flyToListeners = new Set<() => void>();
+
+function emitFlyTo() {
+  for (const fn of flyToListeners) fn();
+}
+
+export function requestFlyTo(target: FlyToTarget): void {
+  flyToTarget = target;
+  flyToVersion++;
+  emitFlyTo();
+}
+
+export function consumeFlyTo(): FlyToTarget | null {
+  const t = flyToTarget;
+  flyToTarget = null;
+  return t;
+}
+
+function getFlyToVersion() {
+  return flyToVersion;
+}
+
+function subscribeFlyTo(cb: () => void): () => void {
+  flyToListeners.add(cb);
+  return () => flyToListeners.delete(cb);
+}
+
+/** Returns the latest fly-to version (triggers re-render when a new target is requested) */
+export function useFlyToVersion(): number {
+  return useSyncExternalStore(subscribeFlyTo, getFlyToVersion, () => 0);
+}
