@@ -175,14 +175,12 @@ interface GeomDetection {
  */
 async function detectGeometryColumns(conn: any, sql: string): Promise<GeomDetection | null> {
   try {
-    // DESCRIBE (WITH ...) is invalid DuckDB syntax — wrap CTEs as a subquery with LIMIT 0
-    // so DuckDB only reads schema metadata, not data.
+    // Skip geometry detection for CTE queries — DESCRIBE (WITH ...) is invalid DuckDB syntax,
+    // and CTEs are computed queries unlikely to have raw GEOMETRY columns from Parquet files.
     const trimmed = sql.trimStart().toUpperCase();
-    const describeSql =
-      trimmed.startsWith("WITH") || trimmed.startsWith("FROM")
-        ? `DESCRIBE (SELECT * FROM (${sql}) __desc LIMIT 0)`
-        : `DESCRIBE (${sql})`;
-    const descResult = await conn.query(describeSql);
+    if (trimmed.startsWith("WITH")) return null;
+
+    const descResult = await conn.query(`DESCRIBE (${sql})`);
     const nameVec = descResult.getChild("column_name");
     const typeVec = descResult.getChild("column_type");
     if (!nameVec || !typeVec) return null;
