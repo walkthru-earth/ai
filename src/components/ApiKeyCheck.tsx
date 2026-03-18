@@ -1,5 +1,3 @@
-"use client";
-
 import { AlertTriangle, Check, Copy } from "lucide-react";
 import { useState } from "react";
 
@@ -11,7 +9,7 @@ const CopyButton = ({ text }: { text: string }) => {
   const [showCopied, setShowCopied] = useState(false);
 
   const copyToClipboard = () => {
-    navigator.clipboard.writeText(text);
+    navigator.clipboard.writeText(text).catch(() => {});
     setShowCopied(true);
     setTimeout(() => setShowCopied(false), 2000);
   };

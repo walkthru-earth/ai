@@ -1,5 +1,3 @@
-"use client";
-
 /**
  * Backward-compatible H3Map alias — delegates to GeoMap with layerType="h3".
  * Existing imports and thread replays continue working.

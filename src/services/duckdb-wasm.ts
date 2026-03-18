@@ -1,5 +1,3 @@
-"use client";
-
 /**
  * DuckDB-WASM service — runs SQL against remote Parquet in-browser.
  *
@@ -283,11 +281,6 @@ export async function runQuery(input: { sql: string } | string): Promise<{
 
   if (!sql) {
     return { queryId: "", columns: [], rowCount: 0, duration: 0, sampleRows: [] };
-  }
-
-  // If previous init failed, allow a fresh retry
-  if (!db && !initPromise) {
-    initPromise = null;
   }
 
   const instance = await initDuckDB();

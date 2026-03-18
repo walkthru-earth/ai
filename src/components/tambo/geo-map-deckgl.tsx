@@ -1,5 +1,3 @@
-"use client";
-
 import { H3HexagonLayer } from "@deck.gl/geo-layers";
 import { ArcLayer, GeoJsonLayer, ScatterplotLayer } from "@deck.gl/layers";
 import { MapboxOverlay } from "@deck.gl/mapbox";
@@ -345,6 +343,10 @@ function extractHoverProps(info: any, layerType: LayerType): Record<string, unkn
   return Object.keys(result).length > 0 ? result : null;
 }
 
+// Single-instance: module-level state shared across all DeckGLMap instances
+let lastHoverLayerId: string | null = null;
+let lastHoverIndex: number | null = null;
+
 function buildLayers(
   configs: LayerConfig[],
   minVal: number,
@@ -364,6 +366,19 @@ function buildLayers(
         // Toggle: if clicking same spot, dismiss
         onHover(props ? { x: info.x, y: info.y, object: props, layerType: lt } : null);
       }
+    };
+  };
+
+  const makeHoverHandler = (layerId: string, lt: LayerType) => {
+    return (info: any) => {
+      if (!onHover) return;
+      const idx = info?.index ?? null;
+      // Skip if hovering the same feature on the same layer
+      if (idx === lastHoverIndex && layerId === lastHoverLayerId) return;
+      lastHoverIndex = idx;
+      lastHoverLayerId = layerId;
+      const props = info?.object ? extractHoverProps(info, lt) : null;
+      onHover(props ? { x: info.x, y: info.y, object: props, layerType: lt } : null);
     };
   };
 
@@ -405,11 +420,7 @@ function buildLayers(
                 const hex = info?.object?.hex;
                 if (hex && onFeatureClick) onFeatureClick(hex, "h3");
               }, "h3"),
-              onHover: (info: any) => {
-                if (!onHover) return;
-                const props = info?.object ? extractHoverProps(info, "h3") : null;
-                onHover(props ? { x: info.x, y: info.y, object: props, layerType: "h3" } : null);
-              },
+              onHover: makeHoverHandler(layerId, "h3"),
               updateTriggers: {
                 getFillColor: [lo, hi, scheme],
                 getElevation: [lo, hi, extruded],
@@ -461,11 +472,7 @@ function buildLayers(
                 onClick: makeClickHandler((info: any) => {
                   if (info?.object && onFeatureClick) onFeatureClick(info.object, "scatterplot");
                 }, "scatterplot"),
-                onHover: (info: any) => {
-                  if (!onHover) return;
-                  const props = info?.object ? extractHoverProps(info, "scatterplot") : null;
-                  onHover(props ? { x: info.x, y: info.y, object: props, layerType: "scatterplot" } : null);
-                },
+                onHover: makeHoverHandler(layerId, "scatterplot"),
                 updateTriggers: {
                   getFillColor: [lo, hi, scheme],
                   getRadius: [lo, hi],
@@ -498,11 +505,7 @@ function buildLayers(
                 onClick: makeClickHandler((info: any) => {
                   if (info?.object && onFeatureClick) onFeatureClick(info.object, "scatterplot");
                 }, "scatterplot"),
-                onHover: (info: any) => {
-                  if (!onHover) return;
-                  const props = info?.object ? extractHoverProps(info, "scatterplot") : null;
-                  onHover(props ? { x: info.x, y: info.y, object: props, layerType: "scatterplot" } : null);
-                },
+                onHover: makeHoverHandler(layerId, "scatterplot"),
                 updateTriggers: {
                   getFillColor: [lo, hi, scheme],
                   getRadius: [lo, hi],
@@ -528,12 +531,9 @@ function buildLayers(
                   type: arr instanceof Float64Array ? "DOUBLE" : "VARCHAR",
                 });
               }
-              // Ensure value column is included
-              if (valCol in config.columnArrays && !attrs.has("value")) {
-                attrs.set("value", {
-                  values: Array.from(config.columnArrays[valCol]),
-                  type: "DOUBLE",
-                });
+              // Ensure value column is accessible under "value" key for GeoArrow color rendering
+              if (valCol !== "value" && valCol in config.columnArrays) {
+                attrs.set("value", attrs.get(valCol)!);
               }
             }
 
@@ -567,11 +567,7 @@ function buildLayers(
                     onClick: makeClickHandler((info: any) => {
                       if (info?.object && onFeatureClick) onFeatureClick(info.object, "geojson");
                     }, "geojson"),
-                    onHover: (info: any) => {
-                      if (!onHover) return;
-                      const props = info?.object ? extractHoverProps(info, "wkb") : null;
-                      onHover(props ? { x: info.x, y: info.y, object: props, layerType: "wkb" } : null);
-                    },
+                    onHover: makeHoverHandler(layerId, "wkb"),
                     updateTriggers: { getFillColor: [lo, hi, scheme], getRadius: [lo, hi] },
                   }),
                 );
@@ -593,11 +589,7 @@ function buildLayers(
                     onClick: makeClickHandler((info: any) => {
                       if (info?.object && onFeatureClick) onFeatureClick(info.object, "geojson");
                     }, "geojson"),
-                    onHover: (info: any) => {
-                      if (!onHover) return;
-                      const props = info?.object ? extractHoverProps(info, "wkb") : null;
-                      onHover(props ? { x: info.x, y: info.y, object: props, layerType: "wkb" } : null);
-                    },
+                    onHover: makeHoverHandler(layerId, "wkb"),
                     updateTriggers: { getColor: [lo, hi, scheme] },
                   }),
                 );
@@ -633,11 +625,7 @@ function buildLayers(
                     onClick: makeClickHandler((info: any) => {
                       if (info?.object && onFeatureClick) onFeatureClick(info.object, "geojson");
                     }, "geojson"),
-                    onHover: (info: any) => {
-                      if (!onHover) return;
-                      const props = info?.object ? extractHoverProps(info, "wkb") : null;
-                      onHover(props ? { x: info.x, y: info.y, object: props, layerType: "wkb" } : null);
-                    },
+                    onHover: makeHoverHandler(layerId, "wkb"),
                     updateTriggers: {
                       getFillColor: [lo, hi, scheme],
                       getLineColor: [lo, hi, scheme],
@@ -681,11 +669,7 @@ function buildLayers(
                 onClick: (info: any) => {
                   if (info?.object && onFeatureClick) onFeatureClick(info.object, "geojson");
                 },
-                onHover: (info: any) => {
-                  if (!onHover) return;
-                  const props = info?.object ? extractHoverProps(info, "geojson") : null;
-                  onHover(props ? { x: info.x, y: info.y, object: props, layerType: "geojson" } : null);
-                },
+                onHover: makeHoverHandler(layerId, "geojson"),
                 updateTriggers: {
                   getFillColor: [lo, hi, scheme],
                   getLineColor: [lo, hi, scheme],
@@ -733,11 +717,7 @@ function buildLayers(
                 onClick: makeClickHandler((info: any) => {
                   if (info?.object && onFeatureClick) onFeatureClick(info.object, "arc");
                 }, "arc"),
-                onHover: (info: any) => {
-                  if (!onHover) return;
-                  const props = info?.object ? extractHoverProps(info, "arc") : null;
-                  onHover(props ? { x: info.x, y: info.y, object: props, layerType: "arc" } : null);
-                },
+                onHover: makeHoverHandler(layerId, "arc"),
                 updateTriggers: {
                   getSourceColor: [lo, hi, scheme],
                   getTargetColor: [lo, hi, scheme],
@@ -764,11 +744,7 @@ function buildLayers(
                 onClick: makeClickHandler((info: any) => {
                   if (info?.object && onFeatureClick) onFeatureClick(info.object, "arc");
                 }, "arc"),
-                onHover: (info: any) => {
-                  if (!onHover) return;
-                  const props = info?.object ? extractHoverProps(info, "arc") : null;
-                  onHover(props ? { x: info.x, y: info.y, object: props, layerType: "arc" } : null);
-                },
+                onHover: makeHoverHandler(layerId, "arc"),
                 updateTriggers: {
                   getSourceColor: [lo, hi, scheme],
                   getTargetColor: [lo, hi, scheme],
@@ -869,9 +845,9 @@ export default function DeckGLMap({
     null,
   );
   const [ctxCopied, setCtxCopied] = React.useState(false);
-  const isTouchRef = useRef(false);
+  const [isTouch, setIsTouch] = React.useState(false);
   useEffect(() => {
-    isTouchRef.current = "ontouchstart" in window || navigator.maxTouchPoints > 0;
+    setIsTouch("ontouchstart" in window || navigator.maxTouchPoints > 0);
   }, []);
 
   const handleHover = React.useCallback((info: HoverInfo | null) => {
@@ -891,24 +867,23 @@ export default function DeckGLMap({
       if (containerRef.current) containerRectRef.current = containerRef.current.getBoundingClientRect();
     };
     window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    window.addEventListener("scroll", handleResize, true);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("scroll", handleResize, true);
+    };
   }, []);
 
   const totalDataCount = layerConfigs.reduce((sum, c) => sum + c.data.length, 0);
 
+  const stableOnFeatureClick = React.useCallback(
+    (...args: Parameters<NonNullable<typeof onFeatureClick>>) => onFeatureClickRef.current?.(...args),
+    [],
+  );
+
   const layers = useMemo(
-    () =>
-      buildLayers(
-        layerConfigs,
-        minVal,
-        maxVal,
-        colorScheme,
-        extruded,
-        onFeatureClickRef.current,
-        handleHover,
-        isTouchRef.current,
-      ),
-    [layerConfigs, minVal, maxVal, colorScheme, extruded, handleHover],
+    () => buildLayers(layerConfigs, minVal, maxVal, colorScheme, extruded, stableOnFeatureClick, handleHover, isTouch),
+    [layerConfigs, minVal, maxVal, colorScheme, extruded, stableOnFeatureClick, handleHover, isTouch],
   );
 
   // 1. Initialize MapLibre + deck.gl overlay ONCE
@@ -966,7 +941,6 @@ export default function DeckGLMap({
       mapRef.current = null;
       overlayRef.current = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // 2. Update layers when data/styling changes
@@ -976,6 +950,8 @@ export default function DeckGLMap({
 
   // 3. Switch basemap style when theme changes or basemap prop changes
   const resolvedDark = basemap === "auto" ? isDark : basemap === "dark";
+  const layersRef = useRef(layers);
+  layersRef.current = layers;
   useEffect(() => {
     if (!mapRef.current) return;
     const map = mapRef.current;
@@ -985,14 +961,17 @@ export default function DeckGLMap({
     map.setStyle(newStyle);
     map.once("styledata", () => {
       if (overlayRef.current) {
-        overlayRef.current.setProps({ layers });
+        overlayRef.current.setProps({ layers: layersRef.current });
       }
     });
-  }, [resolvedDark, layers]);
+  }, [resolvedDark]);
 
   // 4. Auto-fitBounds on first data load (0→N), driven by GeoMap passing explicit bounds
   useEffect(() => {
-    if (!mapRef.current || !fitBoundsProp || totalDataCount === 0) return;
+    if (!mapRef.current || !fitBoundsProp || totalDataCount === 0) {
+      prevDataCountRef.current = 0;
+      return;
+    }
     if (prevDataCountRef.current > 0) {
       prevDataCountRef.current = totalDataCount;
       return;
@@ -1006,7 +985,6 @@ export default function DeckGLMap({
       pitch: extruded ? 45 : 0,
       bearing: extruded ? -15 : 0,
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [totalDataCount, fitBoundsProp]);
 
   // 5. FlyTo when AI explicitly changes lat/lng/zoom props

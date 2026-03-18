@@ -1,5 +1,3 @@
-"use client";
-
 import type { Content, TamboComponentContent, TamboThreadMessage, TamboToolUseContent } from "@tambo-ai/react";
 import { useTambo } from "@tambo-ai/react";
 import { cva, type VariantProps } from "class-variance-authority";

@@ -1,8 +1,6 @@
-"use client";
-
-import { useTamboComponentState } from "@tambo-ai/react";
 import { Check, ExternalLink } from "lucide-react";
 import * as React from "react";
+import { useState } from "react";
 import { z } from "zod";
 import { cn } from "@/lib/utils";
 
@@ -50,13 +48,10 @@ export const DataCard = React.forwardRef<HTMLDivElement, DataCardProps>(
   ({ title, options, className, ...rest }, ref) => {
     // Filter out Tambo internal props before spreading onto DOM
     const props = Object.fromEntries(Object.entries(rest).filter(([k]) => !k.startsWith("_tambo_")));
-    // Initialize Tambo component state
-    const [state, setState] = useTamboComponentState<DataCardState>("data-card", { selectedValues: [] });
+    const [state, setState] = useState<DataCardState>({ selectedValues: [] });
 
     // Handle option selection
     const handleToggleCard = (value: string) => {
-      if (!state) return;
-
       const selectedValues = [...state.selectedValues];
       const index = selectedValues.indexOf(value);
 
@@ -82,7 +77,7 @@ export const DataCard = React.forwardRef<HTMLDivElement, DataCardProps>(
 
         <div className="space-y-2">
           {options?.map((card, index) => {
-            const isSelected = state?.selectedValues.includes(card.value);
+            const isSelected = state.selectedValues.includes(card.value);
             return (
               <div
                 key={`${card.id || "card"}-${index}`}

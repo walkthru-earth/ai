@@ -1,5 +1,3 @@
-"use client";
-
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useTamboMcpPrompt, useTamboMcpPromptList, useTamboMcpResourceList } from "@tambo-ai/react/mcp";
 import { AlertCircle, AtSign, FileText, Search } from "lucide-react";

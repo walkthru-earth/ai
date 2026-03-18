@@ -1,11 +1,9 @@
-"use client";
-
 import { withTamboInteractable } from "@tambo-ai/react";
 import { cva } from "class-variance-authority";
 import * as React from "react";
 import { useMemo } from "react";
 import * as RechartsCore from "recharts";
-import { z } from "zod/v3";
+import { z } from "zod";
 import { cn } from "@/lib/utils";
 import { setCrossFilter, useCrossFilter, useQueryResult } from "@/services/query-store";
 import { useInDashboardPanel } from "./panel-context";
@@ -189,8 +187,6 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
     }));
 
     // Cross-filter: highlight matching bar/point
-    const _isFiltered = crossFilter && crossFilter.sourceComponent !== "Graph" && crossFilter.column === xColumn;
-
     const handleBarClick = (entry: any) => {
       const clickedLabel = entry?.name ?? entry?.payload?.name;
       if (clickedLabel != null) {
@@ -309,9 +305,7 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
                 isAnimationActive={false}
               />
               <RechartsCore.Tooltip contentStyle={tooltipStyle} />
-              {showLegend && validDatasets.length > 1 && (
-                <RechartsCore.Legend wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }} />
-              )}
+              {showLegend && <RechartsCore.Legend wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }} />}
             </RechartsCore.PieChart>
           );
         }

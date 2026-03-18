@@ -1,5 +1,3 @@
-"use client";
-
 import { withTamboInteractable } from "@tambo-ai/react";
 import { Check, ChevronLeft, ChevronRight, Clipboard, Locate } from "lucide-react";
 import * as React from "react";
@@ -104,9 +102,9 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
           id: String(i),
           cells: cols.map((c) => formatCell(row[c.id])),
         }));
-        return { resolvedColumns: cols, resolvedRows: fRows };
+        return { resolvedColumns: cols, resolvedRows: fRows, filteredRawRows: rRows };
       }
-      return { resolvedColumns: columns ?? null, resolvedRows: rows ?? null };
+      return { resolvedColumns: columns ?? null, resolvedRows: rows ?? null, filteredRawRows: null };
     }, [queryId, queryResult, visibleColumns, columns, rows, crossFilter]);
 
     // Reset page when data changes — useEffect to avoid setState during render
@@ -120,12 +118,13 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
     const pageRows = resolvedRows?.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE) ?? [];
 
     const [expandedRow, setExpandedRow] = useState<number | null>(null);
-    const [copied, setCopied] = useState(false);
+    const [copiedRow, setCopiedRow] = useState<number | null>(null);
 
     // Close expanded row on page change
+    // biome-ignore lint/correctness/useExhaustiveDependencies: page triggers reset intentionally
     useEffect(() => {
       setExpandedRow(null);
-    }, [safePage]);
+    }, [page]);
 
     const handleCopyRecord = useCallback(
       (globalIdx: number, e: React.MouseEvent) => {
@@ -138,8 +137,8 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
           record[resolvedColumns[i].id] = row.cells[i] ?? "";
         }
         navigator.clipboard.writeText(JSON.stringify(record, null, 2)).then(() => {
-          setCopied(true);
-          setTimeout(() => setCopied(false), 1500);
+          setCopiedRow(globalIdx);
+          setTimeout(() => setCopiedRow(null), 1500);
         });
       },
       [resolvedColumns, resolvedRows],
@@ -149,7 +148,7 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
       (globalIdx: number, e: React.MouseEvent) => {
         e.stopPropagation();
         if (!queryResult) return;
-        const rawRow = queryResult.rows[globalIdx];
+        const rawRow = filteredRawRows ? filteredRawRows[globalIdx] : queryResult.rows[globalIdx];
         if (!rawRow) return;
 
         // Try to find lat/lng from the row (may be synthetic from geometry detection, or explicit)
@@ -164,14 +163,16 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
         // Try H3 hex → centroid
         const hex = (rawRow.hex ?? rawRow.h3_index) as string | undefined;
         if (typeof hex === "string" && hex.length > 0) {
-          import("h3-js").then((h3) => {
-            try {
-              const [hLat, hLng] = h3.cellToLatLng(hex);
-              requestFlyTo({ latitude: hLat, longitude: hLng, zoom: 12 });
-            } catch {
-              /* invalid hex */
-            }
-          });
+          import("h3-js")
+            .then((h3) => {
+              try {
+                const [hLat, hLng] = h3.cellToLatLng(hex);
+                requestFlyTo({ latitude: hLat, longitude: hLng, zoom: 12 });
+              } catch {
+                /* invalid hex */
+              }
+            })
+            .catch(() => {});
         }
       },
       [queryResult],
@@ -296,8 +297,12 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
                               onClick={(e) => handleCopyRecord(globalIdx, e)}
                               className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-muted text-foreground hover:bg-muted/80 transition-colors"
                             >
-                              {copied ? <Check className="w-3 h-3" /> : <Clipboard className="w-3 h-3" />}
-                              {copied ? "Copied" : "Copy record"}
+                              {copiedRow === globalIdx ? (
+                                <Check className="w-3 h-3" />
+                              ) : (
+                                <Clipboard className="w-3 h-3" />
+                              )}
+                              {copiedRow === globalIdx ? "Copied" : "Copy record"}
                             </button>
                           </div>
                         </td>
@@ -321,6 +326,7 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
           {totalPages > 1 && (
             <div className="flex items-center gap-1 ml-auto">
               <button
+                type="button"
                 onClick={() => {
                   setPage((p) => Math.max(0, p - 1));
                 }}
@@ -333,6 +339,7 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
                 {safePage + 1}/{totalPages}
               </span>
               <button
+                type="button"
                 onClick={() => {
                   setPage((p) => Math.min(totalPages - 1, p + 1));
                 }}

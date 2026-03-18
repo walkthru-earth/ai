@@ -1,5 +1,3 @@
-"use client";
-
 import type { Suggestion } from "@tambo-ai/react";
 import type { VariantProps } from "class-variance-authority";
 import * as React from "react";

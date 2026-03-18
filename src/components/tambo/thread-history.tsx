@@ -1,5 +1,3 @@
-"use client";
-
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { type ThreadListResponse, useTambo, useTamboThreadList } from "@tambo-ai/react";
 import { ArrowLeftToLine, ArrowRightToLine, MoreHorizontal, Pencil, PlusIcon, SearchIcon } from "lucide-react";

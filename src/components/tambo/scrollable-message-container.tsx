@@ -1,5 +1,3 @@
-"use client";
-
 import { useTambo } from "@tambo-ai/react";
 import * as React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";

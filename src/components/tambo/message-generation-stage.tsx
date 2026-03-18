@@ -1,5 +1,3 @@
-"use client";
-
 import { useTambo } from "@tambo-ai/react";
 import { Loader2Icon } from "lucide-react";
 import type * as React from "react";

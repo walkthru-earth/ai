@@ -1,5 +1,3 @@
-"use client";
-
 import { Building2, Cloud, Database, Mountain, Users } from "lucide-react";
 import * as React from "react";
 import { z } from "zod";

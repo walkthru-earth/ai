@@ -1,5 +1,3 @@
-"use client";
-
 import * as React from "react";
 import { z } from "zod";
 import { StatsCard, statsCardSchema } from "./stats-card";

@@ -1,5 +1,3 @@
-"use client";
-
 import { TamboProvider } from "@tambo-ai/react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useState } from "react";

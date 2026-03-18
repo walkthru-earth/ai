@@ -96,7 +96,7 @@ export const tools: TamboTool[] = [
     tool: buildParquetUrl,
     inputSchema: z.object({
       dataset: z.string().describe("Dataset ID: weather, terrain, building, or population"),
-      h3Res: z.number().optional().describe("H3 resolution (1-7)"),
+      h3Res: z.number().optional().describe("H3 resolution — weather 0-5, terrain 1-10, building 3-8, population 1-8"),
     }),
     outputSchema: z.object({
       url: z.string(),

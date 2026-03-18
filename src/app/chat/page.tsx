@@ -1,5 +1,3 @@
-"use client";
-
 import { TamboProvider, useTambo } from "@tambo-ai/react";
 import { useEffect, useMemo } from "react";
 import { useMcpServers } from "@/components/tambo/mcp-config-modal";

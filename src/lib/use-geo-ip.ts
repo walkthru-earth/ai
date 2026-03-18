@@ -1,5 +1,3 @@
-"use client";
-
 import { latLngToCell } from "h3-js";
 import { useEffect, useState } from "react";
 

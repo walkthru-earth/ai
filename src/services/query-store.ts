@@ -1,5 +1,3 @@
-"use client";
-
 /**
  * Query Result Store + Cross-Filter Bus
  *
@@ -64,6 +62,10 @@ export function storeQueryResult(result: Omit<StoredQuery, "timestamp">): string
 /** Store a result under a specific ID (for restoring shared threads). */
 export function storeQueryResultWithId(id: string, result: Omit<StoredQuery, "timestamp">): void {
   store.set(id, { ...result, timestamp: Date.now() });
+  if (store.size > 40) {
+    const oldest = [...store.keys()].slice(0, store.size - 40);
+    for (const key of oldest) store.delete(key);
+  }
   queryVersion++;
   emitQuery();
 }
@@ -186,6 +188,7 @@ export function requestFlyTo(target: FlyToTarget): void {
   emitFlyTo();
 }
 
+// Single-consumer: first caller clears the target
 export function consumeFlyTo(): FlyToTarget | null {
   const t = flyToTarget;
   flyToTarget = null;

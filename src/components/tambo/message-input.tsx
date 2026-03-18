@@ -1,5 +1,3 @@
-"use client";
-
 import { type StagedImage, useIsTamboTokenUpdating, useTambo, useTamboThreadInput } from "@tambo-ai/react";
 import {
   type TamboElicitationRequest,

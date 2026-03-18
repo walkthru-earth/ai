@@ -1,5 +1,3 @@
-"use client";
-
 import DOMPurify from "dompurify";
 import hljs from "highlight.js";
 import { cn } from "@/lib/utils";

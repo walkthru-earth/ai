@@ -1,11 +1,8 @@
-"use client";
-
 import { TamboProvider, useTambo, useTamboThreadList } from "@tambo-ai/react";
 import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  ChevronUp,
   Clock,
   Link2,
   Link2Off,
@@ -41,7 +38,7 @@ import { buildContextHelpers, buildInitialSuggestions, tamboProviderConfig } fro
 import { useReplayQueries } from "@/lib/thread-hooks";
 import { useAnonymousUserKey } from "@/lib/use-anonymous-user-key";
 import { type GeoIP, useGeoIP } from "@/lib/use-geo-ip";
-import { cn } from "@/lib/utils";
+import { basePath, cn } from "@/lib/utils";
 import { preloadDuckDB } from "@/services/duckdb-wasm";
 import { useCrossFilterEnabled } from "@/services/query-store";
 
@@ -83,7 +80,7 @@ function SessionHistory({ onClose }: { onClose: () => void }) {
         {isLoading ? (
           <div className="space-y-1.5 p-2">
             {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-9 rounded-lg bg-white/3 animate-pulse" />
+              <div key={i} className="h-9 rounded-lg bg-muted/30 animate-pulse" />
             ))}
           </div>
         ) : data?.threads && data.threads.length > 0 ? (
@@ -123,7 +120,7 @@ function SessionHistory({ onClose }: { onClose: () => void }) {
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      const url = `${window.location.origin}/explore?thread=${thread.id}`;
+                      const url = `${window.location.origin}${basePath}/explore?thread=${thread.id}`;
                       navigator.clipboard.writeText(url);
                     }}
                     className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-muted/50 transition-all flex-shrink-0"
@@ -166,8 +163,12 @@ function CrossFilterToggle() {
 type Theme = "light" | "dark" | "system";
 
 function ThemeSwitcher() {
-  // Always start "dark" to match server render — sync from localStorage in effect
-  const [theme, setTheme] = useState<Theme>("dark");
+  // Lazy initializer reads localStorage synchronously to avoid flash
+  const [theme, setTheme] = useState<Theme>(() => {
+    const s = localStorage.getItem("theme") as Theme | null;
+    if (s && ["dark", "light", "system"].includes(s)) return s;
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  });
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -324,7 +325,7 @@ function ExplorerLayout({ geo }: { geo: GeoIP | null }) {
       const qs = params.toString();
       window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
     }
-  }, [currentThreadId, switchThread]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentThreadId, switchThread]);
 
   // Update URL when thread changes (without full navigation).
   // Skip placeholder/temporary IDs — only set URL for real thread IDs (e.g. "thr_...")

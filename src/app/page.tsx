@@ -1,5 +1,3 @@
-"use client";
-
 import {
   ArrowRight,
   Building2,

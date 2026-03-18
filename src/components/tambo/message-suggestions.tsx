@@ -1,5 +1,3 @@
-"use client";
-
 import type { Suggestion, TamboThreadMessage } from "@tambo-ai/react";
 import { useTambo, useTamboSuggestions } from "@tambo-ai/react";
 import * as React from "react";

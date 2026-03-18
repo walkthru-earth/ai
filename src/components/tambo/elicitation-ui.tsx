@@ -1,5 +1,3 @@
-"use client";
-
 import type { TamboElicitationRequest, TamboElicitationResponse } from "@tambo-ai/react/mcp";
 import * as React from "react";
 import { useMemo, useState } from "react";

@@ -1,5 +1,3 @@
-"use client";
-
 import { withTamboInteractable } from "@tambo-ai/react";
 import { ChevronDown, ChevronUp, Eye, EyeOff, Layers, Map } from "lucide-react";
 import * as React from "react";
@@ -17,7 +15,7 @@ const layerEntrySchema = z.object({
   id: z.string().describe("Unique layer ID for add/remove/update"),
   queryId: z.string().describe("Query result to render"),
   layerType: z
-    .enum(["h3", "scatterplot", "geojson", "arc"])
+    .enum(["h3", "scatterplot", "geojson", "arc", "wkb"])
     .optional()
     .describe("Layer type. Auto-detected from column names if omitted."),
   hexColumn: z.string().optional().describe("H3 hex string column (default: 'hex'). For layerType=h3."),
@@ -57,11 +55,11 @@ export const geoMapSchema = z.object({
         "For single-layer maps. Use `layers` array for multi-layer.",
     ),
   layerType: z
-    .enum(["h3", "scatterplot", "geojson", "arc"])
+    .enum(["h3", "scatterplot", "geojson", "arc", "wkb"])
     .optional()
     .describe(
       "Layer type. Auto-detected from column names if omitted: " +
-        "hex/h3_index->h3, lat+lng->scatterplot, geometry->geojson, source_lat+dest_lat->arc",
+        "hex/h3_index->h3, lat+lng->scatterplot, geometry->geojson, source_lat+dest_lat->arc, native geometry->wkb",
     ),
   // H3
   hexColumn: z.string().optional().describe("H3 hex string column (default: 'hex'). For layerType=h3."),
@@ -151,11 +149,11 @@ function detectLayerType(columns: string[], explicitType?: LayerType): LayerType
 
   // Priority 1: H3 cell IDs → deck.gl generates hexagon polygons on GPU
   if (cols.has("hex") || cols.has("h3_index")) return "h3";
-  // Priority 3: lat/lng coordinates → GeoArrow scatterplot
-  if (cols.has("lat") || cols.has("latitude") || cols.has("lng") || cols.has("longitude")) return "scatterplot";
-  // Priority 4: Arc source/dest coordinates → GeoArrow arcs
+  // Priority 2: Arc source/dest coordinates → GeoArrow arcs (before scatterplot — synthetic lat/lng would misdetect arcs)
   if ((cols.has("source_lat") || cols.has("source_latitude")) && (cols.has("dest_lat") || cols.has("dest_latitude")))
     return "arc";
+  // Priority 3: lat/lng coordinates → GeoArrow scatterplot
+  if (cols.has("lat") || cols.has("latitude") || cols.has("lng") || cols.has("longitude")) return "scatterplot";
   // Priority 5: GeoJSON string geometry → standard GeoJsonLayer (JSON.parse)
   if (cols.has("geometry") || cols.has("geojson") || cols.has("wkb_geometry") || cols.has("geom")) return "geojson";
   return "h3"; // fallback for existing H3 datasets
@@ -527,7 +525,7 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
       for (let i = 0; i < visibleLayers.length; i++) {
         const layer = visibleLayers[i];
         const qr = queryResults[i];
-        if (!qr || qr.rows.length === 0) continue;
+        if (!qr || (qr.rows.length === 0 && !qr.wkbArrays?.length)) continue;
 
         const result = transformQueryToLayer(
           qr.rows,

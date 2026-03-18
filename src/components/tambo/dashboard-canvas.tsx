@@ -1,5 +1,3 @@
-"use client";
-
 import {
   closestCenter,
   DndContext,
@@ -25,6 +23,20 @@ interface DashboardCanvasProps {
   className?: string;
   /** Overlay content (e.g. floating toolbar) — hidden when a panel is maximized */
   children?: React.ReactNode;
+}
+
+/** Panel height in grid rows (×80px). Module-scoped pure function — no closures. */
+function panelHeight(name: string, isFirst: boolean): number {
+  const n = name.toLowerCase();
+  if (n.includes("h3map") || n.includes("map")) return 8;
+  if (n.includes("graph")) return 5;
+  if (n.includes("datatable") || n.includes("table")) return 4;
+  if (n.includes("querydisplay") || n.includes("query")) return 3;
+  if (n.includes("insightcard") || n.includes("insight")) return 3;
+  if (n.includes("datasetcard") || n.includes("dataset")) return 3;
+  if (n.includes("statscard") || n.includes("stat")) return 2;
+  if (n.includes("statsgrid")) return 3;
+  return isFirst ? 8 : 4;
 }
 
 function useIsTouchDevice(): boolean {
@@ -238,19 +250,7 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
     });
   }, []);
 
-  // Panel height in grid rows (×80px)
-  const panelHeight = (name: string, isFirst: boolean): number => {
-    const n = name.toLowerCase();
-    if (n.includes("h3map") || n.includes("map")) return 8;
-    if (n.includes("graph")) return 5;
-    if (n.includes("datatable") || n.includes("table")) return 4;
-    if (n.includes("querydisplay") || n.includes("query")) return 3;
-    if (n.includes("insightcard") || n.includes("insight")) return 3;
-    if (n.includes("datasetcard") || n.includes("dataset")) return 3;
-    if (n.includes("statscard") || n.includes("stat")) return 2;
-    if (n.includes("statsgrid")) return 3;
-    return isFirst ? 8 : 4;
-  };
+  // panelHeight is module-scoped (pure function, no closures)
 
   // Auto-scroll to latest panel
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -288,6 +288,7 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
   // Desktop grid layouts
   const layouts = useMemo(() => {
     let yOffset = 0;
+    let pendingLeftH = 0;
     const lg: any[] = panels.map((panel, i) => {
       const existing = savedLayouts.lg?.find((l) => l.i === panel.id);
       if (existing) return existing;
@@ -295,15 +296,25 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
       const h = panelHeight(name, i === 0);
       const isMap = name.toLowerCase().includes("map") || name.toLowerCase().includes("h3map");
       if (i === 0 || isMap) {
+        if (pendingLeftH > 0) {
+          yOffset += pendingLeftH;
+          pendingLeftH = 0;
+        }
         const item = { i: panel.id, x: 0, y: yOffset, w: 12, h, minW: 4, minH: 2 };
         yOffset += h;
         return item;
       }
       const col = (i - 1) % 2;
       const item = { i: panel.id, x: col * 6, y: yOffset, w: 6, h, minW: 3, minH: 2 };
-      if (col === 1) yOffset += h;
+      if (col === 0) {
+        pendingLeftH = h;
+      } else {
+        yOffset += Math.max(pendingLeftH, h);
+        pendingLeftH = 0;
+      }
       return item;
     });
+    if (pendingLeftH > 0) yOffset += pendingLeftH;
 
     let smY = 0;
     const sm: any[] = panels.map((panel, i) => {
@@ -314,23 +325,34 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
     });
 
     let mdY = 0;
+    let mdPendingLeftH = 0;
     const md: any[] = panels.map((panel, i) => {
       const name = panel.componentName || "";
       const h = panelHeight(name, i === 0);
       const isMap = name.toLowerCase().includes("map") || name.toLowerCase().includes("h3map");
       if (i === 0 || isMap) {
+        if (mdPendingLeftH > 0) {
+          mdY += mdPendingLeftH;
+          mdPendingLeftH = 0;
+        }
         const item = { i: panel.id, x: 0, y: mdY, w: 8, h, minW: 4, minH: 2 };
         mdY += h;
         return item;
       }
       const col = (i - 1) % 2;
       const item = { i: panel.id, x: col * 4, y: mdY, w: 4, h, minW: 3, minH: 2 };
-      if (col === 1) mdY += h;
+      if (col === 0) {
+        mdPendingLeftH = h;
+      } else {
+        mdY += Math.max(mdPendingLeftH, h);
+        mdPendingLeftH = 0;
+      }
       return item;
     });
+    if (mdPendingLeftH > 0) mdY += mdPendingLeftH;
 
     return { lg, md, sm };
-  }, [panels, savedLayouts, panelHeight]);
+  }, [panels, savedLayouts]);
 
   const handleLayoutChange = useCallback((...args: any[]) => {
     setSavedLayouts(args[1] ?? {});
