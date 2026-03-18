@@ -11,6 +11,7 @@ import { geoMapSchema, InteractableGeoMap } from "@/components/tambo/geo-map";
 import { graphSchema, InteractableGraph } from "@/components/tambo/graph";
 import { InteractableH3Map } from "@/components/tambo/h3-map";
 import { InsightCard, insightCardSchema } from "@/components/tambo/insight-card";
+import { InteractableObjexViewer, objexViewerSchema } from "@/components/tambo/objex-viewer";
 import { QueryDisplay, queryDisplaySchema } from "@/components/tambo/query-display";
 import { StatsCard, statsCardSchema } from "@/components/tambo/stats-card";
 import { StatsGrid, statsGridSchema } from "@/components/tambo/stats-grid";
@@ -261,6 +262,18 @@ export const components: TamboComponent[] = [
     description: "Selectable option cards with descriptions and links. Use for navigation choices.",
     component: DataCard,
     propsSchema: dataCardSchema,
+  },
+  {
+    name: "ObjexViewer",
+    description:
+      "3D viewer via iframe (walkthru.earth/objex). INTERACTABLE: AI can update url and title. " +
+      "Supported formats: .tif/.tiff (GeoTIFF/COG), .laz (point cloud), .pmtiles (vector/raster tiles), .fgb (FlatGeobuf). " +
+      "Pass the raw data URL — the component builds the Objex iframe URL automatically. " +
+      "Example URL: https://s3.us-west-2.amazonaws.com/us-west-2.opendata.source.coop/walkthru-earth/dem-terrain/GEDTM30/gedtm30.tif " +
+      "When user provides a .tif, .laz, .pmtiles, or .fgb URL, use ObjexViewer. " +
+      "Do NOT use for .parquet files — use GeoMap + runSQL for those.",
+    component: InteractableObjexViewer,
+    propsSchema: objexViewerSchema,
   },
 ];
 
