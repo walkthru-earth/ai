@@ -76,7 +76,7 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
 
     // Resolve data: queryId mode (preferred) → inline mode (legacy)
     // Applies spatial cross-filter: when map viewport changes, only show rows for visible hexes
-    const { resolvedColumns, resolvedRows } = useMemo(() => {
+    const { resolvedColumns, resolvedRows, filteredRawRows } = useMemo(() => {
       if (queryId) {
         if (!queryResult) return { resolvedColumns: null, resolvedRows: null };
 
@@ -175,7 +175,7 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
             .catch(() => {});
         }
       },
-      [queryResult],
+      [queryResult, filteredRawRows],
     );
 
     // Loading state
