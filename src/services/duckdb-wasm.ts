@@ -35,7 +35,7 @@ async function initDuckDB(): Promise<any> {
         const JSDELIVR_BUNDLES = duckdb.getJsDelivrBundles();
         const bundle = await duckdb.selectBundle(JSDELIVR_BUNDLES);
 
-        // Blob URL worker avoids Next.js webpack module resolution issues
+        // Blob URL worker avoids bundler module resolution issues with WASM workers
         const worker_url = URL.createObjectURL(
           new Blob([`importScripts("${bundle.mainWorker!}");`], {
             type: "text/javascript",
@@ -175,7 +175,14 @@ interface GeomDetection {
  */
 async function detectGeometryColumns(conn: any, sql: string): Promise<GeomDetection | null> {
   try {
-    const descResult = await conn.query(`DESCRIBE (${sql})`);
+    // DESCRIBE (WITH ...) is invalid DuckDB syntax — wrap CTEs as a subquery with LIMIT 0
+    // so DuckDB only reads schema metadata, not data.
+    const trimmed = sql.trimStart().toUpperCase();
+    const describeSql =
+      trimmed.startsWith("WITH") || trimmed.startsWith("FROM")
+        ? `DESCRIBE (SELECT * FROM (${sql}) __desc LIMIT 0)`
+        : `DESCRIBE (${sql})`;
+    const descResult = await conn.query(describeSql);
     const nameVec = descResult.getChild("column_name");
     const typeVec = descResult.getChild("column_type");
     if (!nameVec || !typeVec) return null;

@@ -136,16 +136,28 @@ function computePercentileRange(values: number[]): { min: number; max: number } 
   return { min: lo, max: hi };
 }
 
-/** Auto-detect layer type from query result column names */
+/**
+ * Auto-detect layer type from query result column names.
+ * Priority order (fastest → slowest rendering):
+ *   1. h3 — GPU-native polygon generation from cell IDs (no geometry data needed)
+ *   2. wkb — handled before this function (see WKB fast path above)
+ *   3. scatterplot — GeoArrow interleave from lat/lng typed arrays
+ *   4. arc — GeoArrow source/target points from coordinate arrays
+ *   5. geojson — JSON.parse of geometry strings (LAST RESORT)
+ */
 function detectLayerType(columns: string[], explicitType?: LayerType): LayerType {
   if (explicitType) return explicitType;
   const cols = new Set(columns.map((c) => c.toLowerCase()));
 
+  // Priority 1: H3 cell IDs → deck.gl generates hexagon polygons on GPU
   if (cols.has("hex") || cols.has("h3_index")) return "h3";
+  // Priority 3: lat/lng coordinates → GeoArrow scatterplot
+  if (cols.has("lat") || cols.has("latitude") || cols.has("lng") || cols.has("longitude")) return "scatterplot";
+  // Priority 4: Arc source/dest coordinates → GeoArrow arcs
   if ((cols.has("source_lat") || cols.has("source_latitude")) && (cols.has("dest_lat") || cols.has("dest_latitude")))
     return "arc";
+  // Priority 5: GeoJSON string geometry → standard GeoJsonLayer (JSON.parse)
   if (cols.has("geometry") || cols.has("geojson") || cols.has("wkb_geometry") || cols.has("geom")) return "geojson";
-  if (cols.has("lat") || cols.has("latitude") || cols.has("lng") || cols.has("longitude")) return "scatterplot";
   return "h3"; // fallback for existing H3 datasets
 }
 
@@ -240,7 +252,10 @@ function transformQueryToLayer(
     return { layerConfig: null, type: opts.layerType ?? "h3", values: [], featureCount: 0 };
   }
 
-  // WKB fast path: auto-detected GEOMETRY column → zero-copy GeoArrow rendering
+  // Priority 2: WKB binary → GeoArrow zero-copy rendering (no JSON parse, no JS objects)
+  // Auto-detected GEOMETRY/WKB columns are extracted as Uint8Array[] by runQuery().
+  // buildGeoArrowTables() reads WKB headers to determine geom type (point/line/polygon)
+  // and builds Arrow Tables directly from binary — true zero-copy to GPU.
   if (opts.wkbArrays && opts.wkbArrays.length > 0) {
     const vals: number[] = [];
     // Use lat/lng from rows (auto-injected by runQuery geometry wrapping) for bounds
@@ -257,7 +272,7 @@ function transformQueryToLayer(
     return {
       layerConfig: {
         id: opts.id,
-        type: "geojson" as LayerType,
+        type: "wkb" as LayerType,
         data: [], // WKB path uses wkbArrays, not JS data array
         wkbArrays: opts.wkbArrays,
         colorScheme: opts.colorScheme,
@@ -278,12 +293,17 @@ function transformQueryToLayer(
           destLngColumn: opts.destLngColumn,
         },
       },
-      type: "geojson",
+      type: "wkb",
       values: vals,
       featureCount: opts.wkbArrays.length,
     };
   }
 
+  // Remaining paths by priority:
+  // Priority 1: H3/A5 cell IDs → GPU-native polygon generation (deck.gl generates geometry)
+  // Priority 3: lat/lng columns → GeoArrow interleave (single Float64Array allocation)
+  // Priority 4: Arc coordinates → GeoArrow source/target points
+  // Priority 5: GeoJSON strings → standard GeoJsonLayer (JSON.parse — LAST RESORT)
   const columns = Object.keys(rows[0]);
   const type = detectLayerType(columns, opts.layerType);
   const vals: number[] = [];
@@ -768,6 +788,8 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
     switch (primaryType) {
       case "h3":
         return `${totalFeatureCount.toLocaleString()} hex`;
+      case "wkb":
+        return `${totalFeatureCount.toLocaleString()} geometries`;
       case "scatterplot":
         return `${totalFeatureCount.toLocaleString()} points`;
       case "geojson":
