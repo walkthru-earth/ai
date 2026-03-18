@@ -33,8 +33,10 @@ export const tools: TamboTool[] = [
       "Execute a DuckDB SQL query in-browser via DuckDB-WASM. H3 extension is pre-loaded. " +
       "GEOMETRY AUTO-DETECTION: Parquet files with GEOMETRY/WKB columns are auto-handled — just SELECT * FROM file. " +
       "The system auto-wraps to extract lat/lng + WKB for zero-copy map rendering. No ST_AsGeoJSON or ST_GeomFromWKB needed. " +
-      "WARNING: Auto-generated lat/lng columns are SYNTHETIC — they exist only in the result, NOT in the raw Parquet file. " +
-      "In follow-up queries, use SELECT * (auto-wrapping will re-generate lat/lng), NOT SELECT lat, lng directly. " +
+      "CRITICAL: Auto-generated lat/lng columns are SYNTHETIC — they exist ONLY in SELECT * results, NOT in the raw Parquet file. " +
+      "NEVER reference lat or lng in follow-up queries. ALWAYS use SELECT * (the system re-generates lat/lng automatically). " +
+      "If you need specific columns, use: SELECT * EXCLUDE (unwanted_col) — this preserves auto-generated lat/lng. " +
+      "If you need computed columns, use a subquery: SELECT *, my_expr FROM (SELECT * FROM file LIMIT 500). " +
       "Check the geometryNote field in the output to see which column holds the actual geometry. " +
       "COORDINATE ORDER: lat = latitude (north/south, e.g. 30.05 for Cairo), lng = longitude (east/west, e.g. 31.25 for Cairo). " +
       "H3 functions: h3_latlng_to_cell(lat, lng, res) — lat FIRST, lng SECOND. " +
@@ -46,6 +48,9 @@ export const tools: TamboTool[] = [
         .string()
         .describe(
           "DuckDB SQL query. Use HTTPS Parquet URLs in FROM. Include LIMIT 500. " +
+            "For geometry files: ALWAYS use SELECT * — system auto-generates lat/lng. " +
+            "NEVER SELECT lat/lng directly from geometry files — they don't exist in the raw file. " +
+            "For follow-up queries on geometry files: SELECT * EXCLUDE (unwanted) or SELECT *, expr FROM (SELECT * FROM file). " +
             "For maps: SELECT h3_h3_to_string(h3_index) AS hex, <metric> AS value FROM ... " +
             "CRITICAL: NEVER hardcode H3 hex strings — LLMs hallucinate wrong indices. " +
             "For area queries, use pre-computed H3 cells from user context, or compute: " +
@@ -337,7 +342,8 @@ export function buildContextHelpers(geo: GeoIP | null) {
         "DuckDB v1.5+. H3, spatial, httpfs pre-loaded. NO INSTALL/LOAD in SQL. ONE statement per call.",
         "GEOMETRY AUTO-DETECTION: Parquet files with GEOMETRY columns auto-render on map — just SELECT * FROM file. " +
           "The system auto-wraps to extract lat/lng + WKB. No ST_AsGeoJSON or ST_GeomFromWKB needed. " +
-          "Works with GeoParquet, native Parquet geometry (Format 2.11+), and DuckDB GEOMETRY columns.",
+          "Works with GeoParquet, native Parquet geometry (Format 2.11+), and DuckDB GEOMETRY columns. " +
+          "CRITICAL: lat/lng in the result are SYNTHETIC. NEVER SELECT lat/lng in follow-up queries — use SELECT * or SELECT * EXCLUDE (col).",
         "h3_index is BIGINT. For maps: SELECT h3_h3_to_string(h3_index) AS hex, <metric> AS value — NO lat/lng needed.",
         "deck.gl H3HexagonLayer renders polygons from hex string automatically.",
         "Always LIMIT 500. Use HTTPS URLs in FROM.",

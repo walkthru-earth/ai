@@ -259,36 +259,38 @@ export function useReplayQueries(messages: TamboThreadMessage[]) {
           const sql = (block.input as any).sql as string | undefined;
           if (!sql) continue;
 
-          // Find matching tool_result across all messages
+          // Find matching tool_result across all messages.
+          // Only replay queries that already completed (have a result) — skip in-flight/streaming tool calls
+          // whose SQL may be partially received.
           const resultBlock = toolResults.get(block.id) as any;
+          if (!resultBlock) continue;
 
-          // Extract original queryId from tool_result content
+          // Extract original queryId from tool_result content.
+          // Skip queries that failed (no queryId in result) — no component references them.
           let originalQueryId: string | null = null;
-          if (resultBlock) {
-            const text =
-              typeof resultBlock.content === "string"
-                ? resultBlock.content
-                : Array.isArray(resultBlock.content)
-                  ? (resultBlock.content.find((b: any) => b.type === "text")?.text ?? null)
-                  : null;
-            if (text) {
-              try {
-                originalQueryId = JSON.parse(text).queryId;
-              } catch {
-                /* not JSON */
-              }
+          const text =
+            typeof resultBlock.content === "string"
+              ? resultBlock.content
+              : Array.isArray(resultBlock.content)
+                ? (resultBlock.content.find((b: any) => b.type === "text")?.text ?? null)
+                : null;
+          if (text) {
+            try {
+              originalQueryId = JSON.parse(text).queryId;
+            } catch {
+              /* not JSON — likely an error message, skip */
             }
           }
+          if (!originalQueryId) continue;
 
-          const replayId = originalQueryId ?? `replay_${block.id}`;
-          if (replayedRef.current.has(replayId)) continue;
-          if (getQueryResult(replayId)) continue;
-          replayedRef.current.add(replayId);
+          if (replayedRef.current.has(originalQueryId)) continue;
+          if (getQueryResult(originalQueryId)) continue;
+          replayedRef.current.add(originalQueryId);
 
           // Re-run SQL in background, store under the original queryId
           runQuery({ sql })
             .then((result) => {
-              if (result.queryId && originalQueryId) {
+              if (result.queryId) {
                 const stored = getQueryResult(result.queryId);
                 if (stored) storeQueryResultWithId(originalQueryId, stored);
               }

@@ -389,10 +389,12 @@ export async function runQuery(input: { sql: string } | string): Promise<{
     // When geometry was auto-detected, tell the AI so it doesn't try to reference
     // synthetic lat/lng columns in follow-up SQL — they only exist in the wrapped result.
     const geometryNote = geomColumn
-      ? `IMPORTANT: "lat" and "lng" columns in this result were AUTO-GENERATED from geometry column "${geomColumn}" (${isNativeGeometry ? "GEOMETRY" : "WKB BLOB"}). ` +
-        `These columns do NOT exist in the raw Parquet file. In follow-up queries, use SELECT * to get auto-generated lat/lng, ` +
-        `or use geometry functions on "${geomColumn}" (e.g. ST_Y(ST_GeomFromWKB("${geomColumn}")) for WKB BLOB, ST_Y("${geomColumn}") for native GEOMETRY). ` +
-        `Do NOT reference "lat" or "lng" directly in WHERE/SELECT on the raw file.`
+      ? `CRITICAL: "lat" and "lng" columns were AUTO-GENERATED from geometry column "${geomColumn}" (${isNativeGeometry ? "GEOMETRY" : "WKB BLOB"}). ` +
+        `They do NOT exist in the raw Parquet file. NEVER SELECT lat/lng directly — they will cause "column not found" errors. ` +
+        `For follow-up queries: (1) Use SELECT * — the system re-generates lat/lng automatically. ` +
+        `(2) To pick specific columns: SELECT * EXCLUDE (unwanted_col1, unwanted_col2) FROM file. ` +
+        `(3) To add computed columns: SELECT *, my_expr AS alias FROM (SELECT * FROM file LIMIT 500). ` +
+        `(4) For direct geometry access: ST_Y(ST_GeomFromWKB("${geomColumn}")) for lat, ST_X(ST_GeomFromWKB("${geomColumn}")) for lng.`
       : undefined;
 
     return {
