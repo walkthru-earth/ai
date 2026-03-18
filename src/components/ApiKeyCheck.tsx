@@ -44,7 +44,7 @@ const ApiKeyMissingAlert = () => (
 );
 
 export function ApiKeyCheck({ children }: ApiKeyCheckProps) {
-  const isApiKeyMissing = !process.env.NEXT_PUBLIC_TAMBO_API_KEY;
+  const isApiKeyMissing = !import.meta.env.VITE_TAMBO_API_KEY;
 
   if (isApiKeyMissing) {
     return <ApiKeyMissingAlert />;

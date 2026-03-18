@@ -38,12 +38,10 @@ jobs:
       - name: Build
         run: pnpm build
         env:
-          BASE_PATH: /ai
-          NEXT_PUBLIC_BASE_PATH: /ai
-          NEXT_PUBLIC_TAMBO_API_KEY: ${{ secrets.NEXT_PUBLIC_TAMBO_API_KEY }}
-          NEXT_PUBLIC_TAMBO_URL: ${{ secrets.NEXT_PUBLIC_TAMBO_URL }}
-          NEXT_PUBLIC_POSTHOG_KEY: ${{ secrets.NEXT_PUBLIC_POSTHOG_KEY }}
-          NEXT_PUBLIC_POSTHOG_HOST: ${{ secrets.NEXT_PUBLIC_POSTHOG_HOST }}
+          VITE_TAMBO_API_KEY: ${{ secrets.VITE_TAMBO_API_KEY }}
+          VITE_TAMBO_URL: ${{ secrets.VITE_TAMBO_URL }}
+          VITE_POSTHOG_KEY: ${{ secrets.VITE_POSTHOG_KEY }}
+          VITE_POSTHOG_HOST: ${{ secrets.VITE_POSTHOG_HOST }}
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

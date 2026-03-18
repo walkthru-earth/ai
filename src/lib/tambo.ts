@@ -426,10 +426,10 @@ export function buildInitialSuggestions(geo: GeoIP | null) {
 
 /** Base props shared by all TamboProvider instances across pages. */
 export const tamboProviderConfig = {
-  apiKey: process.env.NEXT_PUBLIC_TAMBO_API_KEY!,
+  apiKey: import.meta.env.VITE_TAMBO_API_KEY!,
   components,
   tools,
-  tamboUrl: process.env.NEXT_PUBLIC_TAMBO_URL,
+  tamboUrl: import.meta.env.VITE_TAMBO_URL,
   autoGenerateThreadName: true,
   autoGenerateNameThreshold: 2,
 } as const;

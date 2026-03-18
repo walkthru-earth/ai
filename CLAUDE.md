@@ -1,18 +1,27 @@
 # Walkthru Earth AI
 
-AI urban intelligence platform — natural language queries over global geospatial data (weather, terrain, buildings, population). Built on Tambo AI + DuckDB-WASM + deck.gl.
+AI urban intelligence platform — natural language queries over global geospatial data (weather, terrain, buildings, population). Built on Vite + React Router + Tambo AI + DuckDB-WASM + deck.gl.
 
 ## Commands
 
 ```bash
-pnpm dev          # localhost:3000/ai
-pnpm build        # production (basePath: /ai)
+pnpm dev          # localhost:5173/ai
+pnpm build        # production (base: /ai, output: out/)
+pnpm preview      # preview production build
 pnpm lint         # biome check
 pnpm lint:fix     # biome auto-fix
 ```
 
+- **Vite** (not Next.js) — `vite.config.ts`: React plugin, `@tailwindcss/vite`, `base: "/ai"`, output to `out/`
+- **React Router** — `src/App.tsx` defines routes: `/`, `/chat`, `/explore`, `/interactables`
+- **Entry point**: `index.html` → `src/main.tsx` → `<BrowserRouter basename="/ai">`
 - **Biome** (not ESLint) — `biome.json`: 2-space indent, double quotes, semicolons, 120 chars
 - **Pre-commit**: lefthook runs `pnpx @biomejs/biome check --write` on staged files
+- **Env vars**: Use `import.meta.env.VITE_*` (not `process.env.NEXT_PUBLIC_*`). Defined in `.env.local`, typed in `vite-env.d.ts`
+- **No SSR**: Pure SPA — all pages are client-rendered. No `"use server"`, no API routes
+- **Fonts**: Quicksand (local woff2 via `@font-face` in `globals.css`) + DM Mono (Google Fonts CDN)
+- **Lazy loading**: Use `React.lazy()` + `<Suspense>` instead of `next/dynamic`
+- **Static assets**: `basePath` from `import.meta.env.BASE_URL` (set by Vite `base` config)
 
 ## Architecture
 
@@ -181,6 +190,6 @@ Packages: `@geoarrow/deck.gl-layers@0.3.1`, `@walkthru-earth/objex-utils@1.0.0`,
 - Thread URLs: `?thread=threadId` only for real IDs (prefix `thr_`)
 - Plain `<textarea>` for all text input (no TipTap/rich-text)
 - AI must NEVER render checkboxes or selectable lists — users cannot submit selections. Use DatasetCard components + auto-submitting suggestion chips instead.
-- Geo-IP: `useGeoIP()` fetches from geojs.io, caches 24h in localStorage, SSR-safe (null on first render). Returns city, country, lat/lng, timezone, and pre-computed H3 cells at res 1/3/5/7. Falls back gracefully when blocked.
+- Geo-IP: `useGeoIP()` fetches from geojs.io, caches 24h in localStorage (null on first render). Returns city, country, lat/lng, timezone, and pre-computed H3 cells at res 1/3/5/7. Falls back gracefully when blocked.
 - Query replay: `useReplayQueries(messages)` shared hook re-runs SQL from restored threads to repopulate query-store. Used by both `/chat` and `/explore`.
 - GeoMap height: `h-[420px]` in chat (inline), `h-full` in dashboard panels.

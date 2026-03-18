@@ -273,8 +273,11 @@ export async function runQuery(input: { sql: string } | string): Promise<{
   const start = performance.now();
 
   try {
-    // Auto-detect GEOMETRY/WKB columns (fast DESCRIBE — reads Parquet metadata only)
-    const geomInfo = await detectGeometryColumns(conn, sql);
+    // Auto-detect GEOMETRY/WKB columns (fast DESCRIBE — reads Parquet metadata only).
+    // Skip for non-SELECT statements (DESCRIBE, EXPLAIN, etc.) — wrapping them makes no sense.
+    const sqlUpper = sql.trimStart().toUpperCase();
+    const isSelectQuery = sqlUpper.startsWith("SELECT") || sqlUpper.startsWith("WITH") || sqlUpper.startsWith("FROM");
+    const geomInfo = isSelectQuery ? await detectGeometryColumns(conn, sql) : null;
     const geomColumn = geomInfo?.geomColumn ?? null;
     const isNativeGeometry = geomInfo?.isNativeGeometry ?? false;
     const finalSql = geomColumn

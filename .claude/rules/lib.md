@@ -24,7 +24,7 @@ paths:
 
 ## `use-geo-ip.ts`
 
-`useGeoIP()` — fetches from `get.geojs.io/v1/ip/geo.json`, caches 24h in localStorage. SSR-safe (always `null` on first render). Returns `GeoIP` with city, country, lat/lng, timezone, and `h3Cells` (pre-computed H3 hex strings at res 1/3/5/7 via `h3-js`). Gracefully returns `null` when blocked.
+`useGeoIP()` — fetches from `get.geojs.io/v1/ip/geo.json`, caches 24h in localStorage (null on first render). Returns `GeoIP` with city, country, lat/lng, timezone, and `h3Cells` (pre-computed H3 hex strings at res 1/3/5/7 via `h3-js`). Gracefully returns `null` when blocked.
 
 ## `use-anonymous-user-key.ts`
 
@@ -33,4 +33,4 @@ Persistent anonymous user key (localStorage `walkthru-user-key`). SDK requires `
 ## `utils.ts`
 
 - `cn()` — clsx + tailwind-merge
-- `basePath` — `NEXT_PUBLIC_BASE_PATH || "/ai"`
+- `basePath` — `import.meta.env.BASE_URL` (from Vite `base` config, defaults to `/ai`)

@@ -1,5 +1,35 @@
 @import "tailwindcss";
 
+/* ── Fonts (replacing next/font) ──────────────────────────── */
+
+@font-face {
+  font-family: "Quicksand";
+  src: url("./fonts/Quicksand-Variable.woff2") format("woff2");
+  font-weight: 300 700;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "DM Mono";
+  src: url("https://fonts.gstatic.com/s/dmmono/v14/aFTU7PB1QTsUX8KYhh2aBYyMcKdL.woff2") format("woff2");
+  font-weight: 300;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "DM Mono";
+  src: url("https://fonts.gstatic.com/s/dmmono/v14/aFTU7PB1QTsUX8KYvrGcBYyMcKdL.woff2") format("woff2");
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "DM Mono";
+  src: url("https://fonts.gstatic.com/s/dmmono/v14/aFTU7PB1QTsUX8KYnjCaBYyMcKdL.woff2") format("woff2");
+  font-weight: 500;
+  font-display: swap;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -30,8 +60,8 @@
   --color-backdrop: var(--backdrop);
   --color-muted-backdrop: var(--muted-backdrop);
 
-  --font-sans: var(--font-quicksand), -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-mono: var(--font-dm-mono), ui-monospace, monospace;
+  --font-sans: "Quicksand", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: "DM Mono", ui-monospace, monospace;
 }
 
 /* ── walkthru.earth brand colors ───────────────────────────── */
@@ -118,7 +148,7 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: var(--font-quicksand, var(--font-sans)), "Quicksand", -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: "Quicksand", var(--font-sans), -apple-system, BlinkMacSystemFont, sans-serif;
     font-size: 17px;
     font-weight: 500;
     letter-spacing: -0.01em;

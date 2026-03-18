@@ -5,9 +5,9 @@ paths:
 
 # App Pages
 
-## `layout.tsx`
+## Entry Point
 
-Quicksand + DM Mono fonts. Inline script: theme detection (prevents FOUC) + `crypto.randomUUID` polyfill. Viewport `maximum-scale=1` prevents iOS input zoom.
+`index.html` → `src/main.tsx` → `src/App.tsx` (React Router). Theme detection script + `crypto.randomUUID` polyfill in `index.html`. Fonts loaded via `@font-face` in `globals.css`.
 
 ## `globals.css`
 

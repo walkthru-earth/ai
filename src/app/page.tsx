@@ -13,8 +13,8 @@ import {
   Users,
   Zap,
 } from "lucide-react";
-import Link from "next/link";
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { ApiKeyCheck } from "@/components/ApiKeyCheck";
 import { WalkthruLogo } from "@/components/walkthru-logo";
 
@@ -157,7 +157,7 @@ export default function Home() {
             <ApiKeyCheck>
               <div className="flex flex-col gap-3">
                 <Link
-                  href="/explore"
+                  to="/explore"
                   className="group flex items-center justify-center gap-3 px-6 py-3.5 rounded-xl font-semibold text-sm bg-earth-blue text-white transition-all hover:brightness-110"
                 >
                   <Map className="w-4 h-4" />
@@ -165,7 +165,7 @@ export default function Home() {
                   <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                 </Link>
                 <Link
-                  href="/chat"
+                  to="/chat"
                   className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-medium text-sm text-muted-foreground bg-card border border-border hover:bg-muted/50 transition-colors"
                 >
                   <MessageSquare className="w-4 h-4" />

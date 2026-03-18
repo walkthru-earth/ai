@@ -19,7 +19,6 @@ import { basePath, cn } from "@/lib/utils";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import { GripVertical, Maximize2, Minimize2, X } from "lucide-react";
-import Image from "next/image";
 import { PanelContext } from "./panel-context";
 
 interface DashboardCanvasProps {
@@ -346,7 +345,7 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
         className={cn("h-full flex-1 flex flex-col items-center justify-center", className)}
       >
         <div className="text-center space-y-6 px-8 flex flex-col items-center">
-          <Image
+          <img
             src={`${basePath}/walkthru-icon.svg`}
             alt="walkthru.earth"
             width={48}

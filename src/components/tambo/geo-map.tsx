@@ -2,9 +2,8 @@
 
 import { withTamboInteractable } from "@tambo-ai/react";
 import { ChevronDown, ChevronUp, Eye, EyeOff, Layers, Map } from "lucide-react";
-import dynamic from "next/dynamic";
 import * as React from "react";
-import { useMemo } from "react";
+import { lazy, Suspense, useMemo } from "react";
 import { z } from "zod";
 import { setCrossFilter, useQueryResult } from "@/services/query-store";
 import type { Basemap, ColorScheme, LayerConfig, LayerType } from "./geo-map-deckgl";
@@ -120,9 +119,9 @@ export const geoMapSchema = z.object({
 
 export type GeoMapProps = z.infer<typeof geoMapSchema>;
 
-/* ── deck.gl (dynamic import to avoid SSR) ─────────────────────────── */
+/* ── deck.gl (lazy-loaded) ──────────────────────────────────────────── */
 
-const DeckGLMap = dynamic(() => import("./geo-map-deckgl"), { ssr: false });
+const DeckGLMap = lazy(() => import("./geo-map-deckgl"));
 
 /* ── Utilities ─────────────────────────────────────────────────────── */
 
@@ -823,20 +822,28 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
           <LayerControlPanel layers={effectiveLayers} onUpdateLayers={handleUpdateLayers} />
         )}
         {hasData ? (
-          <DeckGLMap
-            latitude={centerLat}
-            longitude={centerLng}
-            zoom={zoom}
-            layerConfigs={layerConfigs}
-            extruded={extruded}
-            minVal={minVal}
-            maxVal={maxVal}
-            colorScheme={colorScheme}
-            basemap={basemap as Basemap}
-            fitBounds={finalBounds}
-            onFeatureClick={handleFeatureClick}
-            onBoundsChange={handleBoundsChange}
-          />
+          <Suspense
+            fallback={
+              <div className="h-full flex items-center justify-center bg-muted/30 text-muted-foreground">
+                <p className="text-base">Loading map...</p>
+              </div>
+            }
+          >
+            <DeckGLMap
+              latitude={centerLat}
+              longitude={centerLng}
+              zoom={zoom}
+              layerConfigs={layerConfigs}
+              extruded={extruded}
+              minVal={minVal}
+              maxVal={maxVal}
+              colorScheme={colorScheme}
+              basemap={basemap as Basemap}
+              fitBounds={finalBounds}
+              onFeatureClick={handleFeatureClick}
+              onBoundsChange={handleBoundsChange}
+            />
+          </Suspense>
         ) : (
           <div className="h-full flex items-center justify-center bg-muted/30 text-muted-foreground">
             <p className="text-base">Loading...</p>
