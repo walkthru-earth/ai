@@ -35,6 +35,9 @@ importers:
       '@duckdb/duckdb-wasm':
         specifier: 1.33.1-dev37.0
         version: 1.33.1-dev37.0
+      '@fontsource/dm-mono':
+        specifier: ^5.2.7
+        version: 5.2.7
       '@geoarrow/deck.gl-layers':
         specifier: ^0.3.1
         version: 0.3.1(34ae092dc0c3a9116be4167f056775b2)
@@ -701,6 +704,9 @@ packages:
 
   '@foliojs-fork/restructure@2.0.2':
     resolution: {integrity: sha512-59SgoZ3EXbkfSX7b63tsou/SDGzwUEK6MuB5sKqgVK1/XE0fxmpsOb9DQI8LXW3KfGnAjImCGhhEb7uPPAUVNA==}
+
+  '@fontsource/dm-mono@5.2.7':
+    resolution: {integrity: sha512-Ma1az2atTVgQWuOWwjuxx26p/6A6CU9HBNKq1CFV6YKpKhpswnf9ry9Ql4+T6bTZzkdtSfS6tjJvqZOljVzIFQ==}
 
   '@geoarrow/deck.gl-layers@0.3.1':
     resolution: {integrity: sha512-mNkPoSAhU8ivpMNxuld9mbIoBEDiXgs49fQNy+3BwCbZ/Wm3pRU2GyCNP9fdG4rV9HrhHm+SbJ+ic1ehFxsdFw==}
@@ -5494,6 +5500,8 @@ snapshots:
       png-js: 1.0.0
 
   '@foliojs-fork/restructure@2.0.2': {}
+
+  '@fontsource/dm-mono@5.2.7': {}
 
   '@geoarrow/deck.gl-layers@0.3.1(34ae092dc0c3a9116be4167f056775b2)':
     dependencies:

@@ -31,12 +31,15 @@ export const tools: TamboTool[] = [
     name: "runSQL",
     description:
       "Execute a DuckDB SQL query in-browser via DuckDB-WASM. H3 extension is pre-loaded. " +
-      "GEOMETRY AUTO-DETECTION: Parquet files with GEOMETRY columns are auto-handled — just SELECT * FROM file. " +
+      "GEOMETRY AUTO-DETECTION: Parquet files with GEOMETRY/WKB columns are auto-handled — just SELECT * FROM file. " +
       "The system auto-wraps to extract lat/lng + WKB for zero-copy map rendering. No ST_AsGeoJSON or ST_GeomFromWKB needed. " +
+      "WARNING: Auto-generated lat/lng columns are SYNTHETIC — they exist only in the result, NOT in the raw Parquet file. " +
+      "In follow-up queries, use SELECT * (auto-wrapping will re-generate lat/lng), NOT SELECT lat, lng directly. " +
+      "Check the geometryNote field in the output to see which column holds the actual geometry. " +
       "COORDINATE ORDER: lat = latitude (north/south, e.g. 30.05 for Cairo), lng = longitude (east/west, e.g. 31.25 for Cairo). " +
       "H3 functions: h3_latlng_to_cell(lat, lng, res) — lat FIRST, lng SECOND. " +
       "DuckDB spatial: ST_Point(lng, lat) — lng FIRST (x), lat SECOND (y). Do NOT reverse these. " +
-      "RULES: (1) Use HTTPS URLs in FROM clause. (2) DO NOT write INSTALL or LOAD — pre-loaded. (3) Always LIMIT (max 500). (4) h3_index is BIGINT. For H3Map, only need: h3_h3_to_string(h3_index) AS hex, <metric> AS value — NO lat/lng needed, deck.gl renders H3 polygons from hex string. (5) ONE statement per call (no semicolons). (6) Weather: res 0-5, hours 0 and 12. Building: res 3-8. Population: res 1-8. Terrain: res 1-10. (7) Use h3_cell_area(h3_index, 'km^2') for area (NOT h3_cell_area_km2). (8) NEVER use h3_cell_to_latlng().lat — it returns a DOUBLE[2] list, NOT a struct. If you need lat/lng: list_extract(h3_cell_to_latlng(h3_index), 1) AS lat, list_extract(h3_cell_to_latlng(h3_index), 2) AS lng. But prefer passing lat/lng as H3Map props instead. (9) Use h3_grid_ring NOT h3_k_ring (deprecated). Use h3_grid_disk NOT h3_k_ring_distances. (10) NEVER hardcode H3 hex strings — always compute from coordinates: h3_latlng_to_cell(lat, lng, res)::BIGINT. Example Cairo res 5: h3_latlng_to_cell(30.05, 31.25, 5)::BIGINT (lat=30.05, lng=31.25). Or use pre-computed H3 cells from user context if available.",
+      "RULES: (1) Use HTTPS URLs in FROM clause. (2) DO NOT write INSTALL or LOAD — pre-loaded. (3) Always LIMIT (max 500). (4) h3_index is BIGINT. For H3Map, only need: h3_h3_to_string(h3_index) AS hex, <metric> AS value — NO lat/lng needed, deck.gl renders H3 polygons from hex string. (5) ONE statement per call (no semicolons). (6) Weather: res 0-5, hours 0 and 12. Building: res 3-8. Population: res 1-8. Terrain: res 1-10. (7) Use h3_cell_area(h3_index, 'km^2') for area (NOT h3_cell_area_km2). (8) NEVER use h3_cell_to_latlng().lat — it returns a DOUBLE[2] list, NOT a struct. If you need lat/lng: list_extract(h3_cell_to_latlng(h3_index), 1) AS lat, list_extract(h3_cell_to_latlng(h3_index), 2) AS lng. But prefer passing lat/lng as H3Map props instead. (9) Use h3_grid_ring NOT h3_k_ring (deprecated). Use h3_grid_disk NOT h3_k_ring_distances. (10) NEVER hardcode H3 hex strings — always compute from coordinates: h3_latlng_to_cell(lat, lng, res)::BIGINT. Example Cairo res 5: h3_latlng_to_cell(30.05, 31.25, 5)::BIGINT (lat=30.05, lng=31.25). Or use pre-computed H3 cells from user context if available. (11) NEVER alias a column with the same name as the source column (e.g. SELECT ST_AsWKB(geom) AS geom is INVALID — DuckDB treats it as circular alias). Use a different name like wkb_data. (12) For geometry files, prefer SELECT * — the system auto-handles geometry extraction. Do NOT manually call ST_AsWKB/ST_GeomFromWKB/ST_AsGeoJSON.",
     tool: runQuery,
     inputSchema: z.object({
       sql: z
@@ -57,6 +60,13 @@ export const tools: TamboTool[] = [
       rowCount: z.number(),
       duration: z.number(),
       sampleRows: z.array(z.object({})),
+      geometryNote: z
+        .string()
+        .optional()
+        .describe(
+          "When present, indicates that lat/lng columns were AUTO-GENERATED from a geometry column. " +
+            "Do NOT reference lat/lng directly in follow-up SQL on the raw file. Read this note carefully.",
+        ),
     }),
   },
   {

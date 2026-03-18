@@ -125,17 +125,33 @@ export async function preloadDuckDB(): Promise<boolean> {
   }
 }
 
-/** Convert Arrow values to plain JS — handles BigInt, Uint8Array, Struct, List. */
+/** Convert Arrow values to plain JS — handles BigInt, Uint8Array, Struct, List, nested objects. */
 function arrowToJs(val: unknown): unknown {
   if (val == null) return null;
   if (typeof val === "bigint") return Number(val);
   if (val instanceof Uint8Array) return `0x${[...val].map((b) => b.toString(16).padStart(2, "0")).join("")}`;
-  // Arrow Struct → plain object
-  if (val && typeof val === "object" && "toJSON" in val && typeof (val as any).toJSON === "function") {
-    return (val as any).toJSON();
-  }
-  // Arrow List / Array → plain array
+  // Arrow List / Array → plain array (before object check since Arrays are objects)
   if (Array.isArray(val)) return val.map(arrowToJs);
+  // Arrow Struct → plain object, then recurse to convert nested BigInts/Uint8Arrays
+  if (val && typeof val === "object" && "toJSON" in val && typeof (val as any).toJSON === "function") {
+    const obj = (val as any).toJSON();
+    if (obj && typeof obj === "object" && !Array.isArray(obj)) {
+      const out: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(obj)) {
+        out[k] = arrowToJs(v);
+      }
+      return out;
+    }
+    return arrowToJs(obj);
+  }
+  // Plain object (e.g. from nested struct without toJSON) — recurse
+  if (val && typeof val === "object" && val.constructor === Object) {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(val)) {
+      out[k] = arrowToJs(v);
+    }
+    return out;
+  }
   return val;
 }
 
@@ -260,6 +276,7 @@ export async function runQuery(input: { sql: string } | string): Promise<{
   rowCount: number;
   duration: number;
   sampleRows: Record<string, unknown>[];
+  geometryNote?: string;
 }> {
   const rawSql = typeof input === "string" ? input : input.sql;
   const sql = cleanSql(rawSql);
@@ -376,12 +393,22 @@ export async function runQuery(input: { sql: string } | string): Promise<{
     });
 
     // Return only metadata + 3 sample rows to the LLM (saves tokens!)
+    // When geometry was auto-detected, tell the AI so it doesn't try to reference
+    // synthetic lat/lng columns in follow-up SQL — they only exist in the wrapped result.
+    const geometryNote = geomColumn
+      ? `IMPORTANT: "lat" and "lng" columns in this result were AUTO-GENERATED from geometry column "${geomColumn}" (${isNativeGeometry ? "GEOMETRY" : "WKB BLOB"}). ` +
+        `These columns do NOT exist in the raw Parquet file. In follow-up queries, use SELECT * to get auto-generated lat/lng, ` +
+        `or use geometry functions on "${geomColumn}" (e.g. ST_Y(ST_GeomFromWKB("${geomColumn}")) for WKB BLOB, ST_Y("${geomColumn}") for native GEOMETRY). ` +
+        `Do NOT reference "lat" or "lng" directly in WHERE/SELECT on the raw file.`
+      : undefined;
+
     return {
       queryId,
       columns,
       rowCount: numRows,
       duration,
       sampleRows: rows.slice(0, 3),
+      ...(geometryNote && { geometryNote }),
     };
   } catch (error: any) {
     throw new Error(`DuckDB query error: ${error?.message ?? String(error)}`);

@@ -22,6 +22,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@duckdb/duckdb-wasm": "1.33.1-dev37.0",
+    "@fontsource/dm-mono": "^5.2.7",
     "@geoarrow/deck.gl-layers": "^0.3.1",
     "@luma.gl/engine": "^9.2.6",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
