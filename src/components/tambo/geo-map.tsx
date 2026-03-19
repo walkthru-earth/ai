@@ -571,7 +571,7 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
             id: layer.id,
             layerType: layer.layerType as LayerType | undefined,
             hexColumn: layer.hexColumn ?? "hex",
-            pentagonColumn: (layer as any).pentagonColumn ?? "pentagon",
+            pentagonColumn: layer.pentagonColumn ?? "pentagon",
             valueColumn: layer.valueColumn ?? "value",
             latColumn: layer.latColumn ?? "lat",
             lngColumn: layer.lngColumn ?? "lng",
@@ -757,7 +757,7 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
         });
       }
     },
-    [primaryQueryId, primaryHexColumn, primaryValueColumn],
+    [primaryQueryId, primaryHexColumn, primaryValueColumn, isMultiLayer, visibleLayers, pentagonColumn],
   );
 
   // Cross-filter: bbox — applies to all layers
