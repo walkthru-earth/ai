@@ -1,6 +1,6 @@
 import { useTambo } from "@tambo-ai/react";
 import * as React from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { cn } from "@/lib/utils";
 
 /**
@@ -10,7 +10,10 @@ export type ScrollableMessageContainerProps = React.HTMLAttributes<HTMLDivElemen
 
 /**
  * A scrollable container for message content with auto-scroll functionality.
- * Used across message thread components for consistent scrolling behavior.
+ * Mimics ChatGPT / Claude app behavior:
+ * - Auto-scrolls to bottom during streaming and on new messages
+ * - Pauses auto-scroll when user scrolls up (takes control)
+ * - Re-enables auto-scroll when user scrolls back to bottom OR sends a new message
  *
  * @example
  * ```tsx
@@ -25,16 +28,57 @@ export const ScrollableMessageContainer = React.forwardRef<HTMLDivElement, Scrol
   ({ className, children, ...props }, ref) => {
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const { messages, isStreaming } = useTambo();
-    const [shouldAutoscroll, setShouldAutoscroll] = useState(true);
-    const lastScrollTopRef = useRef(0);
+
+    // Use ref for auto-scroll state to avoid re-triggering effects
+    const stickToBottomRef = useRef(true);
+    // Track whether the programmatic scroll is in progress (to ignore its scroll events)
+    const programmaticScrollRef = useRef(false);
+    // RAF handle for streaming scroll
+    const rafRef = useRef<number>(0);
+    // Track message count to detect new user messages
+    const prevMessageCountRef = useRef(0);
 
     // Handle forwarded ref
     React.useImperativeHandle(ref, () => scrollContainerRef.current!, []);
 
-    // Create a dependency that represents all content that should trigger autoscroll
+    /** Is the container scrolled to (or near) the bottom? */
+    const isAtBottom = useCallback((): boolean => {
+      const el = scrollContainerRef.current;
+      if (!el) return true;
+      return el.scrollHeight - el.scrollTop - el.clientHeight < 24;
+    }, []);
+
+    /** Scroll to the very bottom */
+    const scrollToBottom = useCallback((instant?: boolean) => {
+      const el = scrollContainerRef.current;
+      if (!el) return;
+      programmaticScrollRef.current = true;
+      el.scrollTo({
+        top: el.scrollHeight,
+        behavior: instant ? "instant" : "smooth",
+      });
+      // Clear the programmatic flag after smooth scroll settles
+      // (smooth scroll fires multiple scroll events over ~300ms)
+      setTimeout(
+        () => {
+          programmaticScrollRef.current = false;
+        },
+        instant ? 0 : 400,
+      );
+    }, []);
+
+    // Handle scroll events — detect user taking control vs being at bottom
+    const handleScroll = useCallback(() => {
+      // Ignore scroll events caused by our own programmatic scrollTo
+      if (programmaticScrollRef.current) return;
+
+      // User-initiated scroll: check if they're at the bottom
+      stickToBottomRef.current = isAtBottom();
+    }, [isAtBottom]);
+
+    // Stable content fingerprint to detect actual content changes
     const messagesContent = useMemo(() => {
       if (!messages) return null;
-
       return messages.map((message) => ({
         id: message.id,
         content: message.content,
@@ -42,47 +86,55 @@ export const ScrollableMessageContainer = React.forwardRef<HTMLDivElement, Scrol
       }));
     }, [messages]);
 
-    // Handle scroll events to detect user scrolling
-    const handleScroll = useCallback(() => {
-      if (!scrollContainerRef.current) return;
-
-      const { scrollTop, scrollHeight, clientHeight } = scrollContainerRef.current;
-      const isAtBottom = Math.abs(scrollHeight - scrollTop - clientHeight) < 8; // 8px tolerance for rounding
-
-      // If user scrolled up, disable autoscroll
-      if (scrollTop < lastScrollTopRef.current) {
-        setShouldAutoscroll(false);
-      }
-      // If user is at bottom, enable autoscroll
-      else if (isAtBottom) {
-        setShouldAutoscroll(true);
-      }
-
-      lastScrollTopRef.current = scrollTop;
-    }, []);
-
-    // Auto-scroll to bottom when message content changes
+    // Re-enable stick-to-bottom when the user sends a NEW message
+    // (message count increases and the last message is from the user)
     useEffect(() => {
-      if (scrollContainerRef.current && messagesContent && shouldAutoscroll) {
-        const scroll = () => {
-          if (scrollContainerRef.current) {
-            scrollContainerRef.current.scrollTo({
-              top: scrollContainerRef.current.scrollHeight,
-              behavior: "smooth",
-            });
-          }
-        };
-
-        if (isStreaming) {
-          // During streaming, scroll immediately
-          requestAnimationFrame(scroll);
-        } else {
-          // For other updates, use a short delay to batch rapid changes
-          const timeoutId = setTimeout(scroll, 50);
-          return () => clearTimeout(timeoutId);
+      if (!messages || messages.length === 0) return;
+      const count = messages.length;
+      if (count > prevMessageCountRef.current) {
+        const lastMsg = messages[count - 1];
+        if (lastMsg.role === "user") {
+          stickToBottomRef.current = true;
+          scrollToBottom(true);
         }
       }
-    }, [messagesContent, isStreaming, shouldAutoscroll]);
+      prevMessageCountRef.current = count;
+    }, [messages?.length, scrollToBottom]);
+
+    // Auto-scroll during streaming — use rAF loop for smooth tracking
+    useEffect(() => {
+      if (!isStreaming || !stickToBottomRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        return;
+      }
+
+      const tick = () => {
+        if (!stickToBottomRef.current) return;
+        const el = scrollContainerRef.current;
+        if (el) {
+          // Use instant scroll during streaming to avoid smooth-scroll lag
+          programmaticScrollRef.current = true;
+          el.scrollTop = el.scrollHeight;
+          programmaticScrollRef.current = false;
+        }
+        rafRef.current = requestAnimationFrame(tick);
+      };
+      rafRef.current = requestAnimationFrame(tick);
+
+      return () => cancelAnimationFrame(rafRef.current);
+    }, [isStreaming]);
+
+    // Auto-scroll on new content when NOT streaming (e.g. tool results, component renders)
+    useEffect(() => {
+      if (isStreaming || !stickToBottomRef.current || !messagesContent) return;
+
+      const timeoutId = setTimeout(() => {
+        if (stickToBottomRef.current) {
+          scrollToBottom(false);
+        }
+      }, 50);
+      return () => clearTimeout(timeoutId);
+    }, [messagesContent, isStreaming, scrollToBottom]);
 
     return (
       <div

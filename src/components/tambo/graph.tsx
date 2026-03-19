@@ -58,7 +58,7 @@ class GraphErrorBoundary extends React.Component<
 
 // Legacy inline data schema (backward compat)
 export const graphDataSchema = z.object({
-  type: z.enum(["bar", "line", "pie"]).describe("Type of graph to render"),
+  type: z.enum(["bar", "line", "area", "pie"]).describe("Type of graph to render"),
   labels: z.array(z.string()).describe("Labels for the graph"),
   datasets: z
     .array(
@@ -85,7 +85,15 @@ export const graphSchema = z.object({
     .array(z.string())
     .optional()
     .describe("Column names to plot as Y-axis series (e.g. ['pop_2025', 'pop_2050'])"),
-  chartType: z.enum(["bar", "line", "pie"]).optional().describe("Chart type when using queryId mode (default: bar)"),
+  chartType: z
+    .enum(["bar", "line", "area", "pie"])
+    .optional()
+    .describe("Chart type when using queryId mode (default: bar). Use 'area' for filled line charts."),
+  xLabel: z.string().optional().describe("X-axis label (e.g. 'Rank', 'Year', 'Region'). Shown below the X-axis."),
+  yLabel: z
+    .string()
+    .optional()
+    .describe("Y-axis label (e.g. 'Buildings per km²', 'Population'). Shown vertically on the left."),
   // LEGACY: inline data (backward compat — deprecated)
   data: graphDataSchema
     .optional()
@@ -114,7 +122,10 @@ const defaultColors = [
 /* ── Component ─────────────────────────────────────────────────────── */
 
 export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
-  ({ className, variant, size, data, title, showLegend = true, queryId, xColumn, yColumns, chartType }, ref) => {
+  (
+    { className, variant, size, data, title, showLegend = true, queryId, xColumn, yColumns, chartType, xLabel, yLabel },
+    ref,
+  ) => {
     const crossFilter = useCrossFilter();
     const queryResult = useQueryResult(queryId);
     const inPanel = useInDashboardPanel();
@@ -215,6 +226,36 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
       angle: manyPoints ? -45 : 0,
       textAnchor: manyPoints ? ("end" as const) : ("middle" as const),
       height: manyPoints ? 50 : 30,
+      label: xLabel
+        ? {
+            value: xLabel,
+            position: "insideBottom" as const,
+            offset: manyPoints ? -4 : -2,
+            fontSize: 11,
+            fill: "var(--muted-foreground)",
+          }
+        : undefined,
+    };
+
+    const yAxisProps = {
+      stroke: "var(--muted-foreground)",
+      axisLine: false,
+      tickLine: false,
+      fontSize: 10,
+      width: 50,
+      tickFormatter: (v: number) =>
+        Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(v >= 10000 ? 0 : 1)}k` : String(Math.round(v * 10) / 10),
+      label: yLabel
+        ? {
+            value: yLabel,
+            angle: -90,
+            position: "insideLeft" as const,
+            offset: 4,
+            fontSize: 11,
+            fill: "var(--muted-foreground)",
+            style: { textAnchor: "middle" },
+          }
+        : undefined,
     };
 
     const tooltipStyle = {
@@ -224,6 +265,15 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
       color: "var(--foreground)",
     };
 
+    // Format tooltip values: round to reasonable precision
+    const tooltipFormatter = (value: number, name: string) => {
+      const formatted =
+        Math.abs(value) >= 1000
+          ? value.toLocaleString(undefined, { maximumFractionDigits: 1 })
+          : String(Math.round(value * 100) / 100);
+      return [formatted, yLabel && validDatasets.length === 1 ? yLabel : name];
+    };
+
     const renderChart = () => {
       switch (type) {
         case "bar":
@@ -231,15 +281,10 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
             <RechartsCore.BarChart data={chartData} onClick={handleBarClick}>
               <RechartsCore.CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
               <RechartsCore.XAxis {...xAxisProps} />
-              <RechartsCore.YAxis
-                stroke="var(--muted-foreground)"
-                axisLine={false}
-                tickLine={false}
-                fontSize={10}
-                width={40}
-              />
+              <RechartsCore.YAxis {...yAxisProps} />
               <RechartsCore.Tooltip
                 contentStyle={tooltipStyle}
+                formatter={tooltipFormatter}
                 cursor={{ fill: "var(--muted-foreground)", fillOpacity: 0.1 }}
               />
               {showLegend && validDatasets.length > 1 && (
@@ -261,14 +306,8 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
             <RechartsCore.LineChart data={chartData}>
               <RechartsCore.CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
               <RechartsCore.XAxis {...xAxisProps} />
-              <RechartsCore.YAxis
-                stroke="var(--muted-foreground)"
-                axisLine={false}
-                tickLine={false}
-                fontSize={10}
-                width={40}
-              />
-              <RechartsCore.Tooltip contentStyle={tooltipStyle} />
+              <RechartsCore.YAxis {...yAxisProps} />
+              <RechartsCore.Tooltip contentStyle={tooltipStyle} formatter={tooltipFormatter} />
               {showLegend && validDatasets.length > 1 && (
                 <RechartsCore.Legend wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }} />
               )}
@@ -284,6 +323,40 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
                 />
               ))}
             </RechartsCore.LineChart>
+          );
+        case "area":
+          return (
+            <RechartsCore.AreaChart data={chartData}>
+              <defs>
+                {validDatasets.map((d, i) => {
+                  const color = d.color ?? defaultColors[i % defaultColors.length];
+                  return (
+                    <linearGradient key={d.label} id={`area-grad-${i}`} x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={color} stopOpacity={0.3} />
+                      <stop offset="95%" stopColor={color} stopOpacity={0.02} />
+                    </linearGradient>
+                  );
+                })}
+              </defs>
+              <RechartsCore.CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+              <RechartsCore.XAxis {...xAxisProps} />
+              <RechartsCore.YAxis {...yAxisProps} />
+              <RechartsCore.Tooltip contentStyle={tooltipStyle} formatter={tooltipFormatter} />
+              {showLegend && validDatasets.length > 1 && (
+                <RechartsCore.Legend wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }} />
+              )}
+              {validDatasets.map((d, i) => (
+                <RechartsCore.Area
+                  key={d.label}
+                  type="monotone"
+                  dataKey={d.label}
+                  stroke={d.color ?? defaultColors[i % defaultColors.length]}
+                  fill={`url(#area-grad-${i})`}
+                  strokeWidth={2}
+                  isAnimationActive={false}
+                />
+              ))}
+            </RechartsCore.AreaChart>
           );
         case "pie": {
           const pieDs = validDatasets[0];
@@ -338,7 +411,9 @@ Graph.displayName = "Graph";
 export const InteractableGraph = withTamboInteractable(Graph, {
   componentName: "Graph",
   description:
-    "Interactive chart (bar/line/pie). AI can update chart type, axes, and data source at runtime. " +
+    "Interactive chart (bar/line/area/pie). AI can update chart type, axes, axis labels, and data source at runtime. " +
+    "ALWAYS set xLabel and yLabel to explain axes (e.g. xLabel='Rank', yLabel='Buildings per km²'). " +
+    "Use 'area' for filled line charts (good for distributions, rankings, time series). " +
     "Use to respond to requests like 'switch to line chart' or 'show pop_2100 instead'.",
   propsSchema: graphSchema,
 });

@@ -417,7 +417,9 @@ export function buildContextHelpers(geo: GeoIP | null) {
           "(6) Distance: ST_Distance_Spheroid(a, b) for meters. ST_Area_Spheroid(geom) for m². " +
           "(7) Transform CRS: ST_Transform(geom, 'EPSG:4326', 'EPSG:3857'). " +
           "All spatial results auto-render — just pass queryId to GeoMap.",
-        "Graph: queryId + xColumn + yColumns + chartType.",
+        "Graph: queryId + xColumn + yColumns + chartType (bar/line/area/pie). " +
+          "ALWAYS set xLabel and yLabel to explain axes (e.g. xLabel='Rank', yLabel='Population'). " +
+          "Use 'area' for filled line charts. Y-axis auto-formats large numbers (e.g. 5000 → '5k').",
         "CHART X-AXIS RULE: NEVER use raw H3 hex IDs as chart labels — they are meaningless to users. " +
           "Instead, create meaningful labels in the SQL query: " +
           "Use CASE/WHEN to bucket values (e.g. '0-1000m', '1000-3000m'), " +
