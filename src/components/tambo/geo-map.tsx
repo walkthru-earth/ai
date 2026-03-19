@@ -97,7 +97,7 @@ export const geoMapSchema = z.object({
   // Shared view
   latitude: z.number().optional().describe("Center latitude"),
   longitude: z.number().optional().describe("Center longitude"),
-  zoom: z.number().optional().describe("Zoom level (default 4)"),
+  zoom: z.number().optional().describe("Zoom level (default 1 — world view)"),
   colorMetric: z.string().optional().describe("Legend label for the color metric (e.g. 'Population Density')"),
   colorScheme: z.enum(COLOR_SCHEMES).optional().describe("Color palette"),
   extruded: z.boolean().optional().describe("3D extrusion based on value"),
@@ -482,7 +482,7 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
     destLngColumn = "dest_lng",
     latitude,
     longitude,
-    zoom = 4,
+    zoom = 1,
     colorMetric,
     colorScheme = "blue-red",
     extruded = false,
