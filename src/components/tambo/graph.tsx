@@ -228,26 +228,59 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
     // Detect if X labels are long (e.g. datetime strings) — need more rotation + truncation
     const maxLabelLen = Math.max(...chartData.slice(0, 20).map((d) => String(d.name).length));
     const longLabels = maxLabelLen > 12;
-    // Truncate long X-axis tick labels
-    const xTickFormatter = (v: string) => {
+    const rotated = manyPoints || longLabels;
+
+    // Shorten a label string, keeping the full text for hover
+    const shortenXTick = (v: string): { short: string; full: string } => {
       const s = String(v);
-      if (s.length <= 10) return s;
-      // Datetime: try to shorten "2026-03-19 14:00:00 UTC" → "03-19 14:00"
+      if (s.length <= 10) return { short: s, full: s };
       const dtMatch = s.match(/\d{4}-(\d{2}-\d{2})\s*(\d{2}:\d{2})/);
-      if (dtMatch) return `${dtMatch[1]} ${dtMatch[2]}`;
-      return s.length > 14 ? `${s.slice(0, 12)}…` : s;
+      if (dtMatch) return { short: `${dtMatch[1]} ${dtMatch[2]}`, full: s };
+      return s.length > 14 ? { short: `${s.slice(0, 12)}…`, full: s } : { short: s, full: s };
     };
+
+    // Custom X-axis tick with <title> for hover on truncated text
+    const CustomXTick = ({ x, y, payload }: any) => {
+      if (!payload?.value) return null;
+      const { short, full } = longLabels
+        ? shortenXTick(payload.value)
+        : { short: String(payload.value), full: String(payload.value) };
+      const isTruncated = short !== full;
+      return (
+        <g transform={`translate(${x},${y})`}>
+          <text
+            x={0}
+            y={0}
+            dy={10}
+            textAnchor={rotated ? "end" : "middle"}
+            transform={rotated ? "rotate(-45)" : undefined}
+            fill="var(--muted-foreground)"
+            fontSize={longLabels ? 9 : 10}
+            style={isTruncated ? { cursor: "help" } : undefined}
+          >
+            {isTruncated && <title>{full}</title>}
+            {short}
+          </text>
+        </g>
+      );
+    };
+
     const xAxisProps = {
       dataKey: "name" as const,
       stroke: "var(--muted-foreground)",
       axisLine: false,
       tickLine: false,
-      fontSize: longLabels ? 9 : 10,
       interval: manyPoints ? Math.ceil(chartData.length / 8) : 0,
-      angle: manyPoints || longLabels ? -45 : 0,
-      textAnchor: manyPoints || longLabels ? ("end" as const) : ("middle" as const),
-      height: manyPoints || longLabels ? 55 : 30,
-      tickFormatter: longLabels ? xTickFormatter : undefined,
+      height: rotated ? 55 : 30,
+      tick: longLabels ? CustomXTick : undefined,
+      // When not using custom tick, use basic props
+      ...(longLabels
+        ? {}
+        : {
+            fontSize: 10,
+            angle: rotated ? -45 : 0,
+            textAnchor: rotated ? ("end" as const) : ("middle" as const),
+          }),
       label: xLabel
         ? {
             value: xLabel.length > 30 ? `${xLabel.slice(0, 28)}…` : xLabel,
@@ -255,12 +288,29 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
             offset: -2,
             fontSize: 10,
             fill: "var(--muted-foreground)",
+            content:
+              xLabel.length > 30
+                ? ({ viewBox }: any) => (
+                    <text
+                      x={(viewBox?.x ?? 0) + (viewBox?.width ?? 0) / 2}
+                      y={(viewBox?.y ?? 0) + (viewBox?.height ?? 0) - 2}
+                      textAnchor="middle"
+                      fill="var(--muted-foreground)"
+                      fontSize={10}
+                      style={{ cursor: "help" }}
+                    >
+                      <title>{xLabel}</title>
+                      {`${xLabel.slice(0, 28)}…`}
+                    </text>
+                  )
+                : undefined,
           }
         : undefined,
     };
 
-    // Truncate long Y-axis labels to avoid overlap
+    // Custom Y-axis label with hover for truncated text
     const yLabelTruncated = yLabel && yLabel.length > 25 ? `${yLabel.slice(0, 23)}…` : yLabel;
+    const yLabelIsTruncated = yLabel && yLabel !== yLabelTruncated;
     const yAxisProps = {
       stroke: "var(--muted-foreground)",
       axisLine: false,
@@ -271,13 +321,24 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
         Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(v >= 10000 ? 0 : 1)}k` : String(Math.round(v * 10) / 10),
       label: yLabelTruncated
         ? {
-            value: yLabelTruncated,
-            angle: -90,
-            position: "insideLeft" as const,
-            offset: 4,
-            fontSize: 10,
-            fill: "var(--muted-foreground)",
-            style: { textAnchor: "middle" },
+            content: ({ viewBox }: any) => {
+              const cx = (viewBox?.x ?? 0) + 14;
+              const cy = (viewBox?.y ?? 0) + (viewBox?.height ?? 0) / 2;
+              return (
+                <text
+                  x={cx}
+                  y={cy}
+                  transform={`rotate(-90, ${cx}, ${cy})`}
+                  textAnchor="middle"
+                  fill="var(--muted-foreground)"
+                  fontSize={10}
+                  style={yLabelIsTruncated ? { cursor: "help" } : undefined}
+                >
+                  {yLabelIsTruncated && <title>{yLabel}</title>}
+                  {yLabelTruncated}
+                </text>
+              );
+            },
           }
         : undefined,
     };
