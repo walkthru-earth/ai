@@ -26,7 +26,7 @@ paths:
 
 **H3Map** (`h3-map.tsx`): Backward-compat alias → `GeoMap` with `layerType="h3"`.
 
-**Graph** (`graph.tsx`): queryId + xColumn + yColumns + chartType → Recharts. Cross-filter consume/emit. AI can update chartType, axes at runtime.
+**Graph** (`graph.tsx`): queryId + xColumn + yColumns + chartType + xLabel + yLabel → Recharts. 10 chart types: bar, line, area, pie, scatter, radar, radialBar, treemap, composed (bar+line overlay), funnel. Cross-filter consume/emit. AI can update chartType, axes, labels at runtime. Y-axis auto-formats (5000→5k). Long labels truncated with SVG `<title>` hover. Legend renders at top. Always set xLabel/yLabel.
 
 **DataTable** (`data-table.tsx`): queryId → auto-derive cols/rows. Paginated 20/page. Cross-filter consume/emit. AI can update visibleColumns, title at runtime. Click row → expands action bar: **Zoom to record** (flies map to row's lat/lng or H3 hex centroid via `requestFlyTo()`) + **Copy record** (JSON to clipboard). Expanded row collapses on re-click or page change.
 
@@ -49,7 +49,7 @@ All viz components use `useInDashboardPanel()` to detect context:
 - **In dashboard panels**: `h-full` — fills the panel container (definite height from grid layout or touch `h-[280px]`/`h-[420px]`)
 - **In chat (inline)**: fixed height — GeoMap `h-[420px]`, Graph `h-[320px]`
 - Inner layout: `flex flex-col`, header/footer `flex-shrink-0`, content `flex-1 min-h-0`
-- Graph: compact `p-2 sm:p-4` padding, smart X-axis (auto-rotate at >10 points), pie `outerRadius="70%"`, legend only for multi-dataset
+- Graph: compact `p-2 sm:p-4` padding, smart X-axis (auto-rotate at >10 or long labels), legend at top, Y-axis auto-format (5k). Default zoom: 1 (world view)
 - Textarea: `min-h-[44px]` on mobile, `sm:min-h-[82px]` on desktop
 
 ## Dashboard (`dashboard-canvas.tsx`)
@@ -68,6 +68,18 @@ All viz components use `useInDashboardPanel()` to detect context:
 - Types inline: `ImageItems`, `getImageItems()`, `TamboEditor`, `ResourceItem`, `PromptItem`.
 - Compound component: `MessageInput.Textarea`, `.SubmitButton`, `.Toolbar`, etc.
 - `invalid_previous_run` error → auto `startNewThread()`, preserves user text for resend.
+
+## Auto-scroll (`scrollable-message-container.tsx`)
+
+- Ref-based stick-to-bottom (no state re-triggers). Instant `scrollTop` during streaming (no smooth-scroll lag). Smooth scroll on non-streaming content changes.
+- **User scroll-up**: pauses auto-scroll (ignores programmatic scroll events via `programmaticScrollRef`).
+- **Resume**: re-enables on new user message (detects `role === "user"` + count increase) or when user manually scrolls to bottom.
+- Matches ChatGPT/Claude app behavior.
+
+## UPDATE vs CREATE NEW
+
+- **Update existing** (`update_component_props`): same data, change appearance (zoom, colors, chart type, hide columns).
+- **Create new**: different metric/dataset ("show wind" when chart shows temp). Previous visualizations stay visible for comparison.
 
 ## Chat
 

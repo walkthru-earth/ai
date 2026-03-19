@@ -163,12 +163,20 @@ export const InteractableMyComponent = withTamboInteractable(MyComponent, {
 | Component | AI Can Update | Data Source | Cross-Filter |
 |-----------|--------------|-------------|--------------|
 | **GeoMap** | latitude, longitude, zoom, basemap, colorScheme, extruded, layerType, layers[] | queryId → useQueryResult | Emits: hex/pentagon click, bbox. Consumes: bbox |
-| **Graph** | chartType, xColumn, yColumns, queryId | queryId → useQueryResult | Emits: bar click. Consumes: bbox (filters rows) |
+| **Graph** | chartType, xColumn, yColumns, xLabel, yLabel, queryId | queryId → useQueryResult | Emits: bar click. Consumes: bbox (filters rows) |
 | **DataTable** | visibleColumns, title | queryId → useQueryResult | Emits: row click. Consumes: bbox |
 
 ### Static Components (AI sends all props, no runtime updates)
 
 StatsCard, StatsGrid, InsightCard, DatasetCard, QueryDisplay, DataCard — AI provides all values inline.
+
+### Graph Chart Types
+
+10 chart types: `bar`, `line`, `area`, `pie`, `scatter`, `radar`, `radialBar`, `treemap`, `composed` (bar+line overlay), `funnel`. Always set `xLabel` and `yLabel` to explain axes. Y-axis auto-formats large numbers (5000→5k). Long axis labels truncated with hover to show full text. Legend renders at top to avoid X-axis overlap.
+
+### UPDATE vs CREATE NEW Components
+
+**Update existing** (`update_component_props`) only when user modifies the SAME data's appearance — zoom, colors, chart type, hide columns. **Create new** component when user asks for a DIFFERENT metric/dataset — "show wind" when chart shows temperature, "show buildings" when map shows population. When in doubt, create new — users expect previous visualizations to remain visible for comparison.
 
 ### Multi-Layer GeoMap
 
@@ -217,4 +225,5 @@ Packages: `@geoarrow/deck.gl-layers@0.3.1`, `@walkthru-earth/objex-utils@1.0.0`,
 - AI must NEVER render checkboxes or selectable lists — users cannot submit selections. Use DatasetCard components + auto-submitting suggestion chips instead.
 - Geo-IP: `useGeoIP()` fetches from geojs.io, caches 24h in localStorage (null on first render). Returns city, country, lat/lng, timezone, and pre-computed H3 cells at res 1/3/5/7. Falls back gracefully when blocked.
 - Query replay: `useReplayQueries(messages)` shared hook re-runs SQL from restored threads to repopulate query-store. Used by both `/chat` and `/explore`.
-- GeoMap height: `h-[420px]` in chat (inline), `h-full` in dashboard panels.
+- GeoMap height: `h-[420px]` in chat (inline), `h-full` in dashboard panels. Default zoom: 1 (world view).
+- Auto-scroll: `ScrollableMessageContainer` uses ref-based stick-to-bottom. Instant scroll during streaming, smooth on new content. Pauses on user scroll-up, resumes on new user message (ChatGPT/Claude behavior).
