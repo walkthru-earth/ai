@@ -58,7 +58,9 @@ class GraphErrorBoundary extends React.Component<
 
 // Legacy inline data schema (backward compat)
 export const graphDataSchema = z.object({
-  type: z.enum(["bar", "line", "area", "pie"]).describe("Type of graph to render"),
+  type: z
+    .enum(["bar", "line", "area", "pie", "scatter", "radar", "radialBar", "treemap", "composed", "funnel"])
+    .describe("Type of graph to render"),
   labels: z.array(z.string()).describe("Labels for the graph"),
   datasets: z
     .array(
@@ -86,9 +88,16 @@ export const graphSchema = z.object({
     .optional()
     .describe("Column names to plot as Y-axis series (e.g. ['pop_2025', 'pop_2050'])"),
   chartType: z
-    .enum(["bar", "line", "area", "pie"])
+    .enum(["bar", "line", "area", "pie", "scatter", "radar", "radialBar", "treemap", "composed", "funnel"])
     .optional()
-    .describe("Chart type when using queryId mode (default: bar). Use 'area' for filled line charts."),
+    .describe(
+      "Chart type (default: bar). " +
+        "line: trends/time series. area: filled line. pie: proportions. " +
+        "scatter: correlation (needs 2+ yColumns, first=X second=Y). " +
+        "radar: multi-dimensional profiles. radialBar: circular progress/gauge. " +
+        "treemap: hierarchical proportions. composed: bar+line overlay (first yColumn=bar, rest=line). " +
+        "funnel: conversion/pipeline stages (widest at top, narrowing down).",
+    ),
   xLabel: z.string().optional().describe("X-axis label (e.g. 'Rank', 'Year', 'Region'). Shown below the X-axis."),
   yLabel: z
     .string()
@@ -358,6 +367,204 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
               ))}
             </RechartsCore.AreaChart>
           );
+        case "scatter": {
+          // Scatter: first yColumn = X-axis, second yColumn = Y-axis (or use xColumn for labels)
+          const scatterDs = validDatasets[0];
+          const scatterY = validDatasets[1] ?? validDatasets[0];
+          if (!scatterDs) return null;
+          const scatterData = chartData.map((d, i) => ({
+            x: scatterDs.data[i] ?? 0,
+            y: (scatterY === scatterDs ? 0 : scatterY.data[i]) ?? 0,
+            name: d.name,
+            ...d,
+          }));
+          return (
+            <RechartsCore.ScatterChart>
+              <RechartsCore.CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <RechartsCore.XAxis
+                type="number"
+                dataKey="x"
+                name={scatterDs.label}
+                stroke="var(--muted-foreground)"
+                fontSize={10}
+                axisLine={false}
+                tickLine={false}
+                label={
+                  (xLabel ?? scatterDs.label)
+                    ? {
+                        value: xLabel ?? scatterDs.label,
+                        position: "insideBottom" as const,
+                        offset: -2,
+                        fontSize: 11,
+                        fill: "var(--muted-foreground)",
+                      }
+                    : undefined
+                }
+              />
+              <RechartsCore.YAxis
+                type="number"
+                dataKey="y"
+                name={scatterY.label}
+                {...yAxisProps}
+                label={
+                  (yLabel ?? scatterY.label)
+                    ? {
+                        value: yLabel ?? scatterY.label,
+                        angle: -90,
+                        position: "insideLeft" as const,
+                        offset: 4,
+                        fontSize: 11,
+                        fill: "var(--muted-foreground)",
+                        style: { textAnchor: "middle" },
+                      }
+                    : undefined
+                }
+              />
+              <RechartsCore.Tooltip contentStyle={tooltipStyle} />
+              <RechartsCore.Scatter data={scatterData} fill={defaultColors[0]} isAnimationActive={false} />
+            </RechartsCore.ScatterChart>
+          );
+        }
+        case "radar": {
+          return (
+            <RechartsCore.RadarChart cx="50%" cy="50%" outerRadius="70%" data={chartData}>
+              <RechartsCore.PolarGrid stroke="var(--border)" />
+              <RechartsCore.PolarAngleAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={10} />
+              <RechartsCore.PolarRadiusAxis stroke="var(--muted-foreground)" fontSize={9} />
+              <RechartsCore.Tooltip contentStyle={tooltipStyle} formatter={tooltipFormatter} />
+              {showLegend && validDatasets.length > 1 && (
+                <RechartsCore.Legend wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }} />
+              )}
+              {validDatasets.map((d, i) => (
+                <RechartsCore.Radar
+                  key={d.label}
+                  name={d.label}
+                  dataKey={d.label}
+                  stroke={d.color ?? defaultColors[i % defaultColors.length]}
+                  fill={d.color ?? defaultColors[i % defaultColors.length]}
+                  fillOpacity={0.2}
+                  isAnimationActive={false}
+                />
+              ))}
+            </RechartsCore.RadarChart>
+          );
+        }
+        case "radialBar": {
+          const rbData =
+            validDatasets[0]?.data.slice(0, maxPts).map((v, i) => ({
+              name: labels[i],
+              value: v,
+              fill: defaultColors[i % defaultColors.length],
+            })) ?? [];
+          return (
+            <RechartsCore.RadialBarChart
+              cx="50%"
+              cy="50%"
+              innerRadius="20%"
+              outerRadius="90%"
+              barSize={16}
+              data={rbData}
+            >
+              <RechartsCore.RadialBar
+                dataKey="value"
+                isAnimationActive={false}
+                label={{ fill: "var(--foreground)", fontSize: 10, position: "insideStart" }}
+              />
+              <RechartsCore.Tooltip contentStyle={tooltipStyle} />
+              {showLegend && <RechartsCore.Legend wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }} />}
+            </RechartsCore.RadialBarChart>
+          );
+        }
+        case "treemap": {
+          const tmData =
+            validDatasets[0]?.data.slice(0, maxPts).map((v, i) => ({
+              name: labels[i],
+              size: v,
+              fill: defaultColors[i % defaultColors.length],
+            })) ?? [];
+          return (
+            <RechartsCore.Treemap
+              data={tmData}
+              dataKey="size"
+              nameKey="name"
+              aspectRatio={4 / 3}
+              stroke="var(--border)"
+              isAnimationActive={false}
+              content={({ x, y, width, height, name, fill }: any) =>
+                width > 30 && height > 20 ? (
+                  <g>
+                    <rect
+                      x={x}
+                      y={y}
+                      width={width}
+                      height={height}
+                      fill={fill}
+                      stroke="var(--border)"
+                      strokeWidth={1}
+                      rx={2}
+                    />
+                    <text
+                      x={x + width / 2}
+                      y={y + height / 2}
+                      textAnchor="middle"
+                      dominantBaseline="central"
+                      fill="var(--foreground)"
+                      fontSize={10}
+                    >
+                      {String(name ?? "").slice(0, 12)}
+                    </text>
+                  </g>
+                ) : (
+                  <rect
+                    x={x}
+                    y={y}
+                    width={width}
+                    height={height}
+                    fill={fill}
+                    stroke="var(--border)"
+                    strokeWidth={1}
+                    rx={2}
+                  />
+                )
+              }
+            />
+          );
+        }
+        case "composed":
+          // First yColumn rendered as bar, remaining as lines overlaid
+          return (
+            <RechartsCore.ComposedChart data={chartData} onClick={handleBarClick}>
+              <RechartsCore.CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+              <RechartsCore.XAxis {...xAxisProps} />
+              <RechartsCore.YAxis {...yAxisProps} />
+              <RechartsCore.Tooltip contentStyle={tooltipStyle} formatter={tooltipFormatter} />
+              {showLegend && validDatasets.length > 1 && (
+                <RechartsCore.Legend wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }} />
+              )}
+              {validDatasets.map((d, i) =>
+                i === 0 ? (
+                  <RechartsCore.Bar
+                    key={d.label}
+                    dataKey={d.label}
+                    fill={d.color ?? defaultColors[i % defaultColors.length]}
+                    radius={[4, 4, 0, 0]}
+                    isAnimationActive={false}
+                    opacity={0.7}
+                  />
+                ) : (
+                  <RechartsCore.Line
+                    key={d.label}
+                    type="monotone"
+                    dataKey={d.label}
+                    stroke={d.color ?? defaultColors[i % defaultColors.length]}
+                    dot={false}
+                    strokeWidth={2}
+                    isAnimationActive={false}
+                  />
+                ),
+              )}
+            </RechartsCore.ComposedChart>
+          );
         case "pie": {
           const pieDs = validDatasets[0];
           if (!pieDs) return null;
@@ -377,9 +584,31 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
                 labelLine={false}
                 isAnimationActive={false}
               />
-              <RechartsCore.Tooltip contentStyle={tooltipStyle} />
+              <RechartsCore.Tooltip contentStyle={tooltipStyle} formatter={tooltipFormatter} />
               {showLegend && <RechartsCore.Legend wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }} />}
             </RechartsCore.PieChart>
+          );
+        }
+        case "funnel": {
+          const fnData =
+            validDatasets[0]?.data.slice(0, maxPts).map((v, i) => ({
+              name: labels[i],
+              value: v,
+              fill: defaultColors[i % defaultColors.length],
+            })) ?? [];
+          return (
+            <RechartsCore.FunnelChart>
+              <RechartsCore.Tooltip contentStyle={tooltipStyle} formatter={tooltipFormatter} />
+              <RechartsCore.Funnel dataKey="value" data={fnData} isAnimationActive={false}>
+                <RechartsCore.LabelList
+                  position="right"
+                  fill="var(--foreground)"
+                  stroke="none"
+                  fontSize={10}
+                  dataKey="name"
+                />
+              </RechartsCore.Funnel>
+            </RechartsCore.FunnelChart>
           );
         }
         default:
@@ -411,9 +640,12 @@ Graph.displayName = "Graph";
 export const InteractableGraph = withTamboInteractable(Graph, {
   componentName: "Graph",
   description:
-    "Interactive chart (bar/line/area/pie). AI can update chart type, axes, axis labels, and data source at runtime. " +
+    "Interactive chart (bar/line/area/pie/scatter/radar/radialBar/treemap/composed/funnel). " +
     "ALWAYS set xLabel and yLabel to explain axes (e.g. xLabel='Rank', yLabel='Buildings per km²'). " +
-    "Use 'area' for filled line charts (good for distributions, rankings, time series). " +
-    "Use to respond to requests like 'switch to line chart' or 'show pop_2100 instead'.",
+    "Chart types: bar (comparisons), line (trends), area (filled line), pie (proportions), " +
+    "scatter (correlation — first yColumn=X, second=Y), radar (multi-dimensional profiles), " +
+    "radialBar (circular gauge), treemap (hierarchical proportions), composed (bar+line overlay — first yColumn=bar, rest=lines), " +
+    "funnel (conversion/pipeline stages). " +
+    "AI can update chart type, axes, axis labels, and data source at runtime.",
   propsSchema: graphSchema,
 });
