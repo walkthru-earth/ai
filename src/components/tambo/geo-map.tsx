@@ -15,10 +15,11 @@ const layerEntrySchema = z.object({
   id: z.string().describe("Unique layer ID for add/remove/update"),
   queryId: z.string().describe("Query result to render"),
   layerType: z
-    .enum(["h3", "scatterplot", "geojson", "arc", "wkb"])
+    .enum(["h3", "a5", "scatterplot", "geojson", "arc", "wkb"])
     .optional()
     .describe("Layer type. Auto-detected from column names if omitted."),
   hexColumn: z.string().optional().describe("H3 hex string column (default: 'hex'). For layerType=h3."),
+  pentagonColumn: z.string().optional().describe("A5 pentagon cell ID column (default: 'pentagon'). For layerType=a5."),
   valueColumn: z.string().optional().describe("Numeric value column for coloring (default: 'value')."),
   latColumn: z.string().optional().describe("Latitude column (default: 'lat'). For layerType=scatterplot."),
   lngColumn: z.string().optional().describe("Longitude column (default: 'lng'). For layerType=scatterplot."),
@@ -55,14 +56,16 @@ export const geoMapSchema = z.object({
         "For single-layer maps. Use `layers` array for multi-layer.",
     ),
   layerType: z
-    .enum(["h3", "scatterplot", "geojson", "arc", "wkb"])
+    .enum(["h3", "a5", "scatterplot", "geojson", "arc", "wkb"])
     .optional()
     .describe(
       "Layer type. Auto-detected from column names if omitted: " +
-        "hex/h3_index->h3, lat+lng->scatterplot, geometry->geojson, source_lat+dest_lat->arc, native geometry->wkb",
+        "pentagon/a5_cell->a5, hex/h3_index->h3, lat+lng->scatterplot, geometry->geojson, source_lat+dest_lat->arc, native geometry->wkb",
     ),
   // H3
   hexColumn: z.string().optional().describe("H3 hex string column (default: 'hex'). For layerType=h3."),
+  // A5
+  pentagonColumn: z.string().optional().describe("A5 pentagon cell ID column (default: 'pentagon'). For layerType=a5."),
   valueColumn: z
     .string()
     .optional()
@@ -147,7 +150,9 @@ function detectLayerType(columns: string[], explicitType?: LayerType): LayerType
   if (explicitType) return explicitType;
   const cols = new Set(columns.map((c) => c.toLowerCase()));
 
-  // Priority 1: H3 cell IDs → deck.gl generates hexagon polygons on GPU
+  // Priority 1a: A5 cell IDs → deck.gl A5Layer generates pentagon polygons on GPU
+  if (cols.has("pentagon") || cols.has("a5_cell") || cols.has("a5_index")) return "a5";
+  // Priority 1b: H3 cell IDs → deck.gl generates hexagon polygons on GPU
   if (cols.has("hex") || cols.has("h3_index")) return "h3";
   // Priority 2: Arc source/dest coordinates → GeoArrow arcs (before scatterplot — synthetic lat/lng would misdetect arcs)
   if ((cols.has("source_lat") || cols.has("source_latitude")) && (cols.has("dest_lat") || cols.has("dest_latitude")))
@@ -157,6 +162,17 @@ function detectLayerType(columns: string[], explicitType?: LayerType): LayerType
   // Priority 5: GeoJSON string geometry → standard GeoJsonLayer (JSON.parse)
   if (cols.has("geometry") || cols.has("geojson") || cols.has("wkb_geometry") || cols.has("geom")) return "geojson";
   return "h3"; // fallback for existing H3 datasets
+}
+
+/** Coerce a value to number — handles DuckDB Arrow edge cases where numbers arrive as strings (e.g. '"10"') */
+function toNum(val: unknown): number {
+  if (typeof val === "number") return val;
+  if (typeof val === "string") {
+    // Strip embedded quotes (Arrow serialization artifact: '"10"' → '10')
+    const n = Number(val.replace(/"/g, ""));
+    if (!Number.isNaN(n)) return n;
+  }
+  return 0;
 }
 
 /** Resolve a column name with fallbacks */
@@ -229,6 +245,7 @@ function transformQueryToLayer(
     id: string;
     layerType?: LayerType;
     hexColumn: string;
+    pentagonColumn: string;
     valueColumn: string;
     latColumn: string;
     lngColumn: string;
@@ -264,7 +281,7 @@ function transformQueryToLayer(
         updateBoundsAcc(boundsAcc, lat, lng);
       }
       const val = row[opts.valueColumn];
-      if (typeof val === "number") vals.push(val);
+      if (val != null) vals.push(toNum(val));
     }
     const { min, max } = computePercentileRange(vals);
     return {
@@ -308,12 +325,31 @@ function transformQueryToLayer(
   const data: any[] = [];
 
   switch (type) {
+    case "a5": {
+      const pentCol = opts.pentagonColumn ?? "pentagon";
+      for (const row of rows) {
+        const pentagon = row[pentCol];
+        const val = row[opts.valueColumn];
+        if (pentagon != null) {
+          const numVal = toNum(val);
+          // A5Layer accepts bigint or hex string — pass as string
+          data.push({ pentagon: String(pentagon), value: numVal });
+          vals.push(numVal);
+          const lat = resolveColumn(row, "lat", "latitude") as number | undefined;
+          const lng = resolveColumn(row, "lng", "longitude") as number | undefined;
+          if (typeof lat === "number" && typeof lng === "number") {
+            updateBoundsAcc(boundsAcc, lat, lng);
+          }
+        }
+      }
+      break;
+    }
     case "h3": {
       for (const row of rows) {
         const hex = row[opts.hexColumn];
         const val = row[opts.valueColumn];
         if (typeof hex === "string" && hex.length > 0) {
-          const numVal = typeof val === "number" ? val : 0;
+          const numVal = toNum(val);
           data.push({ hex, value: numVal });
           vals.push(numVal);
           const lat = resolveColumn(row, "lat", "latitude") as number | undefined;
@@ -333,7 +369,7 @@ function transformQueryToLayer(
         const lng = resolveColumn(row, opts.lngColumn, "lng", "longitude") as number | undefined;
         if (typeof lat === "number" && typeof lng === "number") {
           const val = row[opts.valueColumn];
-          const numVal = typeof val === "number" ? val : undefined;
+          const numVal = val != null ? toNum(val) : undefined;
           const item: any = { lat, lng, value: numVal };
           if (opts.radiusColumn && typeof row[opts.radiusColumn] === "number") item.radius = row[opts.radiusColumn];
           data.push(item);
@@ -350,7 +386,7 @@ function transformQueryToLayer(
           try {
             const geom = JSON.parse(geomStr);
             const val = row[opts.valueColumn];
-            const numVal = typeof val === "number" ? val : undefined;
+            const numVal = val != null ? toNum(val) : undefined;
             const feature = {
               type: "Feature",
               geometry: geom,
@@ -380,7 +416,7 @@ function transformQueryToLayer(
           typeof dLng === "number"
         ) {
           const val = row[opts.valueColumn];
-          const numVal = typeof val === "number" ? val : undefined;
+          const numVal = val != null ? toNum(val) : undefined;
           data.push({ sourceLat: sLat, sourceLng: sLng, destLat: dLat, destLng: dLng, value: numVal });
           if (numVal != null) vals.push(numVal);
           updateBoundsAcc(boundsAcc, sLat, sLng);
@@ -408,6 +444,7 @@ function transformQueryToLayer(
             arrowIPC: opts.arrowIPC,
             columnMapping: {
               hexColumn: opts.hexColumn,
+              pentagonColumn: opts.pentagonColumn,
               valueColumn: opts.valueColumn,
               latColumn: opts.latColumn,
               lngColumn: opts.lngColumn,
@@ -433,6 +470,7 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
     queryId,
     layerType: explicitLayerType,
     hexColumn = "hex",
+    pentagonColumn = "pentagon",
     valueColumn = "value",
     latColumn = "lat",
     lngColumn = "lng",
@@ -533,6 +571,7 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
             id: layer.id,
             layerType: layer.layerType as LayerType | undefined,
             hexColumn: layer.hexColumn ?? "hex",
+            pentagonColumn: (layer as any).pentagonColumn ?? "pentagon",
             valueColumn: layer.valueColumn ?? "value",
             latColumn: layer.latColumn ?? "lat",
             lngColumn: layer.lngColumn ?? "lng",
@@ -575,6 +614,7 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
             id: "default",
             layerType: explicitLayerType,
             hexColumn,
+            pentagonColumn,
             valueColumn,
             latColumn,
             lngColumn,
@@ -617,6 +657,7 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
     ...queryResults,
     explicitLayerType,
     hexColumn,
+    pentagonColumn,
     valueColumn,
     latColumn,
     lngColumn,
@@ -696,6 +737,14 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
           sourceComponent: "GeoMap",
           filterType: "value",
           column: primaryHexColumn,
+          values: [feature],
+        });
+      } else if (lt === "a5") {
+        setCrossFilter({
+          sourceQueryId: primaryQueryId,
+          sourceComponent: "GeoMap",
+          filterType: "value",
+          column: isMultiLayer ? (visibleLayers[0]?.pentagonColumn ?? "pentagon") : pentagonColumn,
           values: [feature],
         });
       } else {
@@ -784,6 +833,8 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
       return `${totalFeatureCount.toLocaleString()} features (${layerConfigs.length} layers)`;
     }
     switch (primaryType) {
+      case "a5":
+        return `${totalFeatureCount.toLocaleString()} pentagons`;
       case "h3":
         return `${totalFeatureCount.toLocaleString()} hex`;
       case "wkb":
@@ -1064,7 +1115,9 @@ function extractFirstCoord(geom: any): [number, number] | null {
 export const InteractableGeoMap = withTamboInteractable(GeoMap, {
   componentName: "GeoMap",
   description:
-    "Interactive deck.gl map supporting multiple geometry types (H3 hexagons, scatter points, GeoJSON polygons/lines, arcs). " +
+    "Interactive deck.gl map supporting multiple geometry types (H3 hexagons, A5 pentagons, scatter points, GeoJSON polygons/lines, arcs, native WKB geometry). " +
+    "AUTO-ROUTING: Query results are automatically routed to the best layer type. " +
+    "GEOMETRY columns → wkb (zero-copy GeoArrow polygon/line/point). A5 cells → a5 (GPU pentagons). H3 cells → h3 (GPU hexagons). lat/lng → scatterplot. No manual layerType needed. " +
     "Supports multiple simultaneous layers via `layers` array — each layer has its own queryId, layerType, columns, colorScheme, and visibility. " +
     "AI can update view (latitude, longitude, zoom), color scheme, basemap (dark/light/auto), extruded mode, and layer type at runtime. " +
     "To add a layer: update_component_props with layers array including existing layers + the new one. " +

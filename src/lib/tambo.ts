@@ -31,7 +31,7 @@ export const tools: TamboTool[] = [
   {
     name: "runSQL",
     description:
-      "Execute a DuckDB SQL query in-browser via DuckDB-WASM. H3 extension is pre-loaded. " +
+      "Execute a DuckDB SQL query in-browser via DuckDB-WASM. H3 and A5 extensions are pre-loaded. " +
       "GEOMETRY AUTO-DETECTION: Parquet files with GEOMETRY/WKB columns are auto-handled — just SELECT * FROM file. " +
       "The system auto-wraps to extract lat/lng + WKB for zero-copy map rendering. No ST_AsGeoJSON or ST_GeomFromWKB needed. " +
       "CRITICAL: Auto-generated lat/lng columns are SYNTHETIC — they exist ONLY in SELECT * results, NOT in the raw Parquet file. " +
@@ -41,8 +41,12 @@ export const tools: TamboTool[] = [
       "Check the geometryNote field in the output to see which column holds the actual geometry. " +
       "COORDINATE ORDER: lat = latitude (north/south, e.g. 30.05 for Cairo), lng = longitude (east/west, e.g. 31.25 for Cairo). " +
       "H3 functions: h3_latlng_to_cell(lat, lng, res) — lat FIRST, lng SECOND. " +
+      "A5 functions: a5_lonlat_to_cell(lng, lat, res) — lng FIRST, lat SECOND (opposite of H3!). " +
+      "a5_cell_to_lonlat(cell), a5_cell_to_boundary(cell), a5_cell_to_children(cell, res), a5_cell_area(res). " +
       "DuckDB spatial: ST_Point(lng, lat) — lng FIRST (x), lat SECOND (y). Do NOT reverse these. " +
-      "RULES: (1) Use HTTPS URLs in FROM clause. (2) DO NOT write INSTALL or LOAD — pre-loaded. (3) Always LIMIT (max 500). (4) h3_index is BIGINT. For H3Map, only need: h3_h3_to_string(h3_index) AS hex, <metric> AS value — NO lat/lng needed, deck.gl renders H3 polygons from hex string. (5) ONE statement per call (no semicolons). (6) Weather: res 0-5, hours 0 and 12. Building: res 3-8. Population: res 1-8. Terrain: res 1-10. (7) Use h3_cell_area(h3_index, 'km^2') for area (NOT h3_cell_area_km2). (8) NEVER use h3_cell_to_latlng().lat — it returns a DOUBLE[2] list, NOT a struct. If you need lat/lng: list_extract(h3_cell_to_latlng(h3_index), 1) AS lat, list_extract(h3_cell_to_latlng(h3_index), 2) AS lng. But prefer passing lat/lng as H3Map props instead. (9) Use h3_grid_ring NOT h3_k_ring (deprecated). Use h3_grid_disk NOT h3_k_ring_distances. (10) NEVER hardcode H3 hex strings — always compute from coordinates: h3_latlng_to_cell(lat, lng, res)::BIGINT. Example Cairo res 5: h3_latlng_to_cell(30.05, 31.25, 5)::BIGINT (lat=30.05, lng=31.25). Or use pre-computed H3 cells from user context if available. (11) NEVER alias a column with the same name as the source column (e.g. SELECT ST_AsWKB(geom) AS geom is INVALID — DuckDB treats it as circular alias). Use a different name like wkb_data. (12) For geometry files, prefer SELECT * — the system auto-handles geometry extraction. Do NOT manually call ST_AsWKB/ST_GeomFromWKB/ST_AsGeoJSON.",
+      "GRID SYSTEM RULE: When the user asks about A5, use A5 functions — do NOT convert to H3. When the user asks about H3, use H3. " +
+      "Respect the user's choice of grid system. A5 is a pentagonal DGGS with exactly equal-area cells. H3 is a hexagonal grid. They are different systems. " +
+      "RULES: (1) Use HTTPS URLs in FROM clause. (2) DO NOT write INSTALL or LOAD — all extensions are pre-loaded (H3, A5, spatial, httpfs). (3) Always LIMIT (max 500). (4) h3_index is BIGINT. For H3Map, only need: h3_h3_to_string(h3_index) AS hex, <metric> AS value — NO lat/lng needed, deck.gl renders H3 polygons from hex string. (5) ONE statement per call (no semicolons). (6) Weather: res 0-5, hours 0 and 12. Building: res 3-8. Population: res 1-8. Terrain: res 1-10. (7) Use h3_cell_area(h3_index, 'km^2') for area (NOT h3_cell_area_km2). (8) NEVER use h3_cell_to_latlng().lat — it returns a DOUBLE[2] list, NOT a struct. If you need lat/lng: list_extract(h3_cell_to_latlng(h3_index), 1) AS lat, list_extract(h3_cell_to_latlng(h3_index), 2) AS lng. But prefer passing lat/lng as H3Map props instead. (9) Use h3_grid_ring NOT h3_k_ring (deprecated). Use h3_grid_disk NOT h3_k_ring_distances. (10) NEVER hardcode H3 hex strings — always compute from coordinates: h3_latlng_to_cell(lat, lng, res)::BIGINT. Example Cairo res 5: h3_latlng_to_cell(30.05, 31.25, 5)::BIGINT (lat=30.05, lng=31.25). Or use pre-computed H3 cells from user context if available. (11) NEVER alias a column with the same name as the source column (e.g. SELECT ST_AsWKB(geom) AS geom is INVALID — DuckDB treats it as circular alias). Use a different name like wkb_data. (12) For geometry files, prefer SELECT * — the system auto-handles geometry extraction. Do NOT manually call ST_AsWKB/ST_GeomFromWKB/ST_AsGeoJSON.",
     tool: runQuery,
     inputSchema: z.object({
       sql: z
@@ -52,9 +56,10 @@ export const tools: TamboTool[] = [
             "For geometry files: ALWAYS use SELECT * — system auto-generates lat/lng. " +
             "NEVER SELECT lat/lng directly from geometry files — they don't exist in the raw file. " +
             "For follow-up queries on geometry files: SELECT * EXCLUDE (unwanted) or SELECT *, expr FROM (SELECT * FROM file). " +
-            "For maps: SELECT h3_h3_to_string(h3_index) AS hex, <metric> AS value FROM ... " +
-            "CRITICAL: NEVER hardcode H3 hex strings — LLMs hallucinate wrong indices. " +
-            "For area queries, use pre-computed H3 cells from user context, or compute: " +
+            "For H3 maps: SELECT h3_h3_to_string(h3_index) AS hex, <metric> AS value FROM ... " +
+            "For A5: use a5_lonlat_to_cell(lng, lat, res) — lng FIRST, lat SECOND. " +
+            "CRITICAL: NEVER hardcode H3/A5 cell strings — LLMs hallucinate wrong indices. " +
+            "For H3 area queries, use pre-computed H3 cells from user context, or compute: " +
             "h3_latlng_to_cell(lat, lng, res)::BIGINT — lat FIRST (N/S), lng SECOND (E/W). " +
             "WITH center AS (SELECT h3_latlng_to_cell(lat, lng, res)::BIGINT AS h3) " +
             "SELECT unnest(h3_grid_disk(h3, radius))::BIGINT AS h3_index FROM center",
@@ -185,11 +190,14 @@ export const components: TamboComponent[] = [
       "deck.gl map supporting multiple geometry types. INTERACTABLE: AI can update props at runtime. " +
       "Pass `queryId` from runSQL — zero token cost. Auto-detects layer type from column names, or set layerType explicitly. " +
       "SQL patterns per type: " +
-      "H3: SELECT h3_h3_to_string(h3_index) AS hex, <metric> AS value ... ; " +
+      "H3: SELECT h3_h3_to_string(h3_index) AS hex, <metric> AS value ... (deck.gl renders hexagons from hex string); " +
+      "A5: SELECT printf('%x', a5_lonlat_to_cell(lng, lat, res)) AS pentagon, <metric> AS value, " +
+      "list_extract(a5_cell_to_lonlat(a5_lonlat_to_cell(lng, lat, res)), 1) AS lng, " +
+      "list_extract(a5_cell_to_lonlat(a5_lonlat_to_cell(lng, lat, res)), 2) AS lat ... (deck.gl renders pentagons from cell ID); " +
       "Points: SELECT lat, lng, <metric> AS value ... ; " +
-      "GeoJSON: SELECT ST_AsGeoJSON(geometry) AS geometry, <metric> AS value ... ; " +
-      "Native geometry: Parquet files with GEOMETRY columns auto-render — just SELECT *, <metric> AS value. NO ST_AsGeoJSON needed. " +
-      "The system auto-detects GEOMETRY columns, extracts WKB + coordinates, and renders via zero-copy GeoArrow. " +
+      "Native geometry (BEST for spatial analysis): Parquet files with GEOMETRY columns auto-render — just SELECT * FROM file. " +
+      "ST_Buffer, ST_Intersection, spatial joins all produce GEOMETRY — auto-rendered as polygon/line/point via zero-copy WKB. NO ST_AsGeoJSON needed. " +
+      "GeoJSON: SELECT ST_AsGeoJSON(geometry) AS geometry, <metric> AS value ... (LAST RESORT — prefer native geometry auto-detection); " +
       "Arcs: SELECT source_lat, source_lng, dest_lat, dest_lng, <metric> AS value ... ; " +
       "MULTI-LAYER: set `layers` array (max 5). Each layer has id, queryId, layerType, column mappings, colorScheme, opacity, visible. " +
       "To add a layer: update_component_props with layers array including existing + new layer. " +
@@ -324,7 +332,7 @@ export function buildContextHelpers(geo: GeoIP | null) {
                 " [north/south], longitude=" +
                 geo.longitude +
                 " [east/west]). " +
-                "Remember: h3_latlng_to_cell(latitude, longitude, res) — lat FIRST. ST_Point(longitude, latitude) — lng FIRST. " +
+                "Remember: h3_latlng_to_cell(latitude, longitude, res) — lat FIRST. a5_lonlat_to_cell(longitude, latitude, res) — lng FIRST. ST_Point(longitude, latitude) — lng FIRST. " +
                 (geo.h3Cells
                   ? "Pre-computed H3 cell IDs for their location: " +
                     Object.entries(geo.h3Cells)
@@ -352,7 +360,8 @@ export function buildContextHelpers(geo: GeoIP | null) {
           "The suggestion chips at the bottom are clickable buttons that submit instantly — users don't need to type.",
       ],
       duckdbWasmNotes: [
-        "DuckDB v1.5+. H3, spatial, httpfs pre-loaded. NO INSTALL/LOAD in SQL. ONE statement per call.",
+        "DuckDB v1.5+. H3, A5, spatial, httpfs pre-loaded. NO INSTALL/LOAD in SQL. ONE statement per call. " +
+          "GRID SYSTEM RULE: Use the grid system the user asks for — do NOT convert A5 queries to H3 or vice versa.",
         "GEOMETRY AUTO-DETECTION: Parquet files with GEOMETRY columns auto-render on map — just SELECT * FROM file. " +
           "The system auto-wraps to extract lat/lng + WKB. No ST_AsGeoJSON or ST_GeomFromWKB needed. " +
           "Works with GeoParquet, native Parquet geometry (Format 2.11+), and DuckDB GEOMETRY columns. " +
@@ -363,11 +372,21 @@ export function buildContextHelpers(geo: GeoIP | null) {
         "h3_cell_area(h3_index, 'km^2') for area. NOT h3_cell_area_km2.",
         "NEVER do latlng.lat or latlng.lng — h3_cell_to_latlng() returns DOUBLE[2] list, not struct. Use list_extract() if needed. But for maps, just use hex strings.",
         "Use h3_grid_ring() NOT h3_k_ring() (deprecated). Use h3_grid_disk() NOT h3_k_ring_distances().",
+        "A5 (pentagonal DGGS): a5_lonlat_to_cell(lng, lat, res) — NOTE: lng FIRST, lat SECOND (opposite of H3). " +
+          "a5_cell_to_lonlat(cell) returns [lon, lat]. a5_cell_to_boundary(cell) returns polygon. " +
+          "a5_cell_to_children(cell, res) for child cells. a5_cell_area(res) for area at resolution. " +
+          "A5 cells are exactly equal-area pentagons (unlike H3 hexagons which have slight area variation).",
         "v1.5: GEOMETRY is a core type. ST_AsWKB/ST_GeomFromWKB are built-in (no spatial needed). " +
           "ST_Centroid, ST_X, ST_Y, ST_Transform, ST_Intersects still need LOAD spatial (pre-loaded). " +
           "TRY_CAST(x AS GEOMETRY) is BROKEN — use TRY(ST_GeomFromText(x)) instead.",
         "v1.5: Use lambda syntax (lambda x: x + 1), NOT arrow syntax (x -> x + 1) which is deprecated.",
         "Spatial filter pushdown: geom && ST_MakeEnvelope(w,s,e,n) prunes Parquet row groups for bbox queries.",
+        "SPATIAL ANALYSIS: All spatial functions produce native GEOMETRY — results auto-render on the map. " +
+          "Buffer: ST_Buffer(geom, meters). Point-in-polygon: ST_Contains(polygon, point). " +
+          "Spatial join: ST_Intersects(a.geom, b.geom) — triggers automatic R-tree (no index creation). " +
+          "Proximity: ST_DWithin(a.geom, b.geom, meters) — also triggers SPATIAL_JOIN optimizer. " +
+          "Distance: ST_Distance_Spheroid(a, b) returns meters. Area: ST_Area_Spheroid(geom) returns m². " +
+          "Just SELECT * from the result — geometry auto-detection handles WKB extraction and renders polygon/line/point layers.",
       ],
       s3Base: "https://s3.us-west-2.amazonaws.com/us-west-2.opendata.source.coop/walkthru-earth",
       datasets: {
@@ -379,6 +398,25 @@ export function buildContextHelpers(geo: GeoIP | null) {
       componentTips: [
         "ALL viz components use queryId from runSQL — ZERO token cost for data. Never pass inline data arrays.",
         "H3Map: queryId + hexColumn='hex' + valueColumn='value' + lat/lng/zoom + colorMetric. deck.gl renders from hex strings.",
+        "A5 rendering: deck.gl A5Layer renders pentagons from cell ID (same pattern as H3). " +
+          "SQL: SELECT printf('%x', a5_lonlat_to_cell(lng, lat, res)) AS pentagon, <metric> AS value, " +
+          "list_extract(a5_cell_to_lonlat(a5_lonlat_to_cell(lng, lat, res)), 1) AS lng, " +
+          "list_extract(a5_cell_to_lonlat(a5_lonlat_to_cell(lng, lat, res)), 2) AS lat " +
+          "— include lat/lng for map bounds. Column 'pentagon' auto-detects layerType=a5. Do NOT convert A5 to H3.",
+        "SPATIAL ANALYSIS → AUTO-RENDERING: Spatial query results with GEOMETRY columns auto-render on the map — " +
+          "the system extracts WKB and routes to the right GeoArrow layer (polygon/line/point) automatically. " +
+          "ST_Buffer() → polygon layer. Point-in-polygon → preserves source geometry. " +
+          "Spatial joins (ST_Intersects, ST_Contains, ST_DWithin) → result geometry auto-renders. " +
+          "For spatial analysis: just SELECT * — no ST_AsGeoJSON, no layerType, no manual geometry handling.",
+        "SPATIAL SQL PATTERNS: " +
+          "(1) Buffer: SELECT *, ST_Buffer(geom, 1000) AS geom FROM ... (1km buffer, result auto-renders as polygons). " +
+          "(2) Point-in-polygon: SELECT * FROM points p, polygons z WHERE ST_Contains(z.geom, p.geom). " +
+          "(3) Spatial join: SELECT a.*, b.name FROM a JOIN b ON ST_Intersects(a.geom, b.geom). " +
+          "(4) Nearest: SELECT * FROM points ORDER BY ST_Distance(geom, ST_Point(lng, lat)) LIMIT 10. " +
+          "(5) Bbox filter (fast): WHERE geom && ST_MakeEnvelope(w, s, e, n) — uses Parquet row group stats. " +
+          "(6) Distance: ST_Distance_Spheroid(a, b) for meters. ST_Area_Spheroid(geom) for m². " +
+          "(7) Transform CRS: ST_Transform(geom, 'EPSG:4326', 'EPSG:3857'). " +
+          "All spatial results auto-render — just pass queryId to GeoMap.",
         "Graph: queryId + xColumn + yColumns + chartType.",
         "CHART X-AXIS RULE: NEVER use raw H3 hex IDs as chart labels — they are meaningless to users. " +
           "Instead, create meaningful labels in the SQL query: " +

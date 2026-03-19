@@ -29,7 +29,7 @@ pnpm lint:fix     # biome auto-fix
 
 **Geometry auto-detection**: `runQuery()` auto-detects geometry columns via `DESCRIBE` (fast, metadata-only). Two paths: (1) native GEOMETRY type → `ST_AsWKB` + `ST_Centroid`, (2) WKB BLOB with well-known column name (geom, geometry, shape, etc.) → `ST_GeomFromWKB` + direct WKB passthrough. `enable_geoparquet_conversion = false` in init prevents WASM `stoi` crash on some GeoParquet files — our wrapping handles geometry instead. WKB arrays stored in query-store → GeoArrow zero-copy rendering. AI just writes `SELECT * FROM parquet_file`. **Synthetic lat/lng**: When geometry is auto-detected, `lat`/`lng` columns are injected into results — they do NOT exist in the raw Parquet file. `runQuery` returns a `geometryNote` field explaining which column holds the actual geometry. AI must use `SELECT *` (auto-wrapping re-generates lat/lng) — never reference `lat`/`lng` directly on the raw file.
 
-**Cross-filter bus**: Lightweight pub/sub in `query-store.ts`. Components emit/consume `bbox` (map viewport) and `value` (click) filters. Requires shared `queryId` + `hex` column.
+**Cross-filter bus**: Lightweight pub/sub in `query-store.ts`. Components emit/consume `bbox` (map viewport) and `value` (click) filters. Requires shared `queryId` + `hex`/`pentagon` column.
 
 **Dashboard canvas**: Desktop = `react-grid-layout`, Touch = `@dnd-kit/sortable` (1.2s hold, grip-only drag). Panel IDs are deduplicated via `Set`. Order persisted to localStorage.
 
@@ -45,8 +45,10 @@ pnpm lint:fix     # biome auto-fix
 - ONE statement per call, always LIMIT 500, HTTPS URLs in FROM
 - **v1.5 syntax**: Use `lambda x: x + 1` NOT `x -> x + 1` (arrow syntax deprecated). `TRY_CAST(x AS GEOMETRY)` is broken — use `TRY(ST_GeomFromText(x))`.
 - **Spatial filter pushdown**: `geom && ST_MakeEnvelope(w,s,e,n)` prunes Parquet row groups for bbox queries (uses column stats).
-- **Coordinate order**: `lat` = latitude (north/south, e.g. 30.05 for Cairo), `lng` = longitude (east/west, e.g. 31.25 for Cairo). H3: `h3_latlng_to_cell(lat, lng, res)`. DuckDB spatial: `ST_Point(lng, lat)` (x=lon, y=lat). deck.gl GeoMap props: `latitude`/`longitude`.
-- **NEVER hardcode H3 hex strings** — AI will hallucinate wrong indices. Always compute from coordinates: `h3_latlng_to_cell(lat, lng, res)::BIGINT`. For area queries: `h3_grid_disk(h3_latlng_to_cell(lat, lng, res)::BIGINT, radius)`. If user's pre-computed H3 cells are available in context, use those directly.
+- **Coordinate order**: `lat` = latitude (north/south, e.g. 30.05 for Cairo), `lng` = longitude (east/west, e.g. 31.25 for Cairo). H3: `h3_latlng_to_cell(lat, lng, res)` — lat FIRST. A5: `a5_lonlat_to_cell(lng, lat, res)` — lng FIRST (opposite of H3!). DuckDB spatial: `ST_Point(lng, lat)` (x=lon, y=lat). deck.gl GeoMap props: `latitude`/`longitude`.
+- **NEVER hardcode H3/A5 cell strings** — AI will hallucinate wrong indices. Always compute from coordinates: `h3_latlng_to_cell(lat, lng, res)::BIGINT`. For area queries: `h3_grid_disk(h3_latlng_to_cell(lat, lng, res)::BIGINT, radius)`. If user's pre-computed H3 cells are available in context, use those directly.
+- **Grid system rule**: When the user asks about A5, use A5 functions — do NOT convert to H3. When the user asks about H3, use H3. Respect the user's choice. A5 has no grid_disk/grid_ring equivalents.
+- **Spatial analysis**: All spatial functions (ST_Buffer, ST_Intersects, ST_Contains, ST_DWithin, spatial joins) produce native GEOMETRY → results auto-render on the map via zero-copy WKB. Just `SELECT *` — no ST_AsGeoJSON needed. Spatial joins trigger automatic R-tree (no index creation). `ST_DWithin(a, b, meters)` also triggers SPATIAL_JOIN optimizer.
 - **Geometry detection skips CTEs** — `DESCRIBE (WITH ...)` is invalid DuckDB syntax. CTE queries bypass geometry auto-detection (they're computed queries, not raw Parquet geometry).
 - **No same-name column aliasing** — `SELECT ST_AsWKB(geom) AS geom` fails in DuckDB v1.5 (circular alias due to friendly SQL reusable aliases). Use a different alias name like `wkb_data`.
 - **Prefer `SELECT *` for geometry files** — the system auto-handles geometry extraction. Do NOT manually call `ST_AsWKB`/`ST_GeomFromWKB`/`ST_AsGeoJSON`.
@@ -160,7 +162,7 @@ export const InteractableMyComponent = withTamboInteractable(MyComponent, {
 
 | Component | AI Can Update | Data Source | Cross-Filter |
 |-----------|--------------|-------------|--------------|
-| **GeoMap** | latitude, longitude, zoom, basemap, colorScheme, extruded, layerType, layers[] | queryId → useQueryResult | Emits: hex click, bbox. Consumes: bbox |
+| **GeoMap** | latitude, longitude, zoom, basemap, colorScheme, extruded, layerType, layers[] | queryId → useQueryResult | Emits: hex/pentagon click, bbox. Consumes: bbox |
 | **Graph** | chartType, xColumn, yColumns, queryId | queryId → useQueryResult | Emits: bar click. Consumes: bbox (filters rows) |
 | **DataTable** | visibleColumns, title | queryId → useQueryResult | Emits: row click. Consumes: bbox |
 
@@ -170,7 +172,7 @@ StatsCard, StatsGrid, InsightCard, DatasetCard, QueryDisplay, DataCard — AI pr
 
 ### Multi-Layer GeoMap
 
-`layers` array prop (max 5). Each layer: `{ id, queryId, layerType, hexColumn, valueColumn, ..., colorScheme, opacity, visible }`. Floating layer control panel (top-left) for toggle/opacity/reorder persists to localStorage (keyed by layer IDs). Uses 5 fixed `useQueryResult` hook slots (React hooks can't be called conditionally).
+`layers` array prop (max 5). Each layer: `{ id, queryId, layerType, hexColumn, pentagonColumn, valueColumn, ..., colorScheme, opacity, visible }`. Floating layer control panel (top-left) for toggle/opacity/reorder persists to localStorage (keyed by layer IDs). Uses 5 fixed `useQueryResult` hook slots (React hooks can't be called conditionally).
 
 ### Adding a New Bidirectional Component (checklist)
 
@@ -193,13 +195,15 @@ DuckDB-WASM → Arrow Table → columnArrays (typed array views) + arrowIPC (byt
 ```
 
 - **H3**: Always uses standard deck.gl `H3HexagonLayer` (not GeoArrow). deck.gl natively generates hexagon polygons from H3 hex strings on the GPU — this is more efficient than passing pre-computed lat/lng, polygon/WKB, or Arrow geometry. Just pass `hex` (string) + `value` (number) per row. GeoArrowH3HexagonLayer is experimental and unreliable.
-- **A5** (future): deck.gl 9.2+ has `A5Layer` for pentagonal DGGS cells. A5 is a pentagonal global grid (vs H3's hexagons) with exactly equal-area cells and lower distortion. Uses `getPentagon` accessor (BigInt or hex string). Same GPU-native approach as H3 — deck.gl generates pentagon polygons from cell IDs, no geometry passthrough needed. DuckDB: `INSTALL a5 FROM community; LOAD a5;` — functions: `a5_lonlat_to_cell(lon, lat, res)`, `a5_cell_to_lonlat(cell)`, `a5_cell_to_boundary(cell)`, `a5_cell_to_children(cell, res)`, `a5_cell_area(res)`. All cells at same resolution have exactly equal area.
+- **A5**: deck.gl 9.2+ `A5Layer` for pentagonal DGGS cells. A5 is a pentagonal global grid (vs H3's hexagons) with exactly equal-area cells and lower distortion. Uses `getPentagon` accessor (BigInt or hex string). Same GPU-native approach as H3 — deck.gl generates pentagon polygons from cell IDs, no geometry passthrough needed. DuckDB: `a5_lonlat_to_cell(lng, lat, res)` (lng FIRST — opposite of H3!), `a5_cell_to_lonlat(cell)` returns `[lon, lat]`, `a5_cell_to_boundary(cell)`, `a5_cell_to_children(cell, res)`, `a5_cell_area(res)`. Column auto-detection: `pentagon`/`a5_cell`/`a5_index` → layerType=a5. SQL pattern: `SELECT printf('%x', a5_lonlat_to_cell(lng, lat, res)) AS pentagon, <metric> AS value`.
 - **Scatterplot**: `buildPointGeomVector()` interleaves lat/lng into `Float64Array(2*N)`, wraps as `FixedSizeList(2, Float64)` via `makeData`
 - **Arc**: `buildGeoArrowArcTable()` — source/target point geometry columns, same interleave pattern
 - **WKB/GeoJSON geometry**: `@walkthru-earth/objex-utils` `buildGeoArrowTables()` — direct WKB binary → DataView reads → pre-allocated Float64Array → Arrow Table. Supports point, linestring, polygon, multi* geometries. No GeoJSON parsing, no intermediate JS objects.
 - **Fallback**: if `columnArrays`/`wkbArrays` missing, falls back to standard deck.gl layers with JS object data
 
-Layer types: `h3`, `scatterplot`, `geojson`, `arc`, `wkb` (native geometry via WKB)
+Layer types: `h3`, `a5`, `scatterplot`, `geojson`, `arc`, `wkb` (native geometry via WKB)
+
+**Auto-routing**: `detectLayerType()` checks column names: `pentagon`/`a5_cell`/`a5_index` → a5, `hex`/`h3_index` → h3, `source_lat`+`dest_lat` → arc, `lat`/`lng` → scatterplot, `geometry`/`geojson` → geojson. WKB path takes priority when `wkbArrays` present (geometry auto-detected). Spatial analysis results (ST_Buffer, ST_Intersects, spatial joins) produce native GEOMETRY → auto-rendered as polygon/line/point via zero-copy WKB path.
 
 Packages: `@geoarrow/deck.gl-layers@0.3.1`, `@walkthru-earth/objex-utils@1.0.0`, `apache-arrow@21.1.0`, `hyparquet@1.25.1`
 

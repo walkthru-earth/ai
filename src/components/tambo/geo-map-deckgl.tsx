@@ -1,4 +1,4 @@
-import { H3HexagonLayer } from "@deck.gl/geo-layers";
+import { A5Layer, H3HexagonLayer } from "@deck.gl/geo-layers";
 import { ArcLayer, GeoJsonLayer, ScatterplotLayer } from "@deck.gl/layers";
 import { MapboxOverlay } from "@deck.gl/mapbox";
 import {
@@ -19,7 +19,7 @@ import { consumeFlyTo, useFlyToVersion } from "@/services/query-store";
 
 export type ColorScheme = "blue-red" | "viridis" | "plasma" | "warm" | "cool" | "spectral";
 
-export type LayerType = "h3" | "scatterplot" | "geojson" | "arc" | "wkb";
+export type LayerType = "h3" | "a5" | "scatterplot" | "geojson" | "arc" | "wkb";
 
 export interface LayerConfig {
   id?: string;
@@ -38,6 +38,7 @@ export interface LayerConfig {
   /** Column name mappings for GeoArrow layer construction */
   columnMapping?: {
     hexColumn?: string;
+    pentagonColumn?: string;
     valueColumn?: string;
     latColumn?: string;
     lngColumn?: string;
@@ -291,6 +292,9 @@ function canUseGeoArrow(config: LayerConfig): boolean {
       // H3 uses standard H3HexagonLayer — GeoArrowH3HexagonLayer is experimental and unreliable.
       // deck.gl generates hexagon polygons from hex strings internally, no GeoArrow benefit.
       return false;
+    case "a5":
+      // A5 uses deck.gl A5Layer — generates pentagon polygons from cell IDs on GPU.
+      return false;
     case "arc": {
       const sLat = mapping.sourceLatColumn ?? "source_lat";
       const sLng = mapping.sourceLngColumn ?? "source_lng";
@@ -333,6 +337,7 @@ function extractHoverProps(info: any, layerType: LayerType): Record<string, unkn
   }
   // Standard layers: object is a JS object
   if (layerType === "h3") return { hex: obj.hex, value: obj.value };
+  if (layerType === "a5") return { pentagon: obj.pentagon, value: obj.value };
   if (layerType === "geojson" && obj.properties) return obj.properties;
   // Scatterplot, arc, wkb: return all props except internal
   const result: Record<string, unknown> = {};
@@ -421,6 +426,40 @@ function buildLayers(
                 if (hex && onFeatureClick) onFeatureClick(hex, "h3");
               }, "h3"),
               onHover: makeHoverHandler(layerId, "h3"),
+              updateTriggers: {
+                getFillColor: [lo, hi, scheme],
+                getElevation: [lo, hi, extruded],
+              },
+            }),
+          );
+        }
+        break;
+
+      case "a5":
+        if (config.data.length > 0) {
+          result.push(
+            new A5Layer({
+              id: `a5-${layerId}`,
+              data: config.data,
+              pickable: true,
+              filled: true,
+              extruded,
+              getPentagon: (d: any) => d.pentagon ?? "",
+              getFillColor: (d: any) =>
+                d.value != null ? valueToColor(d.value, lo, hi, scheme) : [100, 150, 255, 120],
+              getElevation: (d: any) => {
+                if (!extruded || d.value == null) return 0;
+                const range = hi - lo || 1;
+                const t = (d.value - lo) / range;
+                return t * 500;
+              },
+              elevationScale: 50,
+              opacity: layerOpacity,
+              onClick: makeClickHandler((info: any) => {
+                const pentagon = info?.object?.pentagon;
+                if (pentagon && onFeatureClick) onFeatureClick(pentagon, "a5");
+              }, "a5"),
+              onHover: makeHoverHandler(layerId, "a5"),
               updateTriggers: {
                 getFillColor: [lo, hi, scheme],
                 getElevation: [lo, hi, extruded],
