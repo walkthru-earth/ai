@@ -225,27 +225,42 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
 
     // Auto-rotate/hide X labels when many data points
     const manyPoints = chartData.length > 10;
+    // Detect if X labels are long (e.g. datetime strings) — need more rotation + truncation
+    const maxLabelLen = Math.max(...chartData.slice(0, 20).map((d) => String(d.name).length));
+    const longLabels = maxLabelLen > 12;
+    // Truncate long X-axis tick labels
+    const xTickFormatter = (v: string) => {
+      const s = String(v);
+      if (s.length <= 10) return s;
+      // Datetime: try to shorten "2026-03-19 14:00:00 UTC" → "03-19 14:00"
+      const dtMatch = s.match(/\d{4}-(\d{2}-\d{2})\s*(\d{2}:\d{2})/);
+      if (dtMatch) return `${dtMatch[1]} ${dtMatch[2]}`;
+      return s.length > 14 ? `${s.slice(0, 12)}…` : s;
+    };
     const xAxisProps = {
       dataKey: "name" as const,
       stroke: "var(--muted-foreground)",
       axisLine: false,
       tickLine: false,
-      fontSize: 10,
+      fontSize: longLabels ? 9 : 10,
       interval: manyPoints ? Math.ceil(chartData.length / 8) : 0,
-      angle: manyPoints ? -45 : 0,
-      textAnchor: manyPoints ? ("end" as const) : ("middle" as const),
-      height: manyPoints ? 50 : 30,
+      angle: manyPoints || longLabels ? -45 : 0,
+      textAnchor: manyPoints || longLabels ? ("end" as const) : ("middle" as const),
+      height: manyPoints || longLabels ? 55 : 30,
+      tickFormatter: longLabels ? xTickFormatter : undefined,
       label: xLabel
         ? {
-            value: xLabel,
+            value: xLabel.length > 30 ? `${xLabel.slice(0, 28)}…` : xLabel,
             position: "insideBottom" as const,
-            offset: manyPoints ? -4 : -2,
-            fontSize: 11,
+            offset: -2,
+            fontSize: 10,
             fill: "var(--muted-foreground)",
           }
         : undefined,
     };
 
+    // Truncate long Y-axis labels to avoid overlap
+    const yLabelTruncated = yLabel && yLabel.length > 25 ? `${yLabel.slice(0, 23)}…` : yLabel;
     const yAxisProps = {
       stroke: "var(--muted-foreground)",
       axisLine: false,
@@ -254,13 +269,13 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
       width: 50,
       tickFormatter: (v: number) =>
         Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(v >= 10000 ? 0 : 1)}k` : String(Math.round(v * 10) / 10),
-      label: yLabel
+      label: yLabelTruncated
         ? {
-            value: yLabel,
+            value: yLabelTruncated,
             angle: -90,
             position: "insideLeft" as const,
             offset: 4,
-            fontSize: 11,
+            fontSize: 10,
             fill: "var(--muted-foreground)",
             style: { textAnchor: "middle" },
           }
@@ -297,7 +312,11 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
                 cursor={{ fill: "var(--muted-foreground)", fillOpacity: 0.1 }}
               />
               {showLegend && validDatasets.length > 1 && (
-                <RechartsCore.Legend wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }} />
+                <RechartsCore.Legend
+                  verticalAlign="top"
+                  height={24}
+                  wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }}
+                />
               )}
               {validDatasets.map((d, i) => (
                 <RechartsCore.Bar
@@ -318,7 +337,11 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
               <RechartsCore.YAxis {...yAxisProps} />
               <RechartsCore.Tooltip contentStyle={tooltipStyle} formatter={tooltipFormatter} />
               {showLegend && validDatasets.length > 1 && (
-                <RechartsCore.Legend wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }} />
+                <RechartsCore.Legend
+                  verticalAlign="top"
+                  height={24}
+                  wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }}
+                />
               )}
               {validDatasets.map((d, i) => (
                 <RechartsCore.Line
@@ -352,7 +375,11 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
               <RechartsCore.YAxis {...yAxisProps} />
               <RechartsCore.Tooltip contentStyle={tooltipStyle} formatter={tooltipFormatter} />
               {showLegend && validDatasets.length > 1 && (
-                <RechartsCore.Legend wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }} />
+                <RechartsCore.Legend
+                  verticalAlign="top"
+                  height={24}
+                  wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }}
+                />
               )}
               {validDatasets.map((d, i) => (
                 <RechartsCore.Area
@@ -433,7 +460,11 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
               <RechartsCore.PolarRadiusAxis stroke="var(--muted-foreground)" fontSize={9} />
               <RechartsCore.Tooltip contentStyle={tooltipStyle} formatter={tooltipFormatter} />
               {showLegend && validDatasets.length > 1 && (
-                <RechartsCore.Legend wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }} />
+                <RechartsCore.Legend
+                  verticalAlign="top"
+                  height={24}
+                  wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }}
+                />
               )}
               {validDatasets.map((d, i) => (
                 <RechartsCore.Radar
@@ -471,7 +502,13 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
                 label={{ fill: "var(--foreground)", fontSize: 10, position: "insideStart" }}
               />
               <RechartsCore.Tooltip contentStyle={tooltipStyle} />
-              {showLegend && <RechartsCore.Legend wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }} />}
+              {showLegend && (
+                <RechartsCore.Legend
+                  verticalAlign="top"
+                  height={24}
+                  wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }}
+                />
+              )}
             </RechartsCore.RadialBarChart>
           );
         }
@@ -539,7 +576,11 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
               <RechartsCore.YAxis {...yAxisProps} />
               <RechartsCore.Tooltip contentStyle={tooltipStyle} formatter={tooltipFormatter} />
               {showLegend && validDatasets.length > 1 && (
-                <RechartsCore.Legend wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }} />
+                <RechartsCore.Legend
+                  verticalAlign="top"
+                  height={24}
+                  wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }}
+                />
               )}
               {validDatasets.map((d, i) =>
                 i === 0 ? (
@@ -585,7 +626,13 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
                 isAnimationActive={false}
               />
               <RechartsCore.Tooltip contentStyle={tooltipStyle} formatter={tooltipFormatter} />
-              {showLegend && <RechartsCore.Legend wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }} />}
+              {showLegend && (
+                <RechartsCore.Legend
+                  verticalAlign="top"
+                  height={24}
+                  wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }}
+                />
+              )}
             </RechartsCore.PieChart>
           );
         }
