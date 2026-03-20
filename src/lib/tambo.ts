@@ -36,30 +36,54 @@ export const tools: TamboTool[] = [
       "COORDINATES: H3: h3_latlng_to_cell(lat, lng, res) — lat first. A5: a5_lonlat_to_cell(lng, lat, res) — lng first. ST_Point(lng, lat) — lng first. Respect user's grid choice (H3 vs A5). " +
       "RULES: " +
       "(1) HTTPS URLs in FROM. (2) LIMIT 500. (3) ONE statement, no semicolons. (4) h3_index is BIGINT → h3_h3_to_string(h3_index) AS hex for maps. " +
-      "(5) Res ranges: weather 0-5, building 3-8, population 1-8, terrain 1-10. " +
-      "(6) h3_cell_to_latlng() returns DOUBLE[2] list NOT struct — use list_extract(). h3_cell_area(h3_index, 'km^2'). h3_grid_ring/h3_grid_disk (NOT h3_k_ring). " +
-      "(7) NEVER hardcode H3/A5 hex strings — compute: h3_latlng_to_cell(lat, lng, res)::BIGINT or use pre-computed cells from context. " +
+      "(5) Res ranges: weather 0-5 (res 5 = 42M rows — see rule 13), building 3-8, population 1-8, terrain 1-10. " +
+      "(6) h3_cell_to_lat(h3_index)/h3_cell_to_lng(h3_index) return DOUBLE directly (preferred). h3_cell_to_latlng() returns DOUBLE[2] list NOT struct. h3_cell_area(h3_index, 'km^2'). h3_grid_ring/h3_grid_disk (NOT h3_k_ring). " +
+      "h3_great_circle_distance(lat1, lng1, lat2, lng2, 'km') — 5th arg (unit: 'km','m','rads') is MANDATORY. 4-arg call WILL FAIL. Also h3_grid_distance(cell1, cell2) for grid-hop count. " +
+      "(7) NEVER hardcode H3/A5 hex strings (LLMs hallucinate wrong indices). For user location: use pre-computed h3Cells from context with h3_grid_disk(h3_string_to_h3(context_cell)::BIGINT, radius). For arbitrary locations: compute h3_latlng_to_cell(lat, lng, res)::BIGINT. " +
       "(8) No same-name column aliases (SELECT ST_AsWKB(geom) AS geom fails — circular ref). " +
       "(9) queryId (qr_N) is CLIENT-SIDE store — NOT a DuckDB table. FROM qr_1 WILL FAIL. Re-query Parquet URL instead. " +
-      "(10) TIMESTAMP MATH: Use INTERVAL (timestamp + INTERVAL '72 hours'). Integer addition fails on TIMESTAMPTZ. " +
-      "(11) WEATHER: Each file has 5-day forecast (21 timestamps, 6-hourly). Query ONE file — do NOT build URLs for future dates (404). Use buildParquetUrl('weather') to resolve latest date. Filter: WHERE timestamp <= (SELECT MIN(timestamp) FROM ...) + INTERVAL '72 hours'. " +
-      "(12) PRECIPITATION: GREATEST(precipitation_mm_6hr, 0) — model can produce tiny negatives.",
+      "(10) TIMESTAMP MATH: WASM has no ICU — TIMESTAMPTZ + INTERVAL fails. ALWAYS cast first: CAST(timestamp AS TIMESTAMP) + INTERVAL '72 hours'. Integer addition also fails. " +
+      "(11) WEATHER: Each file has 5-day forecast (21 timestamps, 6-hourly). Query ONE file — do NOT build URLs for future dates (404). Use buildParquetUrl('weather') to resolve latest date. Filter: WHERE CAST(timestamp AS TIMESTAMP) <= (SELECT CAST(MIN(timestamp) AS TIMESTAMP) FROM ...) + INTERVAL '72 hours'. " +
+      "(12) PRECIPITATION: GREATEST(precipitation_mm_6hr, 0) — model can produce tiny negatives. " +
+      "(13) MEMORY/OOM PREVENTION: DuckDB-WASM has ~3GB memory limit. Large files (weather res 5 = 42M rows, population res 8, building res 8) WILL OOM if loaded fully. " +
+      "ALWAYS push WHERE h3_index = ... directly into the Parquet scan (not in a CTE after SELECT *). " +
+      "Only SELECT needed columns — never SELECT * on large files. " +
+      "WRONG: WITH base AS (SELECT * FROM file) SELECT ... FROM base WHERE h3_index = X (loads ALL rows first → OOM). " +
+      "RIGHT: SELECT col1, col2 FROM file WHERE h3_index = X (Parquet predicate pushdown, reads only matching row groups). " +
+      "For multi-file joins: filter each file individually BEFORE joining. Use lower resolutions (res 3-4) for area/map queries. " +
+      "(14) CROSS-DATASET JOINS: All datasets share h3_index — joins are trivial BUT resolutions MUST match. " +
+      "Always use the SAME h3_res for all files in a join (e.g. all res=5). Join pattern: " +
+      "WITH cells AS (SELECT unnest(h3_grid_disk(..., N))::BIGINT AS h3_index) " +
+      "SELECT ... FROM file_a a JOIN cells USING (h3_index) JOIN file_b b ON a.h3_index = b.h3_index. " +
+      "Shared res range: weather∩building∩population∩terrain = res 3-5. Prefer res 5 for neighborhood detail, res 3 for city/regional overview. " +
+      "(15) QUERY PATTERNS: " +
+      "Population timeline: UNPIVOT on pop_2025..pop_2100 INTO NAME year VALUE population (wide→long for line charts). " +
+      "Rankings: NTILE(4) OVER (ORDER BY metric) for quartiles, ROW_NUMBER() for rank labels. " +
+      "Growth: ROUND(100.0*(pop_2050-pop_2025)/NULLIF(pop_2025,0), 1) AS growth_pct. " +
+      "Density index: building_count/NULLIF(pop_2025, 0) AS bldg_per_person. " +
+      "Lat/lng from H3: h3_cell_to_lat(h3_index), h3_cell_to_lng(h3_index) — no need for list_extract().",
     tool: runQuery,
     inputSchema: z.object({
       sql: z
         .string()
         .describe(
           "DuckDB SQL. HTTPS Parquet URLs in FROM. LIMIT 500. ONE statement. " +
-            "queryId (qr_N) is NOT a table — never FROM qr_1. Use INTERVAL for timestamp math (+ INTERVAL '72 hours'). " +
+            "queryId (qr_N) is NOT a table — never FROM qr_1. Timestamp math: CAST(timestamp AS TIMESTAMP) + INTERVAL '72 hours' (TIMESTAMPTZ + INTERVAL fails in WASM). " +
             "Geometry files: SELECT * (lat/lng auto-generated). H3 maps: h3_h3_to_string(h3_index) AS hex, <metric> AS value. " +
             "Never hardcode H3/A5 strings — compute from coords or use context cells. " +
             "H3 area: WITH c AS (SELECT h3_latlng_to_cell(lat, lng, res)::BIGINT AS h3) SELECT unnest(h3_grid_disk(h3, r))::BIGINT AS h3_index FROM c. " +
             "Weather: query ONE file (has 5 days of forecasts), filter by timestamp. Use buildParquetUrl('weather'). " +
-            "Precip: GREATEST(precipitation_mm_6hr, 0).",
+            "Precip: GREATEST(precipitation_mm_6hr, 0). " +
+            "OOM: Push WHERE h3_index=X into Parquet scan (not in CTE after SELECT *). Only SELECT needed columns on large files.",
         ),
     }),
     outputSchema: z.object({
-      queryId: z.string(),
+      queryId: z
+        .string()
+        .describe(
+          "Client-side store ID for components (pass to GeoMap/Graph/DataTable queryId prop). " +
+            "NOT a DuckDB table — NEVER use in SQL FROM clause. To compute stats from this data, re-query the Parquet URL.",
+        ),
       columns: z.array(z.string()),
       rowCount: z.number(),
       duration: z.number(),
@@ -198,7 +222,10 @@ export const components: TamboComponent[] = [
       "To toggle visibility: set visible=false on a layer. " +
       "UPDATE vs NEW: Update existing map when user modifies SAME data (zoom, colors, basemap, toggle layer). " +
       "CREATE NEW map when user asks for a DIFFERENT dataset or metric (e.g. 'show wind' when current map shows population). " +
-      "Props: layerType, latitude/longitude/zoom (view), colorMetric (legend), colorScheme, extruded (3D), layers (multi-layer).",
+      "Props: layerType, latitude/longitude/zoom (view), colorMetric (legend), colorScheme, extruded (3D), layers (multi-layer). " +
+      "COLOR SCHEME HINTS: 'warm' for temperature, 'cool' for precip/humidity, 'viridis' for density/count, " +
+      "'spectral' for diverging data (growth vs decline), 'plasma' for elevation, 'blue-red' for anomalies. " +
+      "Use extruded=true for 3D when showing building height or population density — it reveals magnitude intuitively.",
     component: InteractableGeoMap,
     propsSchema: geoMapSchema,
   },
@@ -256,8 +283,11 @@ export const components: TamboComponent[] = [
     description:
       "Interactive chart (bar/line/area/pie/scatter/radar/radialBar/treemap/composed/funnel). INTERACTABLE: AI can update chartType, axes, and queryId at runtime. " +
       "PREFERRED: pass queryId from runSQL + xColumn + yColumns + chartType (zero token cost). " +
-      "UPDATE vs NEW: Update existing chart when user changes SAME data's appearance (switch chart type, change axes). " +
-      "CREATE NEW chart when user asks for a DIFFERENT metric or dataset (e.g. 'show wind' when current chart shows temperature). " +
+      "CHART TYPE SELECTION: line for time-series (weather forecast, population trend), bar for ranking/comparison, " +
+      "area for cumulative/stacked data, pie for proportions, scatter for correlation (e.g. height vs population), " +
+      "composed for overlaying metrics (e.g. bar=precip + line=temp). Multiple yColumns overlay on same chart. " +
+      "For population timeline: UNPIVOT wide columns → use xColumn='year', yColumns=['population']. " +
+      "UPDATE vs NEW: Update for SAME data (switch chart type, change axes). CREATE NEW for DIFFERENT metric/dataset. " +
       "ALWAYS set xLabel and yLabel to explain axes.",
     component: InteractableGraph,
     propsSchema: graphSchema,
@@ -331,11 +361,14 @@ export function buildContextHelpers(geo: GeoIP | null) {
                 " [east/west]). " +
                 "Remember: h3_latlng_to_cell(latitude, longitude, res) — lat FIRST. a5_lonlat_to_cell(longitude, latitude, res) — lng FIRST. ST_Point(longitude, latitude) — lng FIRST. " +
                 (geo.h3Cells
-                  ? "Pre-computed H3 cell IDs for their location: " +
+                  ? "USER H3 CELLS (use these — NEVER hardcode or compute H3 for 'my location' queries): " +
                     Object.entries(geo.h3Cells)
-                      .map(([res, hex]) => `res ${res}: '${hex}'`)
+                      .map(([res, hex]) => `res${res}='${hex}'`)
                       .join(", ") +
-                    ". Use these directly in SQL queries with h3_grid_disk() for area queries around the user's location — no need to call h3_latlng_to_cell(). "
+                    ". SQL PATTERNS — Single cell: WHERE h3_index = h3_string_to_h3('<cell>')::BIGINT. " +
+                    "Area: WITH c AS (SELECT unnest(h3_grid_disk(h3_string_to_h3('<cell>')::BIGINT, 4))::BIGINT AS h3_index) SELECT ... FROM file JOIN c USING (h3_index). " +
+                    "For cross-dataset joins, ALL files MUST use the SAME resolution. Shared range: res 3-5 (covers weather∩building∩population∩terrain). " +
+                    "Use res 5 for neighborhood detail, res 3 for city overview. "
                   : "") +
                 "Use this to personalize initial suggestions (e.g., show data for their city/region first). " +
                 "Do NOT mention that you know their location unless they ask about their area.",
@@ -359,17 +392,36 @@ export function buildContextHelpers(geo: GeoIP | null) {
         "NEVER render checkboxes, radio buttons, or selectable lists in chat — users cannot submit selections back to the AI. " +
           "Instead, show DatasetCard components for dataset info and let the auto-generated follow-up suggestion chips handle the next action. " +
           "The suggestion chips at the bottom are clickable buttons that submit instantly — users don't need to type.",
+        "VISUALIZATION INTELLIGENCE: Match chart type to data shape — " +
+          "line for time-series (weather forecast, population over years), bar for ranking/comparison (top cells by density), " +
+          "area for cumulative trends (precipitation), pie for proportions (land use coverage), " +
+          "scatter for correlations (building height vs population). " +
+          "ColorScheme hints: 'spectral' for diverging data (growth vs decline), 'viridis' for sequential positive metrics (density, elevation), " +
+          "'warm' for temperature, 'cool' for precipitation/humidity, 'blue-red' for anomalies. " +
+          "For comparisons: use composed chart (bar+line overlay) or multi-yColumns in Graph. " +
+          "For population timeline: UNPIVOT wide columns → long format for a clean line chart.",
+        "CROSS-DATASET ENRICHMENT: When context allows, enrich single-dataset queries with related data. " +
+          "Weather query → add building density context (how exposed is the area?). " +
+          "Building query → add population (how many people per building?). " +
+          "Population growth → add terrain (is growth on flat vs hilly land?). " +
+          "Use same h3_res for all joined files. Prefer res 5 for neighborhood, res 3 for city-scale.",
       ],
       duckdbWasmNotes: [
         "DuckDB v1.5. H3, A5, spatial, httpfs pre-loaded. NO INSTALL/LOAD. ONE statement. LIMIT 500. HTTPS URLs in FROM.",
         "Geometry: SELECT * from Parquet with GEOMETRY → auto-renders on map. lat/lng are SYNTHETIC — never select them in follow-ups. Use SELECT * EXCLUDE (col).",
-        "H3: h3_index BIGINT. Maps: h3_h3_to_string(h3_index) AS hex. h3_cell_to_latlng() → DOUBLE[2] (NOT struct). h3_grid_ring/h3_grid_disk (NOT h3_k_ring).",
+        "H3: h3_index BIGINT. Maps: h3_h3_to_string(h3_index) AS hex. h3_cell_to_lat()/h3_cell_to_lng() → DOUBLE (preferred). h3_grid_ring/h3_grid_disk (NOT h3_k_ring).",
         "A5: a5_lonlat_to_cell(lng, lat, res) — lng FIRST. a5_cell_to_lonlat/boundary/children/area. Equal-area pentagons.",
         "v1.5: GEOMETRY core type. TRY_CAST(x AS GEOMETRY) broken → TRY(ST_GeomFromText(x)). Lambda: lambda x: x + 1 (NOT x -> x + 1).",
         "Spatial: ST_Buffer/ST_Contains/ST_Intersects/ST_DWithin auto-render. ST_Distance_Spheroid(a,b) → meters. geom && ST_MakeEnvelope(w,s,e,n) for bbox pushdown.",
-        "CRITICAL: queryId (qr_N) is client-side — NOT a DuckDB table. Timestamp math: use INTERVAL (NOT integer addition).",
+        "CRITICAL: queryId (qr_N) is client-side — NOT a DuckDB table. Timestamp math: CAST(ts AS TIMESTAMP) + INTERVAL '72 hours' (WASM has no ICU — TIMESTAMPTZ + INTERVAL fails).",
         "Weather: each file has 5-day/21-step forecast. Query ONE file via buildParquetUrl. GREATEST(precipitation_mm_6hr, 0) to clamp.",
         "Grid rule: use H3 when user asks H3, A5 when user asks A5. Never convert between them.",
+        "OOM PREVENTION (~3GB WASM limit): NEVER SELECT * into CTEs on large files (weather res5=42M rows). " +
+          "Push WHERE h3_index=X directly into the Parquet scan for predicate pushdown. Only SELECT needed columns. " +
+          "For multi-file comparisons: filter each file BEFORE joining. Prefer res 3-4 for area/map queries.",
+        "CROSS-DATASET: All datasets share h3_index — joins trivial BUT resolutions MUST match across all files. " +
+          "Shared range: res 3-5. UNPIVOT population for time-series charts. " +
+          "Use h3_cell_to_lat/lng to derive coordinates from h3_index directly.",
       ],
       s3Base: "https://s3.us-west-2.amazonaws.com/us-west-2.opendata.source.coop/walkthru-earth",
       datasets: {
@@ -420,6 +472,17 @@ export function buildContextHelpers(geo: GeoIP | null) {
           "Example: run ONE query with hex + value + other columns, then pass the same queryId to all 3 components.",
         "For charts linked with maps via cross-filter, 'hex' can be in the query for filtering but use a DIFFERENT column as xColumn (not hex). " +
           "If no meaningful label column exists, add one in SQL: ROW_NUMBER() OVER (ORDER BY value DESC) as rank, then use xColumn='rank'.",
+        "CROSS-DATASET ANALYSIS PATTERNS (all joined via h3_index — resolutions MUST match across files): " +
+          "Urban density: building JOIN population → bldg_per_person, coverage_ratio vs pop_density. " +
+          "Housing pressure: population growth (pop_2100/pop_2025) vs building count → where is housing falling behind? " +
+          "Terrain risk: terrain (slope, tri) JOIN building → buildings on steep ground. " +
+          "Weather exposure: weather (wind, precip) JOIN building (height, density) → wind exposure index. " +
+          "Population timeline: UNPIVOT population wide format → line chart of pop_2025..pop_2100. " +
+          "All use same pattern: WITH cells AS (h3_grid_disk neighborhood) → JOIN all files USING (h3_index).",
+        "SMART DEFAULTS: For 'my location' queries, use the pre-computed h3Cells from context — never compute or hardcode. " +
+          "For maps: zoom 11-12 for neighborhood, 8-9 for city, 4-5 for region. " +
+          "For area queries: h3_grid_disk radius 2-3 for tight neighborhood, 5-8 for wider area. " +
+          "Include h3_cell_to_lat/h3_cell_to_lng in queries when components need coordinates for positioning.",
       ],
     }),
   };

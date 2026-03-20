@@ -35,7 +35,7 @@ export const DATASETS: DatasetInfo[] = [
       "NOAA GraphCast AI weather forecasts. Temp, wind, shear, humidity, moisture flux, pressure, precip, geopotential. Res 0-5. " +
       "FORECAST STRUCTURE: Each file = 5-day horizon (21 timestamps, 6-hourly in 'timestamp' column). " +
       "For multi-day forecasts, query ONE file — do NOT build URLs for future dates (only latest run exists). " +
-      "Use buildParquetUrl('weather') to resolve latest date. Filter: WHERE timestamp <= MIN(timestamp) + INTERVAL 'N hours'. " +
+      "Use buildParquetUrl('weather') to resolve latest date. Filter: WHERE CAST(timestamp AS TIMESTAMP) <= CAST((SELECT MIN(timestamp) FROM ...) AS TIMESTAMP) + INTERVAL 'N hours'. " +
       "Clamp precip: GREATEST(precipitation_mm_6hr, 0).",
     columns: [
       "h3_index",
