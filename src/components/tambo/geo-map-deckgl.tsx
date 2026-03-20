@@ -63,6 +63,8 @@ export interface DeckGLMapProps {
   latitude: number;
   longitude: number;
   zoom: number;
+  pitch?: number;
+  bearing?: number;
   layerConfigs: LayerConfig[];
   extruded: boolean;
   minVal: number;
@@ -853,6 +855,8 @@ export default function DeckGLMap({
   latitude,
   longitude,
   zoom,
+  pitch: pitchProp,
+  bearing: bearingProp,
   layerConfigs,
   extruded,
   minVal,
@@ -868,6 +872,8 @@ export default function DeckGLMap({
   const mapRef = useRef<maplibregl.Map | null>(null);
   const overlayRef = useRef<MapboxOverlay | null>(null);
   const isDark = useIsDark();
+  const resolvedPitch = pitchProp ?? (extruded ? 45 : 0);
+  const resolvedBearing = bearingProp ?? (extruded ? -15 : 0);
   const prevViewRef = useRef({ latitude, longitude, zoom });
   const prevDataCountRef = useRef(0);
   const onBoundsChangeRef = useRef(onBoundsChange);
@@ -936,8 +942,8 @@ export default function DeckGLMap({
       style: isDark ? CARTO_DARK : CARTO_LIGHT,
       center: [longitude, latitude],
       zoom,
-      pitch: extruded ? 45 : 0,
-      bearing: extruded ? -15 : 0,
+      pitch: resolvedPitch,
+      bearing: resolvedBearing,
       attributionControl: false,
     });
 
@@ -1021,8 +1027,8 @@ export default function DeckGLMap({
       padding: { top: 40, bottom: 40, left: 40, right: 40 },
       maxZoom: 14,
       duration: 1200,
-      pitch: extruded ? 45 : 0,
-      bearing: extruded ? -15 : 0,
+      pitch: resolvedPitch,
+      bearing: resolvedBearing,
     });
   }, [totalDataCount, fitBoundsProp]);
 
@@ -1036,8 +1042,8 @@ export default function DeckGLMap({
     mapRef.current.flyTo({
       center: [longitude, latitude],
       zoom,
-      pitch: extruded ? 45 : 0,
-      bearing: extruded ? -15 : 0,
+      pitch: resolvedPitch,
+      bearing: resolvedBearing,
       duration: 1500,
     });
   }, [latitude, longitude, zoom, extruded]);

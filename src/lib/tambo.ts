@@ -222,7 +222,8 @@ export const components: TamboComponent[] = [
       "To toggle visibility: set visible=false on a layer. " +
       "UPDATE vs NEW: Update existing map when user modifies SAME data (zoom, colors, basemap, toggle layer). " +
       "CREATE NEW map when user asks for a DIFFERENT dataset or metric (e.g. 'show wind' when current map shows population). " +
-      "Props: layerType, latitude/longitude/zoom (view), colorMetric (legend), colorScheme, extruded (3D), layers (multi-layer). " +
+      "Props: layerType, latitude/longitude/zoom (view), pitch (0-85, camera tilt), bearing (-180 to 180, rotation), colorMetric (legend), colorScheme, extruded (3D), basemap ('auto' always — never override), layers (multi-layer). " +
+      "CINEMATIC VIEWS: pitch=45-60 + bearing=-15 to -30 for dramatic 3D city perspectives. Combine with extruded=true for immersive building/population views. " +
       "COLOR SCHEME HINTS: 'warm' for temperature, 'cool' for precip/humidity, 'viridis' for density/count, " +
       "'spectral' for diverging data (growth vs decline), 'plasma' for elevation, 'blue-red' for anomalies. " +
       "Use extruded=true for 3D when showing building height or population density — it reveals magnitude intuitively.",
@@ -333,10 +334,10 @@ export function buildContextHelpers(geo: GeoIP | null) {
       userEnvironment: {
         theme: getCurrentTheme(),
         basemapHint:
-          "Use basemap='auto' (follows user theme) unless user explicitly requests dark/light. " +
-          "The user's current theme is " +
+          "ALWAYS set basemap='auto' — it automatically matches the user's theme (" +
           getCurrentTheme() +
-          ".",
+          "). NEVER set basemap='dark' or 'light' unless the user explicitly asks to override. " +
+          "Do NOT read the theme value and manually pick dark/light — that causes reversal bugs. Just use 'auto'.",
         ...(geo
           ? {
               userLocation: {

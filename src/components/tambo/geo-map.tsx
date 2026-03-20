@@ -98,13 +98,30 @@ export const geoMapSchema = z.object({
   latitude: z.number().optional().describe("Center latitude"),
   longitude: z.number().optional().describe("Center longitude"),
   zoom: z.number().optional().describe("Zoom level (default 1 — world view)"),
+  pitch: z
+    .number()
+    .optional()
+    .describe(
+      "Camera tilt angle 0-85 degrees. 0=top-down (default), 45=cinematic 3D, 60=dramatic. " +
+        "Use 45-60 for immersive city/building views. Auto-set to 45 when extruded=true.",
+    ),
+  bearing: z
+    .number()
+    .optional()
+    .describe(
+      "Camera rotation -180 to 180 degrees. 0=north-up (default), -15 to -30=cinematic angle. " +
+        "Combine with pitch>0 for dramatic 3D perspectives.",
+    ),
   colorMetric: z.string().optional().describe("Legend label for the color metric (e.g. 'Population Density')"),
   colorScheme: z.enum(COLOR_SCHEMES).optional().describe("Color palette"),
   extruded: z.boolean().optional().describe("3D extrusion based on value"),
   basemap: z
     .enum(["auto", "dark", "light"])
     .optional()
-    .describe("Basemap style. 'auto' follows system theme (default), 'dark' or 'light' override."),
+    .describe(
+      "Basemap style. ALWAYS use 'auto' (default) — it follows the user's chosen theme automatically. " +
+        "Only use 'dark' or 'light' if the user EXPLICITLY asks to override their theme for the map.",
+    ),
   // Multi-layer
   layers: z
     .array(layerEntrySchema)
@@ -904,6 +921,8 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
               latitude={centerLat}
               longitude={centerLng}
               zoom={zoom}
+              pitch={props.pitch}
+              bearing={props.bearing}
               layerConfigs={layerConfigs}
               extruded={extruded}
               minVal={minVal}
