@@ -335,6 +335,13 @@ export function buildContextHelpers(geo: GeoIP | null) {
     walkthruContext: () => ({
       platform: "walkthru.earth",
       userEnvironment: {
+        currentDate: new Date().toLocaleDateString("en-CA", {
+          timeZone: geo?.timezone || undefined,
+        }),
+        userTimezone: geo?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+        dateNote:
+          "currentDate is the user's local date in YYYY-MM-DD (ISO 8601) — DuckDB casts directly. " +
+          "Use for weather file URLs and date filtering.",
         theme: getCurrentTheme(),
         basemapHint:
           "ALWAYS set basemap='auto' — it automatically matches the user's theme (" +
@@ -363,6 +370,11 @@ export function buildContextHelpers(geo: GeoIP | null) {
                 " [north/south], longitude=" +
                 geo.longitude +
                 " [east/west]). " +
+                "Timezone: " +
+                (geo.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone) +
+                ". Local date: " +
+                new Date().toLocaleDateString("en-CA", { timeZone: geo.timezone || undefined }) +
+                ". " +
                 "Remember: h3_latlng_to_cell(latitude, longitude, res) — lat FIRST. a5_lonlat_to_cell(longitude, latitude, res) — lng FIRST. ST_Point(longitude, latitude) — lng FIRST. " +
                 (geo.h3Cells
                   ? "USER H3 CELLS (use these — NEVER hardcode or compute H3 for 'my location' queries): " +
