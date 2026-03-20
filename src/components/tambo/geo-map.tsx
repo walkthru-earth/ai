@@ -503,9 +503,12 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
     colorMetric,
     colorScheme = "blue-red",
     extruded = false,
-    basemap = "auto",
+    basemap: _basemap = "auto",
     layers: layersProp,
   } = props;
+  // Always use "auto" — old thread responses may have stale "dark"/"light" values
+  // that conflict with the user's current theme preference
+  const basemap = "auto" as const;
   const inPanel = useInDashboardPanel();
 
   // Multi-layer mode: determine if using `layers` array or single `queryId`
@@ -1138,12 +1141,13 @@ export const InteractableGeoMap = withTamboInteractable(GeoMap, {
     "AUTO-ROUTING: Query results are automatically routed to the best layer type. " +
     "GEOMETRY columns → wkb (zero-copy GeoArrow polygon/line/point). A5 cells → a5 (GPU pentagons). H3 cells → h3 (GPU hexagons). lat/lng → scatterplot. No manual layerType needed. " +
     "Supports multiple simultaneous layers via `layers` array — each layer has its own queryId, layerType, columns, colorScheme, and visibility. " +
-    "AI can update view (latitude, longitude, zoom), color scheme, basemap (dark/light/auto), extruded mode, and layer type at runtime. " +
+    "AI can update view (latitude, longitude, zoom, pitch, bearing), color scheme, extruded mode, and layer type at runtime. " +
+    "Basemap always follows user's theme automatically — do NOT set basemap prop (it's always 'auto'). " +
     "To add a layer: update_component_props with layers array including existing layers + the new one. " +
     "To remove a layer: update with layers array excluding that layer. " +
     "To toggle visibility: set visible=false on a layer. " +
     "When user says 'zoom into Cairo', update latitude/longitude/zoom. " +
-    "When user says 'switch to light map', update basemap to 'light'. " +
+    "When user says 'tilt the map', update pitch (e.g. 45-60 for cinematic). " +
     "When user says 'add population layer', add a new entry to the layers array.",
   propsSchema: geoMapSchema,
 });
