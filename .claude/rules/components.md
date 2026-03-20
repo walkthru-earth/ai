@@ -7,7 +7,7 @@ paths:
 
 ## queryId-driven (zero tokens to LLM)
 
-**GeoMap** (`geo-map.tsx` + `geo-map-deckgl.tsx`): Generic deck.gl map, 6 layer types (h3, a5, scatterplot, geojson, arc, wkb). Auto-detects from column names + wkbArrays presence. Detection priority: a5 (`pentagon`/`a5_cell`/`a5_index`) → h3 (`hex`/`h3_index`) → wkb (auto-detected GEOMETRY) → arc → scatterplot → geojson. Basemap: auto/dark/light. AI can update props (zoom, basemap, colorScheme, layerType) at runtime via `withTamboInteractable`. Supports multi-layer via `layers` array prop (max 5) — each layer has `id`, `queryId`, `layerType`, `pentagonColumn`, columns, `colorScheme`, `opacity`, `visible`. Floating layer control panel (top-left) for toggle/opacity/reorder persists to localStorage. Uses 5 fixed `useQueryResult` hook slots for React rules compliance. `LayerConfig` in deckgl has per-layer `id`, `colorScheme`, `opacity`, `minVal`, `maxVal`, `columnArrays`, `arrowIPC`, `wkbArrays`, `columnMapping` (includes `pentagonColumn`).
+**GeoMap** (`geo-map.tsx` + `geo-map-deckgl.tsx`): Generic deck.gl map, 6 layer types (h3, a5, scatterplot, geojson, arc, wkb). Auto-detects from column names + wkbArrays presence. Detection priority: a5 (`pentagon`/`a5_cell`/`a5_index`) → h3 (`hex`/`h3_index`) → wkb (auto-detected GEOMETRY) → arc → scatterplot → geojson. Basemap: always forced to `auto` (follows user's theme — AI basemap prop is ignored to prevent stale dark/light from old threads). AI can update props (zoom, pitch, bearing, colorScheme, layerType) at runtime via `withTamboInteractable`. Pitch (0-85): 0=top-down, 45-60=cinematic 3D. Bearing (-180 to 180): camera rotation. Both default to extruded-based values (45/-15 when extruded, 0/0 otherwise) if not set by AI. Supports multi-layer via `layers` array prop (max 5) — each layer has `id`, `queryId`, `layerType`, `pentagonColumn`, columns, `colorScheme`, `opacity`, `visible`. Floating layer control panel (top-left) for toggle/opacity/reorder persists to localStorage. Uses 5 fixed `useQueryResult` hook slots for React rules compliance. `LayerConfig` in deckgl has per-layer `id`, `colorScheme`, `opacity`, `minVal`, `maxVal`, `columnArrays`, `arrowIPC`, `wkbArrays`, `columnMapping` (includes `pentagonColumn`).
 
 **Map interactivity** (`geo-map-deckgl.tsx`):
 - **Hover tooltip** (desktop): `onHover` on all layers → `extractHoverProps()` extracts up to 6 key-value pairs → `MapTooltip` renders floating card with `bg-card/95 backdrop-blur-sm`. Repositions to stay within map bounds. Cursor changes to `crosshair` on feature hover.
@@ -78,8 +78,9 @@ All viz components use `useInDashboardPanel()` to detect context:
 
 ## UPDATE vs CREATE NEW
 
-- **Update existing** (`update_component_props`): same data, change appearance (zoom, colors, chart type, hide columns).
-- **Create new**: different metric/dataset ("show wind" when chart shows temp). Previous visualizations stay visible for comparison.
+- **Update existing** (`update_component_props`): same data, change appearance only (zoom, pitch, bearing, colors, chart type, hide columns).
+- **NEVER change queryId** via update_component_props — it won't re-render. Always create a new component for new data.
+- **Create new**: different data, filter, metric, or dataset ("filter to my cell", "show wind" when chart shows temp). Previous visualizations stay visible for comparison.
 
 ## Chat
 

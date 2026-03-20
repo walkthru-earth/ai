@@ -27,7 +27,7 @@ paths:
 ## `walkthru-data.ts`
 
 - 4 dataset definitions with full column lists, URL patterns, H3 res ranges:
-  - Weather: res 0-5, hours 0/12, 17 columns (temp, wind, shear, humidity, moisture flux, pressure, precip, geopotential)
+  - Weather: res 0-5, hours 0/12, 17 columns (temp, wind, shear, humidity, moisture flux, pressure, precip, geopotential). Each file = 5-day forecast (21 timestamps, 6-hourly). Res 5 = 42M rows — needs predicate pushdown. Use `buildParquetUrl('weather')` to resolve latest date. `GREATEST(precipitation_mm_6hr, 0)` to clamp.
   - Terrain: res 1-10, 6 columns (elev, slope, aspect, tri, tpi)
   - Building: res 3-8, 11 columns (count, density, footprint, coverage, height avg/max/std, volume, volume density)
   - Population: res 1-8, 16 time steps (pop_2025 through pop_2100 every 5 years)
