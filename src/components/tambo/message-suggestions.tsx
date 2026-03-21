@@ -25,6 +25,8 @@ interface MessageSuggestionsContextValue {
   isStreaming: boolean;
   isWaiting: boolean;
   isMac: boolean;
+  loadMoreRef: (node: HTMLDivElement | null) => void;
+  hasMore: boolean;
 }
 
 /**
@@ -72,8 +74,10 @@ export interface MessageSuggestionsProps extends React.HTMLAttributes<HTMLDivEle
  * </MessageSuggestions>
  * ```
  */
+const INITIAL_VISIBLE = 5;
+
 const MessageSuggestions = React.forwardRef<HTMLDivElement, MessageSuggestionsProps>(
-  ({ children, className, maxSuggestions = 3, initialSuggestions = [], ...props }, ref) => {
+  ({ children, className, maxSuggestions = 5, initialSuggestions = [], ...props }, ref) => {
     const { messages, isStreaming, isWaiting } = useTambo();
     const {
       suggestions: generatedSuggestions,
@@ -83,15 +87,41 @@ const MessageSuggestions = React.forwardRef<HTMLDivElement, MessageSuggestionsPr
       error,
     } = useTamboSuggestions({ maxSuggestions });
 
+    // Lazy-load initial suggestions: show INITIAL_VISIBLE first, expand on scroll
+    const [visibleCount, setVisibleCount] = React.useState(INITIAL_VISIBLE);
+
     // Combine initial and generated suggestions, but only use initial ones when thread is empty
     const suggestions = React.useMemo(() => {
       // Only use pre-seeded suggestions if thread is empty
       if (!messages.length && initialSuggestions.length > 0) {
-        return initialSuggestions.slice(0, maxSuggestions);
+        return initialSuggestions.slice(0, visibleCount);
       }
       // Otherwise use generated suggestions
       return generatedSuggestions;
-    }, [messages.length, generatedSuggestions, initialSuggestions, maxSuggestions]);
+    }, [messages.length, generatedSuggestions, initialSuggestions, visibleCount]);
+
+    // Lazy-load more suggestions when user scrolls to the end of the chip row
+    const hasMore = !messages.length && initialSuggestions.length > visibleCount;
+    const observerRef = React.useRef<IntersectionObserver | null>(null);
+    const loadMoreRef = React.useCallback(
+      (node: HTMLDivElement | null) => {
+        if (observerRef.current) {
+          observerRef.current.disconnect();
+          observerRef.current = null;
+        }
+        if (!node || !hasMore) return;
+        observerRef.current = new IntersectionObserver(
+          (entries) => {
+            if (entries[0].isIntersecting) {
+              setVisibleCount((prev) => Math.min(prev + 5, initialSuggestions.length));
+            }
+          },
+          { threshold: 0.1 },
+        );
+        observerRef.current.observe(node);
+      },
+      [hasMore, initialSuggestions.length],
+    );
 
     const isMac = typeof navigator !== "undefined" && navigator.platform.startsWith("Mac");
 
@@ -106,8 +136,22 @@ const MessageSuggestions = React.forwardRef<HTMLDivElement, MessageSuggestionsPr
         isStreaming,
         isWaiting,
         isMac,
+        loadMoreRef,
+        hasMore,
       }),
-      [suggestions, selectedSuggestionId, accept, isGenerating, error, messages, isStreaming, isWaiting, isMac],
+      [
+        suggestions,
+        selectedSuggestionId,
+        accept,
+        isGenerating,
+        error,
+        messages,
+        isStreaming,
+        isWaiting,
+        isMac,
+        loadMoreRef,
+        hasMore,
+      ],
     );
 
     // Handle keyboard shortcuts for selecting suggestions
@@ -220,7 +264,8 @@ export type MessageSuggestionsListProps = React.HTMLAttributes<HTMLDivElement>;
  */
 const MessageSuggestionsList = React.forwardRef<HTMLDivElement, MessageSuggestionsListProps>(
   ({ className, ...props }, ref) => {
-    const { suggestions, selectedSuggestionId, accept, isGenerating, isMac } = useMessageSuggestionsContext();
+    const { suggestions, selectedSuggestionId, accept, isGenerating, isMac, loadMoreRef, hasMore } =
+      useMessageSuggestionsContext();
 
     const modKey = isMac ? "⌘" : "Ctrl";
     const altKey = isMac ? "⌥" : "Alt";
@@ -278,6 +323,8 @@ const MessageSuggestionsList = React.forwardRef<HTMLDivElement, MessageSuggestio
             </button>
           </Tooltip>
         ))}
+        {/* Sentinel for lazy-loading more suggestions on scroll */}
+        {hasMore && <div ref={loadMoreRef} className="w-1 shrink-0" aria-hidden="true" />}
       </div>
     );
   },
