@@ -8,6 +8,7 @@ paths:
 ## `duckdb-wasm.ts`
 
 - `initDuckDB()`: singleton, jsDelivr bundles, Blob URL worker, extensions: httpfs → spatial → h3 → a5, `geometry_always_xy = true`, retries 3x
+- **A5 function names (exact — no others exist)**: `a5_lonlat_to_cell(lng, lat, res)`, `a5_cell_to_lonlat(cell)`, `a5_cell_to_boundary`, `a5_cell_to_children`, `a5_cell_area`, `a5_hex_to_u64(hex)`, `a5_u64_to_hex(cell)`. There is NO `a5_hex_to_cell`. Use `a5_hex_to_u64` for hex→UBIGINT conversion.
 - `preloadDuckDB()`: non-blocking warmup on page mount
 - `runQuery({sql})`: cleanSql → detectGeometryColumns (DESCRIBE) → wrapSqlForGeometry (if GEOMETRY found) → execute → Arrow→JS rows + columnArrays (typed array views) + arrowIPC (bytes) + wkbArrays (if geometry) → store in query-store → return metadata + 3 sample rows + `geometryNote` (if geometry detected)
 - `detectGeometryColumns(conn, sql)`: runs `DESCRIBE (sql)`, checks column_type for GEOMETRY or WKB BLOB with well-known geo names. Skips CTE queries (`WITH ...`). Fast — reads Parquet metadata only.
