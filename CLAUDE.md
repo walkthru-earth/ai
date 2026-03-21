@@ -105,7 +105,7 @@ S3 base: `https://s3.us-west-2.amazonaws.com/us-west-2.opendata.source.coop/walk
 | Transportation (Overture) | `indices/transportation-index/v1/release={ver}/h3/h3_res={1-10}/data.parquet` | 1-10 | 343M road/rail/water segments, surface types, bridges, tunnels. |
 | Base (Overture) | `indices/base-index/v1/release={ver}/h3/h3_res={1-10}/data.parquet` | 1-10 | Land use, water bodies, infrastructure. Nature, transit, barriers. |
 | Addresses (Overture) | `indices/addresses-index/v1/release={ver}/h3/h3_res={1-10}/data.parquet` | 1-10 | Address points. Schema evolving — use DESCRIBE. |
-| Buildings-Overture | `indices/buildings-index/v1/release={ver}/h3/h3_res={1-10}/data.parquet` | 1-10 | Overture buildings (different from Global Building Atlas). |
+| Buildings-Overture | `indices/buildings-index/v1/release={ver}/h3/h3_res={1-10}/data.parquet` | 1-10 | Building classification: 40 cols. USE types (residential, commercial, industrial, civic, education, medical, religious, entertainment). SUBTYPES (house, apartments, retail, warehouse, office, school, university, hospital, church, mosque, hotel, factory). Height/floor aggregates. Different from Global Building Atlas (morphology). JOIN both on h3_index. |
 
 ## Styling Rules
 

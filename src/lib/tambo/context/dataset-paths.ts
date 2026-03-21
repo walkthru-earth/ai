@@ -25,5 +25,10 @@ export const datasetPaths: Record<string, string> = {
   addresses:
     "indices/addresses-index/v1/release={ver}/h3/h3_res={1-10}/data.parquet — Address points. Use DESCRIBE to explore columns.",
   "buildings-overture":
-    "indices/buildings-index/v1/release={ver}/h3/h3_res={1-10}/data.parquet — Overture buildings (different from Global Building Atlas). Use DESCRIBE.",
+    "indices/buildings-index/v1/release={ver}/h3/h3_res={1-10}/data.parquet — " +
+    "Building classification by USE (residential, commercial, industrial, civic, education, medical, religious, entertainment) " +
+    "and SUBTYPE (house, apartments, retail, warehouse, office, school, university, hospital, church, mosque, hotel, factory). " +
+    "Also avg_height_m, max_height_m, avg_floors, max_floors. " +
+    "Different from 'building' (Global Building Atlas) which has morphology: density, volume, footprint, coverage. " +
+    "JOIN both on h3_index for full picture. Use buildParquetUrl('buildings-overture').",
 };

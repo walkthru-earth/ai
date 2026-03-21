@@ -272,12 +272,42 @@ export async function suggestAnalysis(input: SuggestAnalysisInput): Promise<Anal
     };
   }
 
+  if (
+    q.includes("residential") ||
+    q.includes("commercial") ||
+    q.includes("apartment") ||
+    q.includes("mosque") ||
+    q.includes("church") ||
+    q.includes("warehouse") ||
+    q.includes("factory") ||
+    q.includes("building type") ||
+    q.includes("building class") ||
+    q.includes("building use") ||
+    q.includes("religious building") ||
+    q.includes("industrial building")
+  ) {
+    const ds = DATASETS.find((d) => d.id === "buildings-overture")!;
+    return {
+      suggestedDatasets: ["buildings-overture"],
+      suggestedCrossIndex: null,
+      columns: ds.columns,
+      explanation:
+        "Overture Buildings Index — building classification by use (residential, commercial, industrial, civic, education, medical, religious) " +
+        "and subtype (house, apartments, retail, office, school, mosque, church, hospital, factory, etc.).",
+      sampleSQL:
+        "SELECT h3_index, h3_h3_to_string(h3_index) AS hex,\n  building_count AS value, n_residential, n_commercial, n_apartments, n_mosque, n_church\nFROM buildings_overture\nLIMIT 500",
+      focusRegion: null,
+    };
+  }
+
   if (q.includes("building") || q.includes("urban") || q.includes("city") || q.includes("construction")) {
     return {
-      suggestedDatasets: ["building"],
+      suggestedDatasets: ["building", "buildings-overture"],
       suggestedCrossIndex: null,
       columns: DATASETS.find((d) => d.id === "building")!.columns,
-      explanation: "Global Building Atlas with 2.75 billion buildings. Count, density, height, volume per H3 cell.",
+      explanation:
+        "Two building datasets: Global Building Atlas (morphology: density, volume, footprint) and " +
+        "Overture Buildings Index (classification: residential, commercial, industrial types). JOIN on h3_index for full picture.",
       sampleSQL: "SELECT h3_index, building_count, building_density, avg_height_m\nFROM building\nWHERE h3_res = 3",
       focusRegion: { name: "Tokyo Metro", lat: 35.7, lng: 139.7, zoom: 4 },
     };
