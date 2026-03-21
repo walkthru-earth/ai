@@ -11,8 +11,14 @@ export const duckdbWasmNotes = [
   "v1.5: GEOMETRY core type. TRY_CAST(x AS GEOMETRY) broken → TRY(ST_GeomFromText(x)). Lambda: lambda x: x + 1 (NOT x -> x + 1).",
   "Spatial: ST_Buffer/ST_Contains/ST_Intersects/ST_DWithin auto-render. ST_Distance_Spheroid(a,b) → meters. geom && ST_MakeEnvelope(w,s,e,n) for bbox pushdown.",
   "CRITICAL: queryId (qr_N) is client-side — NOT a DuckDB table. Timestamp math: CAST(ts AS TIMESTAMP) + INTERVAL '72 hours' (WASM has no ICU — TIMESTAMPTZ + INTERVAL fails).",
-  "Weather: each file has 5-day/21-step forecast. Query ONE file via buildParquetUrl. GREATEST(precipitation_mm_6hr, 0) to clamp.",
-  "Grid rule: use H3 when user asks H3, A5 when user asks A5. Never convert between them.",
+  "Weather: each file has 5-day/21-step forecast. Query ONE file via buildParquetUrl. GREATEST(precipitation_mm_6hr, 0) to clamp. " +
+    "TIMESTAMPS: Always format timestamps for display using strftime(CAST(timestamp AS TIMESTAMP), '%Y-%m-%d %H:%M') AS timestamp. " +
+    "Raw epoch ms values are unreadable to users.",
+  "Grid rule: use H3 when user asks H3, A5 when user asks A5. " +
+    "ALL datasets are H3-indexed — when user asks for A5, compute A5 cells from H3 centroids: " +
+    "SELECT printf('%x', a5_lonlat_to_cell(h3_cell_to_lng(h3_index), h3_cell_to_lat(h3_index), res)) AS pentagon, " +
+    "<metric> AS value, h3_cell_to_lat(h3_index) AS lat, h3_cell_to_lng(h3_index) AS lng FROM ... " +
+    "Column named 'pentagon' auto-detects layerType=a5. Do NOT output 'hex' column when user asks A5.",
   "OOM PREVENTION (~3GB WASM limit): NEVER SELECT * into CTEs on large files (weather res5=42M rows). " +
     "Push WHERE h3_index=X directly into the Parquet scan for predicate pushdown. Only SELECT needed columns. " +
     "For multi-file comparisons: filter each file BEFORE joining. Prefer res 3-4 for area/map queries.",

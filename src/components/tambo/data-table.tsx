@@ -54,9 +54,25 @@ type DataTableProps = z.infer<typeof dataTableSchema>;
 
 /* ── Format helper ─────────────────────────────────────────────────── */
 
-function formatCell(val: unknown): string {
+function formatCell(val: unknown, colName?: string): string {
   if (val == null) return "";
   if (typeof val === "number") {
+    // Detect epoch-ms timestamps: column name hints + value in plausible range (2000-01-01 to 2200-01-01)
+    if (
+      Number.isInteger(val) &&
+      val > 946684800000 &&
+      val < 7258118400000 &&
+      colName &&
+      /timestamp|date|time|created|updated/i.test(colName)
+    ) {
+      return new Date(val).toLocaleString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    }
     if (Number.isInteger(val) && Math.abs(val) >= 1000) return val.toLocaleString();
     if (!Number.isInteger(val)) return val.toLocaleString(undefined, { maximumFractionDigits: 2 });
   }
@@ -100,7 +116,7 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
 
         const fRows = rRows.map((row, i) => ({
           id: String(i),
-          cells: cols.map((c) => formatCell(row[c.id])),
+          cells: cols.map((c) => formatCell(row[c.id], c.id)),
         }));
         return { resolvedColumns: cols, resolvedRows: fRows, filteredRawRows: rRows };
       }

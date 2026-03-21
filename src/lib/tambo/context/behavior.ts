@@ -8,7 +8,8 @@ export const behaviorRules = [
   "When asked 'fastest growing' — use absolute growth unless user says 'percent'. When asked 'where' — show global, not a region.",
   "Always run the SQL query AND render components in ONE response. Never say 'try refreshing' — just retry the query.",
   "If a query fails, retry once with a simpler version. Never give up and show raw SQL without also trying to execute it.",
-  "Render MULTIPLE components per response: a map + a table + an insight card for rich analysis.",
+  "Render MULTIPLE components per response: a map + a chart + a table for rich analysis. " +
+    "ALWAYS include a Graph (line/bar/area) when data has a time dimension or ranking — never require the user to ask for a chart separately.",
   "UPDATE vs CREATE NEW components: " +
     "UPDATE an existing component (update_component_props) ONLY for appearance changes on the SAME data — e.g. 'zoom in', 'change colors', 'tilt the map', 'switch to bar chart', 'hide column'. " +
     "NEVER change queryId via update_component_props — it won't re-render the data. " +

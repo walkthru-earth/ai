@@ -75,6 +75,16 @@ export const componentTips = [
     "Water security (6 signals): base(water) + population(growth) + weather(precip) + building(permeability) + terrain(retention). " +
     "Overture datasets res 1-10. Shared range with ALL datasets: res 3-5.",
 
+  // ── Weather forecast pattern ──
+  "WEATHER FORECAST (MANDATORY pattern — do NOT skip the chart): " +
+    "Each file has 21 timestamps (5-day, 6-hourly). For ANY weather query: " +
+    "(1) Run a TIMELINE query: all 21 timestamps for user's cell with strftime(CAST(timestamp AS TIMESTAMP), '%b %d %H:%M') AS time_label, " +
+    "temperature_2m_C AS temp_c, specific_humidity_gkg AS humidity_gkg, GREATEST(precipitation_mm_6hr, 0) AS precip_mm, wind_speed_10m_ms AS wind_ms. " +
+    "(2) Run an AREA query: snapshot at first timestamp for surrounding cells (map). " +
+    "(3) Render: GeoMap (area snapshot) + Graph (chartType='line', xColumn='time_label', yColumns=['temp_c','humidity_gkg','precip_mm','wind_ms']) + DataTable. " +
+    "The line chart is NOT optional — users expect to see the 5-day forecast timeline without asking. " +
+    "For A5 weather: compute A5 cells from H3 centroids (see grid rule).",
+
   // ── Smart defaults ──
   "SMART DEFAULTS: For 'my location' queries, use the pre-computed h3Cells from context — never compute or hardcode. " +
     "For maps: zoom 11-12 for neighborhood, 8-9 for city, 4-5 for region. " +
