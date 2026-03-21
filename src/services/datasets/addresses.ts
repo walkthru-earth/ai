@@ -6,11 +6,13 @@ export const addressesDataset: DatasetDefinition = {
   name: "Overture Addresses Index",
   description:
     "Address point aggregations from Overture Maps. " +
-    "Use buildParquetUrl('addresses') to resolve latest release. " +
-    "Schema evolving — use DESCRIBE on the Parquet file to explore available columns.",
-  columns: ["h3_index"],
+    "Address count and unique postcode count per H3 cell. " +
+    "Use buildParquetUrl('addresses') to resolve latest release.",
+  columns: ["h3_index", "address_count", "unique_postcodes"],
   columnDescriptions: {
     h3_index: "H3 hexagonal cell identifier (BigInt)",
+    address_count: "Number of address points in H3 cell",
+    unique_postcodes: "Number of unique postcodes/ZIP codes in cell",
   },
   urlPattern: `${S3_BASE}/indices/addresses-index/v1/release={release}/h3/h3_res={h3_res}/data.parquet`,
   h3ResRange: [1, 10],
