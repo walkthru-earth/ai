@@ -1,105 +1,15 @@
-import {
-  ArrowRight,
-  Building2,
-  Cloud,
-  Footprints,
-  Landmark,
-  Map,
-  MapPin,
-  MessageSquare,
-  Monitor,
-  Moon,
-  Mountain,
-  Sparkles,
-  Sun,
-  TreePine,
-  Users,
-  Zap,
-} from "lucide-react";
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { ApiKeyCheck } from "@/components/ApiKeyCheck";
+import { Monitor, Moon, Sparkles, Sun } from "lucide-react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { WalkthruLogo } from "@/components/walkthru-logo";
+import { type GeoIP, useGeoIP } from "@/lib/use-geo-ip";
+import { buildParquetUrl } from "@/services/datasets";
+import { preloadDuckDB, runQuery } from "@/services/duckdb-wasm";
 
-const DATASETS = [
-  {
-    id: "weather",
-    icon: Cloud,
-    name: "Weather",
-    cells: "GraphCast AI",
-    color: "from-blue-500/20 to-cyan-500/10 border-blue-500/20",
-  },
-  {
-    id: "terrain",
-    icon: Mountain,
-    name: "Terrain",
-    cells: "10.5B cells",
-    color: "from-emerald-500/20 to-green-500/10 border-emerald-500/20",
-  },
-  {
-    id: "building",
-    icon: Building2,
-    name: "Buildings",
-    cells: "2.75B",
-    color: "from-amber-500/20 to-orange-500/10 border-amber-500/20",
-  },
-  {
-    id: "population",
-    icon: Users,
-    name: "Population",
-    cells: "SSP2 to 2100",
-    color: "from-rose-500/20 to-pink-500/10 border-rose-500/20",
-  },
-  {
-    id: "places",
-    icon: Landmark,
-    name: "Places",
-    cells: "72M POIs",
-    color: "from-violet-500/20 to-purple-500/10 border-violet-500/20",
-  },
-  {
-    id: "transportation",
-    icon: Footprints,
-    name: "Transport",
-    cells: "343M segments",
-    color: "from-teal-500/20 to-cyan-500/10 border-teal-500/20",
-  },
-  {
-    id: "base",
-    icon: TreePine,
-    name: "Environment",
-    cells: "Land & Water",
-    color: "from-lime-500/20 to-green-500/10 border-lime-500/20",
-  },
-  {
-    id: "buildings-overture",
-    icon: Landmark,
-    name: "Building Types",
-    cells: "Use & Class",
-    color: "from-orange-500/20 to-yellow-500/10 border-orange-500/20",
-  },
-  {
-    id: "addresses",
-    icon: MapPin,
-    name: "Addresses",
-    cells: "Global",
-    color: "from-sky-500/20 to-blue-500/10 border-sky-500/20",
-  },
-];
+const CinematicScene = lazy(() =>
+  import("@/components/home/cinematic-scene").then((m) => ({ default: m.CinematicScene })),
+);
 
-const ANALYSES = [
-  "Urban Density",
-  "Housing Pressure",
-  "Landslide Risk",
-  "Vertical Living",
-  "Population Growth",
-  "Shrinking Cities",
-  "Walkability",
-  "15-Minute City",
-  "Biophilic Index",
-  "Heat Vulnerability",
-  "Water Security",
-];
+/* ── Theme Switcher ─────────────────────────────────────────── */
 
 type Theme = "light" | "dark" | "system";
 
@@ -112,9 +22,7 @@ function ThemeSwitcher() {
     if (stored && ["dark", "light", "system"].includes(stored)) {
       setTheme(stored);
     } else {
-      // No stored theme — detect system preference
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      setTheme(prefersDark ? "dark" : "light");
+      setTheme(window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
     }
     setMounted(true);
   }, []);
@@ -123,13 +31,11 @@ function ThemeSwitcher() {
     if (!mounted) return;
     const root = document.documentElement;
     if (theme === "system") {
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      root.classList.toggle("dark", prefersDark);
+      root.classList.toggle("dark", window.matchMedia("(prefers-color-scheme: dark)").matches);
     } else {
       root.classList.toggle("dark", theme === "dark");
     }
     localStorage.setItem("theme", theme);
-
     if (theme === "system") {
       const mq = window.matchMedia("(prefers-color-scheme: dark)");
       const handler = () => root.classList.toggle("dark", mq.matches);
@@ -142,177 +48,125 @@ function ThemeSwitcher() {
     const order: Theme[] = ["dark", "light", "system"];
     setTheme(order[(order.indexOf(theme) + 1) % order.length]);
   };
-
   const Icon = theme === "dark" ? Moon : theme === "light" ? Sun : Monitor;
-  const label = theme === "dark" ? "Dark mode" : theme === "light" ? "Light mode" : "System theme";
 
   return (
     <button
       onClick={cycle}
       className="p-2 rounded-lg transition-all text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-      title={label}
+      title={theme === "dark" ? "Dark" : theme === "light" ? "Light" : "System"}
     >
       <Icon className="w-4 h-4" />
     </button>
   );
 }
 
-export default function Home() {
-  return (
-    <div className="min-h-screen bg-background relative overflow-hidden">
-      {/* Background atmosphere */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-earth-blue/5 rounded-full blur-[120px]" />
-        <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-earth-cyan/5 rounded-full blur-[100px]" />
-      </div>
+/* ── Data Hook ──────────────────────────────────────────────── */
 
-      {/* Top bar */}
-      <div className="relative z-20 flex items-center justify-between px-4 sm:px-6 pt-4">
+type SectionKey = "terrain" | "population" | "building" | "weather" | "places";
+type SectionData = Partial<Record<SectionKey, Record<string, number> | null>>;
+
+function useNeighborhoodData(geo: GeoIP | null) {
+  const [data, setData] = useState<SectionData>({});
+  const fetchedRef = useRef(false);
+
+  useEffect(() => {
+    if (!geo || fetchedRef.current) return;
+    const lat = parseFloat(geo.latitude);
+    const lng = parseFloat(geo.longitude);
+    if (Number.isNaN(lat) || Number.isNaN(lng)) return;
+    fetchedRef.current = true;
+
+    const h3 = `h3_latlng_to_cell(${lat}, ${lng}, 5)::BIGINT`;
+
+    (async () => {
+      await preloadDuckDB();
+
+      const [terrain, pop, building, weather, places] = await Promise.all([
+        buildParquetUrl({ dataset: "terrain", h3Res: 5 }),
+        buildParquetUrl({ dataset: "population", h3Res: 5 }),
+        buildParquetUrl({ dataset: "building", h3Res: 5 }),
+        buildParquetUrl({ dataset: "weather", h3Res: 5 }),
+        buildParquetUrl({ dataset: "places", h3Res: 5 }),
+      ]);
+
+      const queries: [SectionKey, string][] = [
+        ["terrain", `SELECT elev, slope, tri FROM '${terrain.url}' WHERE h3_index = ${h3} LIMIT 1`],
+        ["population", `SELECT pop_2025, pop_2050, pop_2100 FROM '${pop.url}' WHERE h3_index = ${h3} LIMIT 1`],
+        [
+          "building",
+          `SELECT building_count, avg_height_m, max_height_m, coverage_ratio FROM '${building.url}' WHERE h3_index = ${h3} LIMIT 1`,
+        ],
+        [
+          "weather",
+          `SELECT temperature_2m_C, wind_speed_10m_ms, GREATEST(precipitation_mm_6hr, 0) AS precip_mm FROM '${weather.url}' WHERE h3_index = ${h3} ORDER BY CAST(timestamp AS TIMESTAMP) ASC LIMIT 1`,
+        ],
+        [
+          "places",
+          `SELECT place_count, n_restaurant, n_cafe, n_school, n_hospital FROM '${places.url}' WHERE h3_index = ${h3} LIMIT 1`,
+        ],
+      ];
+
+      for (const [key, sql] of queries) {
+        try {
+          const result = await runQuery(sql);
+          const row = result.sampleRows?.[0] as Record<string, number> | undefined;
+          setData((prev) => ({ ...prev, [key]: row ?? null }));
+        } catch {
+          setData((prev) => ({ ...prev, [key]: null }));
+        }
+      }
+    })();
+  }, [geo]);
+
+  return data;
+}
+
+/* ── Loading Screen ──────────────────────────────────────────── */
+
+function LoadingScreen() {
+  return (
+    <div className="h-screen bg-black flex flex-col items-center justify-center gap-4">
+      <WalkthruLogo size={40} />
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <div className="w-1.5 h-1.5 bg-earth-cyan rounded-full animate-pulse" />
+        <span className="text-sm">Initializing globe...</span>
+      </div>
+    </div>
+  );
+}
+
+/* ── Page ───────────────────────────────────────────────────── */
+
+export default function Home() {
+  const geo = useGeoIP();
+  const data = useNeighborhoodData(geo);
+
+  return (
+    <div className="dark h-screen bg-black text-white relative overflow-hidden">
+      {/* Fixed top bar */}
+      <div className="fixed top-0 left-0 right-0 z-30 flex items-center justify-between px-4 sm:px-6 pt-4 pb-2">
         <div className="flex items-center gap-2">
           <WalkthruLogo size={20} />
-          <span className="text-sm font-bold text-foreground">walkthru.earth</span>
+          <span className="text-sm font-bold text-white">walkthru.earth</span>
           <Sparkles className="w-3.5 h-3.5 text-earth-cyan" />
         </div>
         <ThemeSwitcher />
       </div>
 
-      <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 pt-10 sm:pt-20 pb-16">
-        {/* Hero */}
-        <div className="text-center mb-14 sm:mb-20">
-          <div className="flex justify-center mb-6">
-            <WalkthruLogo size={48} />
-          </div>
+      {/* CSS vignette overlay */}
+      <div
+        className="fixed inset-0 z-20 pointer-events-none"
+        style={{
+          background: "radial-gradient(ellipse at center, transparent 50%, #000 100%)",
+          opacity: 0.4,
+        }}
+      />
 
-          <h1 className="text-4xl sm:text-5xl md:text-6xl tracking-tight text-foreground leading-[1.05] mb-4 sm:mb-6">
-            Walkthru
-            <br />
-            <span className="italic text-earth-cyan">world&apos;s data</span>
-          </h1>
-
-          <p className="text-sm sm:text-base text-muted-foreground max-w-xl mx-auto leading-relaxed px-4">
-            Ask questions about cities, climate, terrain, and population. Get instant answers as interactive maps,
-            charts, and tables.
-          </p>
-        </div>
-
-        {/* CTA */}
-        <div className="flex justify-center mb-16 sm:mb-24 px-4">
-          <div className="glass-panel rounded-2xl p-5 sm:p-6 max-w-md w-full">
-            <ApiKeyCheck>
-              <div className="flex flex-col gap-3">
-                <Link
-                  to="/explore"
-                  className="group flex items-center justify-center gap-3 px-6 py-3.5 rounded-xl font-semibold text-sm bg-earth-blue text-white transition-all hover:brightness-110"
-                >
-                  <Map className="w-4 h-4" />
-                  Open Explorer
-                  <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-                </Link>
-                <Link
-                  to="/chat"
-                  className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-medium text-sm text-muted-foreground bg-card border border-border hover:bg-muted/50 transition-colors"
-                >
-                  <MessageSquare className="w-4 h-4" />
-                  Chat Mode
-                </Link>
-              </div>
-            </ApiKeyCheck>
-          </div>
-        </div>
-
-        {/* Datasets Grid */}
-        <div className="mb-12 sm:mb-16">
-          <div className="flex items-center gap-3 mb-4 sm:mb-6">
-            <span className="font-[family-name:var(--font-mono)] text-xs text-muted-foreground tracking-widest uppercase">
-              01
-            </span>
-            <div className="h-px flex-1 bg-border" />
-            <span className="text-sm text-muted-foreground">Datasets</span>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-3">
-            {DATASETS.map((ds) => {
-              const Icon = ds.icon;
-              return (
-                <div
-                  key={ds.id}
-                  className={`rounded-xl border bg-gradient-to-br p-3 sm:p-4 transition-all hover:scale-[1.02] cursor-default ${ds.color}`}
-                >
-                  <Icon className="w-5 h-5 mb-2 sm:mb-3 opacity-80 text-foreground" />
-                  <p className="font-semibold text-foreground text-sm">{ds.name}</p>
-                  <p className="font-[family-name:var(--font-mono)] text-xs text-muted-foreground mt-0.5">{ds.cells}</p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Cross-Indices */}
-        <div className="mb-12 sm:mb-16">
-          <div className="flex items-center gap-3 mb-4 sm:mb-6">
-            <span className="font-[family-name:var(--font-mono)] text-xs text-muted-foreground tracking-widest uppercase">
-              02
-            </span>
-            <div className="h-px flex-1 bg-border" />
-            <span className="text-sm text-muted-foreground">Cross-Index Analyses</span>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {ANALYSES.map((name) => (
-              <span
-                key={name}
-                className="px-3 py-1.5 rounded-lg border border-border bg-card/50 text-sm text-muted-foreground hover:text-foreground hover:border-earth-cyan/30 transition-colors cursor-default"
-              >
-                {name}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* How it works */}
-        <div className="mb-12 sm:mb-16">
-          <div className="flex items-center gap-3 mb-4 sm:mb-6">
-            <span className="font-[family-name:var(--font-mono)] text-xs text-muted-foreground tracking-widest uppercase">
-              03
-            </span>
-            <div className="h-px flex-1 bg-border" />
-            <span className="text-sm text-muted-foreground">How it works</span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-            {[
-              { step: "Ask", desc: "Natural language questions about cities, climate, terrain", icon: MessageSquare },
-              { step: "Query", desc: "AI queries billions of geospatial records in real time", icon: Zap },
-              {
-                step: "Visualize",
-                desc: "Results rendered as interactive maps, charts, tables, and insights",
-                icon: Map,
-              },
-            ].map((item) => {
-              const Icon = item.icon;
-              return (
-                <div key={item.step} className="glass-panel-subtle rounded-xl p-4 sm:p-5">
-                  <div className="flex items-center gap-3 mb-2">
-                    <Icon className="w-4 h-4 text-foreground" />
-                    <span className="font-semibold text-foreground text-sm">{item.step}</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{item.desc}</p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Footer */}
-        <footer className="pt-8 border-t border-border text-center">
-          <p className="text-xs text-muted-foreground">
-            <a href="https://walkthru.earth" className="hover:text-foreground transition-colors">
-              walkthru.earth
-            </a>{" "}
-            &middot; CC BY 4.0
-          </p>
-        </footer>
-      </div>
+      {/* Cinematic 3D scene */}
+      <Suspense fallback={<LoadingScreen />}>
+        <CinematicScene geo={geo} data={data} />
+      </Suspense>
     </div>
   );
 }

@@ -288,3 +288,59 @@
   -webkit-overflow-scrolling: touch;
 }
 
+/* ── Hex cell animations ─────────────────────────────────────── */
+
+@keyframes hex-float {
+  0%,
+  100% {
+    transform: perspective(600px) rotateX(10deg) translateY(0);
+  }
+  50% {
+    transform: perspective(600px) rotateX(10deg) translateY(-8px);
+  }
+}
+
+@keyframes hex-shine-sweep {
+  0% {
+    transform: translateX(-150%);
+  }
+  100% {
+    transform: translateX(150%);
+  }
+}
+
+.hex-float {
+  animation: hex-float 5s ease-in-out infinite;
+}
+
+.hex-shine-sweep {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.1) 45%,
+    rgba(255, 255, 255, 0.18) 50%,
+    rgba(255, 255, 255, 0.1) 55%,
+    transparent 60%
+  );
+  animation: hex-shine-sweep 4s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes hex-glow-pulse {
+  0%,
+  100% {
+    opacity: 0.15;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.3;
+    transform: scale(1.08);
+  }
+}
+
+.hex-glow-pulse {
+  animation: hex-glow-pulse 5s ease-in-out infinite;
+}
+
