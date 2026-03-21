@@ -10,6 +10,7 @@ import {
   Monitor,
   Moon,
   Mountain,
+  Sparkles,
   Sun,
   TreePine,
   Users,
@@ -69,6 +70,13 @@ const DATASETS = [
     name: "Environment",
     cells: "Land & Water",
     color: "from-lime-500/20 to-green-500/10 border-lime-500/20",
+  },
+  {
+    id: "buildings-overture",
+    icon: Landmark,
+    name: "Building Types",
+    cells: "Use & Class",
+    color: "from-orange-500/20 to-yellow-500/10 border-orange-500/20",
   },
   {
     id: "addresses",
@@ -163,6 +171,7 @@ export default function Home() {
         <div className="flex items-center gap-2">
           <WalkthruLogo size={20} />
           <span className="text-sm font-bold text-foreground">walkthru.earth</span>
+          <Sparkles className="w-3.5 h-3.5 text-earth-cyan" />
         </div>
         <ThemeSwitcher />
       </div>
