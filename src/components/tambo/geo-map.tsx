@@ -554,6 +554,43 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
     [storageKey],
   );
 
+  // Viewport persistence (localStorage) — saves user pan/zoom/tilt across refresh
+  const viewportStorageKey = isMultiLayer
+    ? `geomap-viewport:${layersProp?.map((l) => l.id).join(",")}`
+    : queryId
+      ? `geomap-viewport:${queryId}`
+      : undefined;
+
+  const [savedViewport, setSavedViewport] = React.useState<{
+    latitude: number;
+    longitude: number;
+    zoom: number;
+    pitch: number;
+    bearing: number;
+  } | null>(() => {
+    if (!viewportStorageKey || typeof window === "undefined") return null;
+    try {
+      const stored = localStorage.getItem(viewportStorageKey);
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const handleViewStateChange = React.useCallback(
+    (view: { latitude: number; longitude: number; zoom: number; pitch: number; bearing: number }) => {
+      setSavedViewport(view);
+      if (viewportStorageKey) {
+        try {
+          localStorage.setItem(viewportStorageKey, JSON.stringify(view));
+        } catch {
+          /* quota exceeded */
+        }
+      }
+    },
+    [viewportStorageKey],
+  );
+
   const visibleLayers = useMemo(
     () =>
       isMultiLayer
@@ -921,20 +958,21 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
             }
           >
             <DeckGLMap
-              latitude={centerLat}
-              longitude={centerLng}
-              zoom={zoom}
-              pitch={props.pitch}
-              bearing={props.bearing}
+              latitude={savedViewport?.latitude ?? centerLat}
+              longitude={savedViewport?.longitude ?? centerLng}
+              zoom={savedViewport?.zoom ?? zoom}
+              pitch={savedViewport?.pitch ?? props.pitch}
+              bearing={savedViewport?.bearing ?? props.bearing}
               layerConfigs={layerConfigs}
               extruded={extruded}
               minVal={minVal}
               maxVal={maxVal}
               colorScheme={colorScheme}
               basemap={basemap as Basemap}
-              fitBounds={finalBounds}
+              fitBounds={savedViewport ? null : finalBounds}
               onFeatureClick={handleFeatureClick}
               onBoundsChange={handleBoundsChange}
+              onViewStateChange={handleViewStateChange}
             />
           </Suspense>
         ) : (

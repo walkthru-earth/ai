@@ -9,11 +9,18 @@ paths:
 
 **GeoMap** (`geo-map.tsx` + `geo-map-deckgl.tsx`): Generic deck.gl map, 6 layer types (h3, a5, scatterplot, geojson, arc, wkb). Auto-detects from column names + wkbArrays presence. Detection priority: a5 (`pentagon`/`a5_cell`/`a5_index`) → h3 (`hex`/`h3_index`) → wkb (auto-detected GEOMETRY) → arc → scatterplot → geojson. **A5 from H3 data**: All datasets are H3-indexed. For A5 rendering, compute A5 cells from H3 centroids using `a5_lonlat_to_cell(h3_cell_to_lng(h3_index), h3_cell_to_lat(h3_index), res)`. A5 resolution must be coarser than H3 source to avoid gaps (H3 res 3→A5 5-6, H3 res 4→A5 6-7, H3 res 5→A5 7-8). GROUP BY a5_cell when multiple H3 cells map to same pentagon. Basemap: always forced to `auto` (follows user's theme — AI basemap prop is ignored to prevent stale dark/light from old threads). AI can update props (zoom, pitch, bearing, colorScheme, layerType) at runtime via `withTamboInteractable`. Pitch (0-85): 0=top-down, 45-60=cinematic 3D. Bearing (-180 to 180): camera rotation. Both default to extruded-based values (45/-15 when extruded, 0/0 otherwise) if not set by AI. Supports multi-layer via `layers` array prop (max 5) — each layer has `id`, `queryId`, `layerType`, `pentagonColumn`, columns, `colorScheme`, `opacity`, `visible`. Floating layer control panel (top-left) for toggle/opacity/reorder persists to localStorage. Uses 5 fixed `useQueryResult` hook slots for React rules compliance. `LayerConfig` in deckgl has per-layer `id`, `colorScheme`, `opacity`, `minVal`, `maxVal`, `columnArrays`, `arrowIPC`, `wkbArrays`, `columnMapping` (includes `pentagonColumn`).
 
+**Map viewport persistence** (`geo-map.tsx` + `geo-map-deckgl.tsx`):
+- User pan/zoom/tilt persisted to localStorage: `geomap-viewport:{queryId}` (single layer) or `geomap-viewport:{layerIds}` (multi-layer).
+- `programmaticMoveRef` in DeckGLMap suppresses saves during AI flyTo, auto-fitBounds, and external flyTo — only user gestures are saved.
+- `onViewStateChange` extended to include `pitch` and `bearing` (not just lat/lng/zoom).
+- On mount: saved viewport overrides AI props. `fitBounds` suppressed when saved viewport exists.
+- Layer overrides (opacity/visibility/order) also persisted: `geomap-layers:{layerIds}`.
+
 **Map interactivity** (`geo-map-deckgl.tsx`):
 - **Hover tooltip** (desktop): `onHover` on all layers → `extractHoverProps()` extracts up to 6 key-value pairs → `MapTooltip` renders floating card with `bg-card/95 backdrop-blur-sm`. Repositions to stay within map bounds. Cursor changes to `crosshair` on feature hover.
 - **Tap tooltip** (mobile): `makeClickHandler` wraps layer `onClick` — on touch devices, click also sets `hoverInfo` to show tooltip. Tooltip dismisses on `movestart` (pan/zoom).
 - **Right-click context menu**: `onContextMenu` on wrapper div → if hovering a feature, shows dropdown with "Copy record" (JSON to clipboard). Dismisses on click anywhere or map move.
-- **Fly-to consumer**: `useFlyToVersion()` + `consumeFlyTo()` — listens for external fly-to requests (e.g. DataTable "Zoom to record") and calls `mapRef.flyTo()`.
+- **Fly-to consumer**: `useFlyToVersion()` + `consumeFlyTo()` — listens for external fly-to requests (e.g. DataTable "Zoom to record") and calls `mapRef.flyTo()`. Sets `programmaticMoveRef` to suppress viewport save.
 - `HoverInfo` type: `{ x, y, object, layerType }`. `extractHoverProps()` handles both GeoArrow (Arrow table schema at index) and standard (JS object) layers.
 
 **Geometry auto-detection**: When `StoredQuery.wkbArrays` is present (auto-extracted by `runQuery()` from GEOMETRY columns), `transformQueryToLayer()` takes the WKB fast path — bypasses GeoJSON parsing, routes directly to `buildGeoArrowTables()` zero-copy rendering. Lat/lng from the auto-injected centroid columns provide bounds. Works with GeoParquet, native Parquet geometry (Format 2.11+), and DuckDB GEOMETRY columns.
@@ -59,8 +66,12 @@ All viz components use `useInDashboardPanel()` to detect context:
 - Desktop: `react-grid-layout`, rowHeight 80px. Maps 8 rows, graphs 5, tables 4.
 - Touch: `@dnd-kit/sortable`, TouchSensor (1.2s delay). Grip-only drag. Maps `h-[420px]`, others `h-[280px]`.
 - Maximized panel: `fixed inset-0 z-40 bg-background` — covers all floating UI. Minimize via `queueMicrotask` to avoid setState-during-render.
-- Thread reset: `useEffect(currentThreadId)` clears dismissed/layouts/order. NEVER in render body.
-- Panel order persisted to localStorage. Auto-scrolls to latest.
+- Thread reset: `useEffect(currentThreadId)` loads order/layouts/dismissed from localStorage. NEVER in render body.
+- **Persisted state (all per-thread in localStorage)**:
+  - Panel order: `panel-order-${threadId}` — saved immediately on reorder
+  - Panel layouts (sizes/positions): `panel-layouts-${threadId}` — debounced 500ms save on resize/drag
+  - Dismissed panels: `panel-dismissed-${threadId}` — saved immediately on dismiss
+- Maximized state is NOT persisted (transient UX action). Auto-scrolls to latest.
 
 ## Message Input (`message-input.tsx`)
 

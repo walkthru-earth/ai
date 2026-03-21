@@ -23,7 +23,7 @@ paths:
 - `storeQueryResultWithId(id, result)` → specific ID (thread replay)
 - `useQueryResult(queryId)` — `useSyncExternalStore` reactive hook. Components MUST use this, not `getQueryResult()`
 - Cross-filter: `setCrossFilter()` / `useCrossFilter()`. Types: `value` (click), `bbox` (viewport). Toggle via `setCrossFilterEnabled()`
-- Fly-To Bus: `requestFlyTo({ latitude, longitude, zoom? })` → `useFlyToVersion()` triggers re-render → `consumeFlyTo()` returns target once. Used by DataTable "Zoom to record" → DeckGLMap `flyTo()`. Lightweight version-based pub/sub (same pattern as cross-filter).
+- Fly-To Bus: `requestFlyTo({ latitude, longitude, zoom? })` → `useFlyToVersion()` triggers re-render → `consumeFlyTo()` returns target once. Used by DataTable "Zoom to record" → DeckGLMap `flyTo()` (sets `programmaticMoveRef` to suppress viewport save). Lightweight version-based pub/sub (same pattern as cross-filter).
 
 ## Data Layer (modular registry)
 

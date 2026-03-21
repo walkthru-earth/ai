@@ -140,15 +140,41 @@ function SortablePanel({
 
 export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
   const { messages, currentThreadId } = useTambo();
-  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
-  const [savedLayouts, setSavedLayouts] = useState<Record<string, any[]>>({});
   const [maximizedId, setMaximizedId] = useState<string | null>(null);
   const prevThreadRef = useRef<string | null | undefined>(null);
   const { width, containerRef } = useContainerWidth({ initialWidth: 800 });
   const isTouch = useIsTouchDevice();
 
-  // Panel ordering — persisted to localStorage per thread
+  // Storage keys — all scoped per thread
   const orderKey = currentThreadId ? `panel-order-${currentThreadId}` : null;
+  const layoutKey = currentThreadId ? `panel-layouts-${currentThreadId}` : null;
+  const dismissedKey = currentThreadId ? `panel-dismissed-${currentThreadId}` : null;
+
+  // Dismissed panels — persisted to localStorage per thread
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => {
+    if (typeof window === "undefined" || !dismissedKey) return new Set();
+    try {
+      const stored = localStorage.getItem(dismissedKey);
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  // Panel layouts — persisted to localStorage per thread (debounced)
+  const [savedLayouts, setSavedLayouts] = useState<Record<string, any[]>>(() => {
+    if (typeof window === "undefined" || !layoutKey) return {};
+    try {
+      const stored = localStorage.getItem(layoutKey);
+      return stored ? JSON.parse(stored) : {};
+    } catch {
+      return {};
+    }
+  });
+  const layoutSaveTimer = useRef<ReturnType<typeof setTimeout>>();
+  useEffect(() => {
+    return () => clearTimeout(layoutSaveTimer.current);
+  }, []);
   const [panelOrder, setPanelOrder] = useState<string[]>(() => {
     if (typeof window === "undefined" || !orderKey) return [];
     try {
@@ -175,9 +201,9 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
   useEffect(() => {
     if (prevThreadRef.current === currentThreadId) return;
     prevThreadRef.current = currentThreadId;
-    setDismissedIds(new Set());
-    setSavedLayouts({});
     setMaximizedId(null);
+
+    // Load persisted panel order
     if (orderKey) {
       try {
         const stored = localStorage.getItem(orderKey);
@@ -189,7 +215,31 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
     } else {
       setPanelOrder([]);
     }
-  }, [currentThreadId, orderKey]);
+
+    // Load persisted layouts
+    if (layoutKey) {
+      try {
+        const stored = localStorage.getItem(layoutKey);
+        setSavedLayouts(stored ? JSON.parse(stored) : {});
+      } catch {
+        setSavedLayouts({});
+      }
+    } else {
+      setSavedLayouts({});
+    }
+
+    // Load persisted dismissed panels
+    if (dismissedKey) {
+      try {
+        const stored = localStorage.getItem(dismissedKey);
+        setDismissedIds(stored ? new Set(JSON.parse(stored)) : new Set());
+      } catch {
+        setDismissedIds(new Set());
+      }
+    } else {
+      setDismissedIds(new Set());
+    }
+  }, [currentThreadId, orderKey, layoutKey, dismissedKey]);
 
   // Derive panels from messages
   const panels: PanelInfo[] = useMemo(() => {
@@ -235,12 +285,25 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
 
   // Defer dismissal to next tick — withTamboInteractable unregisters during unmount
   // which triggers setState in TamboRegistryProvider; deferring avoids "update during render"
-  const removePanel = useCallback((id: string) => {
-    setTimeout(() => {
-      setDismissedIds((prev) => new Set(prev).add(id));
-      setMaximizedId((prev) => (prev === id ? null : prev));
-    }, 0);
-  }, []);
+  const removePanel = useCallback(
+    (id: string) => {
+      setTimeout(() => {
+        setDismissedIds((prev) => {
+          const next = new Set(prev).add(id);
+          if (dismissedKey) {
+            try {
+              localStorage.setItem(dismissedKey, JSON.stringify([...next]));
+            } catch {
+              /* quota exceeded */
+            }
+          }
+          return next;
+        });
+        setMaximizedId((prev) => (prev === id ? null : prev));
+      }, 0);
+    },
+    [dismissedKey],
+  );
 
   const toggleMaximize = useCallback((id: string) => {
     // Defer to avoid "Cannot update component while rendering" when
@@ -354,9 +417,23 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
     return { lg, md, sm };
   }, [panels, savedLayouts]);
 
-  const handleLayoutChange = useCallback((...args: any[]) => {
-    setSavedLayouts(args[1] ?? {});
-  }, []);
+  const handleLayoutChange = useCallback(
+    (...args: any[]) => {
+      const layouts = args[1] ?? {};
+      setSavedLayouts(layouts);
+      if (layoutKey) {
+        clearTimeout(layoutSaveTimer.current);
+        layoutSaveTimer.current = setTimeout(() => {
+          try {
+            localStorage.setItem(layoutKey, JSON.stringify(layouts));
+          } catch {
+            /* quota exceeded */
+          }
+        }, 500);
+      }
+    },
+    [layoutKey],
+  );
 
   // ── Empty state ──
   if (panels.length === 0) {

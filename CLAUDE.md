@@ -31,7 +31,7 @@ pnpm lint:fix     # biome auto-fix
 
 **Cross-filter bus**: Lightweight pub/sub in `query-store.ts`. Components emit/consume `bbox` (map viewport) and `value` (click) filters. Requires shared `queryId` + `hex`/`pentagon` column.
 
-**Dashboard canvas**: Desktop = `react-grid-layout`, Touch = `@dnd-kit/sortable` (1.2s hold, grip-only drag). Panel IDs are deduplicated via `Set`. Order persisted to localStorage.
+**Dashboard canvas**: Desktop = `react-grid-layout`, Touch = `@dnd-kit/sortable` (1.2s hold, grip-only drag). Panel IDs are deduplicated via `Set`. State persisted to localStorage per thread: panel order (`panel-order-${threadId}`), panel layouts/sizes (`panel-layouts-${threadId}`, debounced 500ms), dismissed panels (`panel-dismissed-${threadId}`).
 
 **Data service (modular)**:
 - `src/services/datasets/` — 9 dataset modules + registry index
@@ -233,7 +233,7 @@ StatsCard, StatsGrid, InsightCard, DatasetCard, QueryDisplay, DataCard — AI pr
 
 ### Multi-Layer GeoMap
 
-`layers` array prop (max 5). Each layer: `{ id, queryId, layerType, hexColumn, pentagonColumn, valueColumn, ..., colorScheme, opacity, visible }`. Floating layer control panel (top-left) for toggle/opacity/reorder persists to localStorage (keyed by layer IDs). Uses 5 fixed `useQueryResult` hook slots (React hooks can't be called conditionally).
+`layers` array prop (max 5). Each layer: `{ id, queryId, layerType, hexColumn, pentagonColumn, valueColumn, ..., colorScheme, opacity, visible }`. Floating layer control panel (top-left) for toggle/opacity/reorder persists to localStorage (`geomap-layers:{layerIds}`). Map viewport (zoom/pan/pitch/bearing) persisted to localStorage (`geomap-viewport:{queryId|layerIds}`) — only user gestures saved, AI flyTo/fitBounds suppressed via `programmaticMoveRef`. Uses 5 fixed `useQueryResult` hook slots (React hooks can't be called conditionally).
 
 ### Adding a New Bidirectional Component (checklist)
 
@@ -314,5 +314,5 @@ Packages: `@geoarrow/deck.gl-layers@0.3.1`, `@walkthru-earth/objex-utils@1.0.0`,
 - AI must NEVER render checkboxes or selectable lists — users cannot submit selections. Use DatasetCard components + auto-submitting suggestion chips instead.
 - Geo-IP: `useGeoIP()` fetches from geojs.io, caches 24h in localStorage (null on first render). Returns city, country, lat/lng, timezone, and pre-computed H3 cells at res 1-8. Falls back gracefully when blocked.
 - Query replay: `useReplayQueries(messages)` shared hook re-runs SQL from restored threads to repopulate query-store. Used by both `/chat` and `/explore`.
-- GeoMap height: `h-[420px]` in chat (inline), `h-full` in dashboard panels. Default zoom: 1 (world view).
+- GeoMap height: `h-[420px]` in chat (inline), `h-full` in dashboard panels. Default zoom: 1 (world view). Viewport persisted to localStorage — survives refresh.
 - Auto-scroll: `ScrollableMessageContainer` uses ref-based stick-to-bottom. Instant scroll during streaming, smooth on new content. Pauses on user scroll-up, resumes on new user message (ChatGPT/Claude behavior).

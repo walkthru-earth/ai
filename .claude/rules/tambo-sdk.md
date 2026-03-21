@@ -127,3 +127,19 @@ Components receive `_tambo_componentId`, `_tambo_*` hidden props — **never spr
 - `update_component_props`: appearance changes ONLY (zoom, colors, chart type) — same data
 - **NEVER change queryId via update** — won't re-render. Always create new component for new data
 - When in doubt, create new — users expect previous visualizations to remain for comparison
+
+## State Persistence (Bidirectional Sync via localStorage)
+
+Tambo's `withTamboInteractable` is one-way (Tambo→Component). User interactions are persisted via localStorage to survive refresh:
+
+| State | Storage Key | Debounce | Scope |
+|-------|-------------|----------|-------|
+| Map viewport (zoom/pan/pitch/bearing) | `geomap-viewport:{queryId\|layerIds}` | 300ms (moveend) | Per map |
+| Map layer opacity/visibility/order | `geomap-layers:{layerIds}` | Immediate | Per map |
+| Dashboard panel order | `panel-order-${threadId}` | Immediate | Per thread |
+| Dashboard panel sizes | `panel-layouts-${threadId}` | 500ms | Per thread |
+| Dashboard dismissed panels | `panel-dismissed-${threadId}` | Immediate | Per thread |
+
+**NOT persisted** (intentionally): DataTable pagination, maximized panel state, Graph hover/click.
+
+**programmaticMoveRef**: In DeckGLMap, a ref flag suppresses viewport saves during AI-driven flyTo, auto-fitBounds, and external flyTo. Only user gestures are saved. Flag is auto-cleared after each `moveend`.

@@ -74,7 +74,13 @@ export interface DeckGLMapProps {
   fitBounds?: [[number, number], [number, number]] | null;
   onFeatureClick?: (feature: any, layerType: LayerType) => void;
   onBoundsChange?: (bbox: [number, number, number, number]) => void;
-  onViewStateChange?: (view: { latitude: number; longitude: number; zoom: number }) => void;
+  onViewStateChange?: (view: {
+    latitude: number;
+    longitude: number;
+    zoom: number;
+    pitch: number;
+    bearing: number;
+  }) => void;
 }
 
 /* ── Color ramps ────────────────────────────────────────────────── */
@@ -876,6 +882,7 @@ export default function DeckGLMap({
   const resolvedBearing = bearingProp ?? (extruded ? -15 : 0);
   const prevViewRef = useRef({ latitude, longitude, zoom });
   const prevDataCountRef = useRef(0);
+  const programmaticMoveRef = useRef(false);
   const onBoundsChangeRef = useRef(onBoundsChange);
   onBoundsChangeRef.current = onBoundsChange;
   const onFeatureClickRef = useRef(onFeatureClick);
@@ -963,11 +970,16 @@ export default function DeckGLMap({
         const b = map.getBounds();
         const c = map.getCenter();
         onBoundsChangeRef.current?.([b.getWest(), b.getSouth(), b.getEast(), b.getNorth()]);
-        onViewStateChangeRef.current?.({
-          latitude: c.lat,
-          longitude: c.lng,
-          zoom: map.getZoom(),
-        });
+        if (!programmaticMoveRef.current) {
+          onViewStateChangeRef.current?.({
+            latitude: c.lat,
+            longitude: c.lng,
+            zoom: map.getZoom(),
+            pitch: map.getPitch(),
+            bearing: map.getBearing(),
+          });
+        }
+        programmaticMoveRef.current = false;
       }, 300);
     });
 
@@ -1023,6 +1035,7 @@ export default function DeckGLMap({
     }
     prevDataCountRef.current = totalDataCount;
 
+    programmaticMoveRef.current = true;
     mapRef.current.fitBounds(fitBoundsProp, {
       padding: { top: 40, bottom: 40, left: 40, right: 40 },
       maxZoom: 14,
@@ -1039,6 +1052,7 @@ export default function DeckGLMap({
     const changed = prev.latitude !== latitude || prev.longitude !== longitude || prev.zoom !== zoom;
     prevViewRef.current = { latitude, longitude, zoom };
     if (!changed) return;
+    programmaticMoveRef.current = true;
     mapRef.current.flyTo({
       center: [longitude, latitude],
       zoom,
@@ -1054,6 +1068,7 @@ export default function DeckGLMap({
     if (!mapRef.current || flyToVer === 0) return;
     const target = consumeFlyTo();
     if (!target) return;
+    programmaticMoveRef.current = true;
     mapRef.current.flyTo({
       center: [target.longitude, target.latitude],
       zoom: target.zoom ?? 12,
