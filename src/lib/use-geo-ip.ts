@@ -1,7 +1,7 @@
 import { latLngToCell } from "h3-js";
 import { useEffect, useState } from "react";
 
-/** H3 resolutions covering all datasets: weather(0-5), terrain(1-10), population(1-8), building(3-8) */
+/** H3 resolutions covering all datasets: weather(1-5), terrain(1-10), population(1-8), building(3-8) */
 const H3_RESOLUTIONS = [1, 2, 3, 4, 5, 6, 7, 8] as const;
 
 export interface GeoIP {

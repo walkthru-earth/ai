@@ -2,8 +2,7 @@
  * Shared types and constants for dataset definitions.
  */
 
-export const S3_BUCKET = "https://s3.us-west-2.amazonaws.com/us-west-2.opendata.source.coop";
-export const S3_BASE = `${S3_BUCKET}/walkthru-earth`;
+export const S3_BASE = "https://s3.us-west-2.amazonaws.com/us-west-2.opendata.source.coop/walkthru-earth";
 
 export type DatasetCategory = "weather" | "terrain" | "building" | "population" | "overture";
 

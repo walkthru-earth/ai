@@ -5,17 +5,48 @@ paths:
 
 # Lib
 
-## `tambo.ts` (central config)
+## `tambo/` (modular AI config)
 
 `tamboProviderConfig` — shared base for all `TamboProvider` instances. Pages spread + add overrides.
 
-**Tools** (6): runSQL, listDatasets (categories: weather, terrain, building, population, overture), buildParquetUrl (auto-resolves weather dates + Overture releases), describeDataset, getCrossIndex (11 analyses), suggestAnalysis. Imports from `@/services/datasets`, `@/services/cross-indices`, `@/services/suggest-analysis`. Tool descriptions are lean (~3 lines each) — DuckDB rules live in contextHelpers.
+### Structure
 
-**Components** (10): GeoMap, H3Map (alias), Graph, DataTable (queryId-driven, bidirectional state) + StatsCard, StatsGrid, InsightCard, DatasetCard, QueryDisplay, DataCard (inline props)
+```
+src/lib/tambo/
+├── index.ts              # Aggregator: tamboProviderConfig + re-exports
+├── tools/                # 6 tool registrations (1 file per tool or related group)
+│   ├── run-sql.ts        # runSQL — most critical, queryId pattern
+│   ├── dataset-tools.ts  # listDatasets + buildParquetUrl + describeDataset
+│   ├── cross-index.ts    # getCrossIndex (11 analyses)
+│   └── suggest.ts        # suggestAnalysis
+├── components/           # 11 component registrations
+│   ├── geo-map.ts        # GeoMap + H3Map (deck.gl)
+│   ├── graph.ts          # Graph (10 chart types)
+│   ├── data-table.ts     # DataTable (paginated)
+│   ├── objex-viewer.ts   # ObjexViewer (3D raster)
+│   └── static.ts         # StatsCard, StatsGrid, InsightCard, DatasetCard, QueryDisplay, DataCard
+├── context/              # AI context helpers (split by concern)
+│   ├── behavior.ts       # AI behavior rules
+│   ├── duckdb-notes.ts   # DuckDB v1.5 WASM rules
+│   ├── dataset-paths.ts  # 9 dataset S3 paths
+│   └── component-tips.ts # Component usage tips + cross-index patterns
+└── suggestions.ts        # buildInitialSuggestions() — 4 geo-personalized chips
+```
 
-**Shared helpers**:
-- `buildContextHelpers(geo)` — AI context with user theme, geo-IP location (city, lat/lng, H3 cells at res 1-8), behavior rules, DuckDB v1.5 notes, 9 dataset paths (weather, terrain, building, population, places, transportation, base, addresses, buildings-overture), component tips (including Overture cross-index patterns: walkability, 15-min city, biophilic, heat vulnerability, water security), anti-injection rules. Coordinate order: `lat` = latitude (N/S), `lng` = longitude (E/W). H3: `h3_latlng_to_cell(lat, lng, res)`. A5: `a5_lonlat_to_cell(lng, lat, res)` — lng FIRST. Spatial: `ST_Point(lng, lat)`. Grid system rule: respect user's choice of H3 vs A5. Basemap always forced to `auto`. Never change queryId via update_component_props.
-- `buildInitialSuggestions(geo)` — 4 geo-personalized suggestion chips: buildings, walkability, population growth, terrain (falls back to global when geo unavailable)
+### Key exports
+- `tamboProviderConfig` — base config for all pages
+- `buildContextHelpers(geo)` — assembles behavior + DuckDB + datasets + tips into AI context
+- `buildInitialSuggestions(geo)` — 4 geo-personalized suggestion chips
+- `tools` / `components` — aggregated arrays
+
+### Editing guide
+- **Add a tool**: create file in `tools/`, add to `tools/index.ts`
+- **Add a component**: create file in `components/` (or add to `static.ts`), add to `components/index.ts`
+- **Add AI behavior rule**: edit `context/behavior.ts`
+- **Add DuckDB rule**: edit `context/duckdb-notes.ts`
+- **Add dataset path**: edit `context/dataset-paths.ts`
+- **Add component tip**: edit `context/component-tips.ts`
+- **Tune tool description**: edit the specific tool file (affects AI routing quality)
 
 ## `thread-hooks.ts`
 

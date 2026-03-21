@@ -28,19 +28,9 @@ export const DATASETS = [
   buildingsOvertureDataset,
 ];
 
-/** Merged column descriptions from all datasets. */
-export const COLUMN_DESCRIPTIONS: Record<string, string> = Object.assign(
-  {},
-  ...DATASETS.map((d) => d.columnDescriptions),
-);
-
 /* ── Tool: List available datasets ───────────────────────────────── */
 
-export interface ListDatasetsInput {
-  category?: string;
-}
-
-export async function listDatasets(input?: ListDatasetsInput): Promise<DatasetInfo[]> {
+export async function listDatasets(input?: { category?: string }): Promise<DatasetInfo[]> {
   const list = input?.category ? DATASETS.filter((d) => d.category === input.category) : DATASETS;
   return list.map(({ columnDescriptions: _, ...rest }) => rest);
 }

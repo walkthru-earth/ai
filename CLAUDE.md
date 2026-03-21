@@ -96,7 +96,7 @@ S3 base: `https://s3.us-west-2.amazonaws.com/us-west-2.opendata.source.coop/walk
 
 | Dataset | Path Pattern | H3 Res | Notes |
 |---------|-------------|--------|-------|
-| Weather (GraphCast) | `indices/weather/model=GraphCast_GFS/date={date}/hour={0,12}/h3_res={0-5}/data.parquet` | 0-5 | Each file = 5-day forecast (21 timestamps, 6-hourly). Use `buildParquetUrl('weather')` to resolve latest date. Never build future-date URLs. Clamp precip: `GREATEST(precipitation_mm_6hr, 0)`. |
+| Weather (GraphCast) | `indices/weather/model=GraphCast_GFS/date={date}/hour={0,12}/h3_res={1-5}/data.parquet` | 1-5 | Each file = 5-day forecast (21 timestamps, 6-hourly). Use `buildParquetUrl('weather')` to resolve latest date. Never build future-date URLs. Clamp precip: `GREATEST(precipitation_mm_6hr, 0)`. |
 | Terrain (GEDTM 30m) | `dem-terrain/v2/h3/h3_res={1-10}/data.parquet` | 1-10 | Columns: elev, slope, aspect, tri, tpi |
 | Buildings (2.75B) | `indices/building/v2/h3/h3_res={3-8}/data.parquet` | 3-8 | 12 columns incl. max_height_m, height_std_m, volume_density_m3_per_km2 |
 | Population (SSP2) | `indices/population/v2/scenario=SSP2/h3_res={1-8}/data.parquet` | 1-8 | 16 time steps: pop_2025 through pop_2100 (every 5 years) |
@@ -115,7 +115,34 @@ S3 base: `https://s3.us-west-2.amazonaws.com/us-west-2.opendata.source.coop/walk
 
 ## Tambo SDK (v1.2.2) — Bidirectional AI Components
 
-Config in `src/lib/tambo.ts`. All pages spread `tamboProviderConfig` (apiKey, components, tools, tamboUrl). Shared `buildContextHelpers(geo)` provides AI with user theme, geo-IP location, and pre-computed H3 cells. `buildInitialSuggestions(geo)` generates personalized suggestion chips.
+Config in `src/lib/tambo/` (modular directory). All pages spread `tamboProviderConfig` (apiKey, components, tools, tamboUrl). Shared `buildContextHelpers(geo)` provides AI with user theme, geo-IP location, and pre-computed H3 cells. `buildInitialSuggestions(geo)` generates personalized suggestion chips.
+
+### Modular Architecture (`src/lib/tambo/`)
+
+```
+src/lib/tambo/
+├── index.ts                  # Aggregator: tamboProviderConfig + re-exports
+├── tools/
+│   ├── index.ts              # Aggregates all tools into TamboTool[]
+│   ├── run-sql.ts            # runSQL — SQL execution, queryId pattern
+│   ├── dataset-tools.ts      # listDatasets + buildParquetUrl + describeDataset
+│   ├── cross-index.ts        # getCrossIndex — 11 cross-dataset analyses
+│   └── suggest.ts            # suggestAnalysis — NL keyword routing
+├── components/
+│   ├── index.ts              # Aggregates all components into TamboComponent[]
+│   ├── geo-map.ts            # GeoMap + H3Map (deck.gl map)
+│   ├── graph.ts              # Graph (10 chart types)
+│   ├── data-table.ts         # DataTable (paginated)
+│   ├── objex-viewer.ts       # ObjexViewer (3D raster/point-cloud)
+│   └── static.ts             # StatsCard, StatsGrid, InsightCard, DatasetCard, QueryDisplay, DataCard
+├── context/
+│   ├── index.ts              # buildContextHelpers() — assembles all pieces
+│   ├── behavior.ts           # AI behavior rules (decisiveness, rendering, output)
+│   ├── duckdb-notes.ts       # DuckDB v1.5 WASM rules (syntax, OOM, spatial)
+│   ├── dataset-paths.ts      # 9 dataset S3 paths + descriptions
+│   └── component-tips.ts     # Component usage patterns + cross-index tips
+└── suggestions.ts            # buildInitialSuggestions() — geo-personalized chips
+```
 
 ### How Tambo Works (AI ↔ Component flow)
 
@@ -124,25 +151,27 @@ Config in `src/lib/tambo.ts`. All pages spread `tamboProviderConfig` (apiKey, co
 3. **Component reads data via queryId**: AI calls `runSQL` tool → DuckDB executes → result stored in `query-store` → only `queryId` (~10 tokens) returned to LLM. Component calls `useQueryResult(queryId)` to read full dataset reactively.
 4. **Component emits cross-filter**: User clicks a hex/bar/row → `setCrossFilter()` → other components react via `useCrossFilter()`.
 
-### Registering Components (`src/lib/tambo.ts`)
+### Registering Components & Tools
+
+Components are registered in `src/lib/tambo/components/` and tools in `src/lib/tambo/tools/`. Each file exports a `TamboComponent` or `TamboTool` object, aggregated by the directory's `index.ts`.
 
 ```ts
-// In tamboProviderConfig.components array:
-{
-  name: "ComponentName",                    // AI references this name
+// Component registration (e.g., src/lib/tambo/components/my-widget.ts):
+export const myWidgetComponent: TamboComponent = {
+  name: "MyWidget",                         // AI references this name
   description: "When/how AI should use it", // Critical for AI routing
-  component: InteractableComponent,         // withTamboInteractable-wrapped
-  propsSchema: zodSchema,                   // Zod schema with .describe() on every field
-}
+  component: InteractableMyWidget,          // withTamboInteractable-wrapped
+  propsSchema: myWidgetSchema,              // Zod schema with .describe() on every field
+};
 
-// In tamboProviderConfig.tools array:
-{
-  name: "toolName",
+// Tool registration (e.g., src/lib/tambo/tools/my-tool.ts):
+export const myToolTool: TamboTool = {
+  name: "myTool",
   description: "What this tool does",
   tool: functionRef,                        // Actual function AI can call
   inputSchema: z.object({...}),
   outputSchema: z.object({...}),
-}
+};
 ```
 
 ### Making a Component Interactable (AI can update props at runtime)
@@ -175,7 +204,6 @@ export const InteractableMyComponent = withTamboInteractable(MyComponent, {
 - **`_tambo_*` props**: Components receive hidden props (`_tambo_componentId`, etc.) — never spread `{...props}` onto DOM elements
 - **Zod constraints**: No `z.record()`, `z.map()`, `z.set()`. Always `.describe()` every field. Array items need `id` field.
 - **`useQueryResult(queryId)`** (reactive via `useSyncExternalStore`) — NOT `getQueryResult()` (won't re-render on thread replay)
-- **`_tambo_*` props**: Components receive hidden props (`_tambo_componentId`, etc.) — never spread `{...props}` onto DOM elements
 - **DO NOT use `useTamboComponentState`** with `withTamboInteractable` — causes "setState during render" error. Use `propsSchema` for all AI-controlled state.
 - **DO NOT use `useTamboInteractable()` or `useTamboCurrentComponent()`** inside a `withTamboInteractable`-wrapped component — same setState conflict.
 - **NEVER call setState during render** in components wrapped with `withTamboInteractable` or in components that mount/unmount interactable children (e.g. DashboardCanvas). Always use `useEffect` or `queueMicrotask` for state updates triggered by prop/data changes. Direct setState in render body causes "Cannot update TamboRegistryProvider while rendering TamboInteractableProvider" because re-registration runs during the same render cycle.
@@ -211,9 +239,45 @@ StatsCard, StatsGrid, InsightCard, DatasetCard, QueryDisplay, DataCard — AI pr
 1. Define Zod schema in component file — `.describe()` every field, use `queryId` for data
 2. Build with `React.forwardRef`, use `useQueryResult(queryId)` for data, `useCrossFilter()` if needed
 3. Wrap with `withTamboInteractable(Component, { componentName, description, propsSchema })`
-4. Register in `src/lib/tambo.ts` → `components` array with `name`, `description`, `component`, `propsSchema`
-5. Write `description` that tells AI exactly when to use it and what props to update for common user requests
-6. If the component needs tools (e.g. a new data source), add to `tools` array with `inputSchema`/`outputSchema`
+4. Create registration file in `src/lib/tambo/components/` (or add to `static.ts` for simple components)
+5. Import and add to the array in `src/lib/tambo/components/index.ts`
+6. Write `description` that tells AI exactly when to use it and what props to update for common user requests
+7. If the component needs tools, create a tool file in `src/lib/tambo/tools/` and add to `tools/index.ts`
+
+## Expanding the Platform
+
+### Adding a New Dataset
+
+1. Create dataset module in `src/services/datasets/<name>.ts` — export a `DatasetDefinition`
+2. Import and add to `DATASETS` array in `src/services/datasets/index.ts`
+3. Add dataset path to `src/lib/tambo/context/dataset-paths.ts`
+4. Add keyword routing in `src/services/suggest-analysis.ts`
+5. If Overture-based, it auto-resolves the release via `resolveOvertureRelease()`
+6. Update the Data table in `CLAUDE.md`
+
+### Adding a New Cross-Index
+
+1. Create cross-index module in `src/services/cross-indices/<name>.ts` — export a `CrossIndexDefinition`
+2. Import and add to `CROSS_INDICES` in `src/services/cross-indices/index.ts`
+3. Add the analysis name to the `z.enum()` in `src/lib/tambo/tools/cross-index.ts`
+4. Add keyword routing in `src/services/suggest-analysis.ts`
+5. Add cross-index pattern to `src/lib/tambo/context/component-tips.ts` (Overture cross-indices section)
+
+### Adding a New Tool
+
+1. Create tool file in `src/lib/tambo/tools/<name>.ts` — export a `TamboTool`
+2. Import and add to the array in `src/lib/tambo/tools/index.ts`
+3. Write a lean description (~3 lines) — detailed rules go in `src/lib/tambo/context/`
+
+### Tuning AI Behavior
+
+- **AI personality/decisiveness**: Edit `src/lib/tambo/context/behavior.ts`
+- **DuckDB technical rules**: Edit `src/lib/tambo/context/duckdb-notes.ts`
+- **Component usage patterns**: Edit `src/lib/tambo/context/component-tips.ts`
+- **Dataset paths for AI**: Edit `src/lib/tambo/context/dataset-paths.ts`
+- **Suggestion chips**: Edit `src/lib/tambo/suggestions.ts`
+- **Tool descriptions** (AI routing): Edit the specific tool file in `src/lib/tambo/tools/`
+- **Component descriptions** (AI routing): Edit the specific file in `src/lib/tambo/components/`
 
 ## GeoArrow Zero-Copy Rendering
 

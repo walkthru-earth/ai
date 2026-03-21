@@ -7,7 +7,7 @@ export const weatherDataset: DatasetDefinition = {
   id: "weather",
   name: "AI Weather Forecast (GraphCast)",
   description:
-    "NOAA GraphCast AI weather forecasts. Temp, wind, shear, humidity, moisture flux, pressure, precip, geopotential. Res 0-5. " +
+    "NOAA GraphCast AI weather forecasts. Temp, wind, shear, humidity, moisture flux, pressure, precip, geopotential. Res 1-5. " +
     "FORECAST STRUCTURE: Each file = 5-day horizon (21 timestamps, 6-hourly in 'timestamp' column). " +
     "For multi-day forecasts, query ONE file — do NOT build URLs for future dates (only latest run exists). " +
     "Use buildParquetUrl('weather') to resolve latest date. Filter: WHERE CAST(timestamp AS TIMESTAMP) <= CAST((SELECT MIN(timestamp) FROM ...) AS TIMESTAMP) + INTERVAL 'N hours'. " +

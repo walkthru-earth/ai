@@ -15,7 +15,7 @@ Tailwind v4 theme variables (light + dark). Brand colors: earth-blue, earth-cyan
 
 ## `explore/page.tsx` (main UI)
 
-- TamboProvider with shared `buildContextHelpers(geo)` + `buildInitialSuggestions(geo)` from `tambo.ts`
+- TamboProvider with shared `buildContextHelpers(geo)` + `buildInitialSuggestions(geo)` from `@/lib/tambo`
 - `useGeoIP()` provides user location + H3 cells for personalized context and suggestions
 - MobileBottomSheet: swipeable drawer, auto-expand on send, auto-collapse on dashboard render
 - SessionHistory: thread list with auto-names, new thread button
