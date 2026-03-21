@@ -1,6 +1,6 @@
 # Walkthru Earth AI
 
-AI urban intelligence platform — natural language queries over global geospatial data (weather, terrain, buildings, population). Built on Vite + React Router + Tambo AI + DuckDB-WASM + deck.gl.
+AI urban intelligence platform — natural language queries over global geospatial data (weather, terrain, buildings, population, places, transportation, land use, addresses). Built on Vite + React Router + Tambo AI + DuckDB-WASM + deck.gl.
 
 ## Commands
 
@@ -33,6 +33,19 @@ pnpm lint:fix     # biome auto-fix
 
 **Dashboard canvas**: Desktop = `react-grid-layout`, Touch = `@dnd-kit/sortable` (1.2s hold, grip-only drag). Panel IDs are deduplicated via `Set`. Order persisted to localStorage.
 
+**Data service (modular)**:
+- `src/services/datasets/` — 9 dataset modules + registry index
+- `src/services/cross-indices/` — 11 cross-index modules + registry index
+- `src/services/resolvers.ts` — Weather (GitHub state file at walkthru-weather-index repo, single fetch, fallback to HEAD probing) and Overture release resolution (GitHub state file at walkthru-overture-index repo, fallback `2026-03-18.0`)
+- `src/services/suggest-analysis.ts` — Keyword routing for 9 datasets + 11 cross-indices
+
+**Cross-indices** (composite multi-dataset analyses): 11 cross-index modules including:
+- **walkability** (5 signals: transport + base + terrain + places)
+- **fifteen-min-city** (7 signals: places + transport + base + terrain)
+- **biophilic** (base x population — nature per capita)
+- **heat-vulnerability** (6 signals: building + transport + base + weather)
+- **water-security** (6 signals: base + population + weather + building + terrain)
+
 ## DuckDB Rules (for AI tool descriptions)
 
 - **DuckDB v1.5+** (Variegata). Extensions loaded: `httpfs`, `spatial`, `h3`, `a5`. `geometry_always_xy = true` set at init.
@@ -51,6 +64,7 @@ pnpm lint:fix     # biome auto-fix
 - **WASM TIMESTAMPTZ limitation**: `TIMESTAMPTZ + INTERVAL` fails in DuckDB-WASM (no ICU extension). Always cast first: `CAST(timestamp AS TIMESTAMP) + INTERVAL '72 hours'`.
 - **OOM prevention**: DuckDB-WASM has ~3GB memory limit. Weather res 5 = 42M rows. ALWAYS push `WHERE h3_index = ...` directly into the Parquet scan. Never `SELECT *` into CTEs on large files. Use lower resolutions (res 3-4) for area/map queries.
 - **Cross-dataset joins**: All datasets share `h3_index` — joins are trivial BUT resolutions MUST match. Shared range: res 3-5. Prefer res 5 for neighborhood detail, res 3 for city overview.
+- **Overture datasets** (places, transportation, base, addresses, buildings-overture) res 1-10. Release version auto-resolved by `buildParquetUrl`. Cross-dataset shared range across ALL datasets (including Overture): **res 3-5**.
 - **queryId is NOT a DuckDB table**: `queryId` (e.g. `qr_1`) is a client-side store reference. NEVER use in SQL `FROM` clauses. Re-query the Parquet URL instead.
 - **Grid system rule**: When the user asks about A5, use A5 functions — do NOT convert to H3. When the user asks about H3, use H3. Respect the user's choice. A5 has no grid_disk/grid_ring equivalents.
 - **Spatial analysis**: All spatial functions (ST_Buffer, ST_Intersects, ST_Contains, ST_DWithin, spatial joins) produce native GEOMETRY → results auto-render on the map via zero-copy WKB. Just `SELECT *` — no ST_AsGeoJSON needed. Spatial joins trigger automatic R-tree (no index creation). `ST_DWithin(a, b, meters)` also triggers SPATIAL_JOIN optimizer.
@@ -86,6 +100,11 @@ S3 base: `https://s3.us-west-2.amazonaws.com/us-west-2.opendata.source.coop/walk
 | Terrain (GEDTM 30m) | `dem-terrain/v2/h3/h3_res={1-10}/data.parquet` | 1-10 | Columns: elev, slope, aspect, tri, tpi |
 | Buildings (2.75B) | `indices/building/v2/h3/h3_res={3-8}/data.parquet` | 3-8 | 12 columns incl. max_height_m, height_std_m, volume_density_m3_per_km2 |
 | Population (SSP2) | `indices/population/v2/scenario=SSP2/h3_res={1-8}/data.parquet` | 1-8 | 16 time steps: pop_2025 through pop_2100 (every 5 years) |
+| Places (Overture) | `indices/places-index/v1/release={ver}/h3/h3_res={1-10}/data.parquet` | 1-10 | 72M POIs, 13 categories + landmarks. Release resolved via `buildParquetUrl('places')`. |
+| Transportation (Overture) | `indices/transportation-index/v1/release={ver}/h3/h3_res={1-10}/data.parquet` | 1-10 | 343M road/rail/water segments, surface types, bridges, tunnels. |
+| Base (Overture) | `indices/base-index/v1/release={ver}/h3/h3_res={1-10}/data.parquet` | 1-10 | Land use, water bodies, infrastructure. Nature, transit, barriers. |
+| Addresses (Overture) | `indices/addresses-index/v1/release={ver}/h3/h3_res={1-10}/data.parquet` | 1-10 | Address points. Schema evolving — use DESCRIBE. |
+| Buildings-Overture | `indices/buildings-index/v1/release={ver}/h3/h3_res={1-10}/data.parquet` | 1-10 | Overture buildings (different from Global Building Atlas). |
 
 ## Styling Rules
 

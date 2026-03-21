@@ -24,13 +24,35 @@ paths:
 - Cross-filter: `setCrossFilter()` / `useCrossFilter()`. Types: `value` (click), `bbox` (viewport). Toggle via `setCrossFilterEnabled()`
 - Fly-To Bus: `requestFlyTo({ latitude, longitude, zoom? })` → `useFlyToVersion()` triggers re-render → `consumeFlyTo()` returns target once. Used by DataTable "Zoom to record" → DeckGLMap `flyTo()`. Lightweight version-based pub/sub (same pattern as cross-filter).
 
-## `walkthru-data.ts`
+## Data Layer (modular registry)
 
-- 4 dataset definitions with full column lists, URL patterns, H3 res ranges:
-  - Weather: res 0-5, hours 0/12, 17 columns (temp, wind, shear, humidity, moisture flux, pressure, precip, geopotential). Each file = 5-day forecast (21 timestamps, 6-hourly). Res 5 = 42M rows — needs predicate pushdown. Use `buildParquetUrl('weather')` to resolve latest date. `GREATEST(precipitation_mm_6hr, 0)` to clamp.
-  - Terrain: res 1-10, 6 columns (elev, slope, aspect, tri, tpi)
-  - Building: res 3-8, 11 columns (count, density, footprint, coverage, height avg/max/std, volume, volume density)
-  - Population: res 1-8, 16 time steps (pop_2025 through pop_2100 every 5 years)
-- 6 pre-built cross-dataset analyses (CROSS_INDICES)
-- `resolveWeatherPrefix()`: probes S3 for latest weather date/hour (cached)
-- `suggestAnalysis()`: keyword routing → datasets, cross-indices, sample SQL
+### `datasets/` — 9 dataset modules
+Each file exports a `DatasetDefinition` with id, name, description, columns, columnDescriptions, urlPattern, h3ResRange, defaultH3Res, category.
+
+- `datasets/types.ts`: `DatasetDefinition`, `DatasetInfo`, `BuildUrlOutput`, S3_BASE constant
+- `datasets/index.ts`: Registry aggregating all datasets. Exports `listDatasets()`, `buildParquetUrl()`, `describeDataset()`, `DATASETS`, `COLUMN_DESCRIPTIONS`
+- `datasets/weather.ts`: GraphCast AI forecasts, res 1-5, 17 columns
+- `datasets/terrain.ts`: GEDTM 30m DEM, res 1-10, 6 columns
+- `datasets/building.ts`: Global Building Atlas (2.75B), res 3-8, 11 columns
+- `datasets/population.ts`: WorldPop SSP2, res 1-8, 16 time steps
+- `datasets/places.ts`: Overture POIs (72M), res 1-10, 20 columns (13 categories + landmarks)
+- `datasets/transportation.ts`: Overture transport (343M segments), res 1-10, 23 columns
+- `datasets/base.ts`: Overture base environment, res 1-10, 32 columns (land use, water, infra)
+- `datasets/addresses.ts`: Overture addresses (minimal, schema TBD)
+- `datasets/buildings-overture.ts`: Overture buildings (minimal, schema TBD)
+
+### `cross-indices/` — 11 cross-index analyses
+Each file exports a `CrossIndexDefinition` with id, name, description, datasets, joinColumn, computedColumns, equivalentSQL, focusRegion.
+
+- `cross-indices/types.ts`: `CrossIndexDefinition`, `CrossIndexInput`
+- `cross-indices/index.ts`: Registry. Exports `getCrossIndex()`, `CROSS_INDEX_IDS`
+- Existing 6: urban-density, housing-pressure, landslide-risk, vertical-living, population-growth, shrinking-cities
+- New 5: walkability (5 signals, 4 datasets), fifteen-min-city (7 signals, 4 datasets), biophilic (base × population), heat-vulnerability (6 signals, 4 datasets), water-security (6 signals, 5 datasets)
+
+### `resolvers.ts` — Dynamic URL resolution
+- `resolveWeatherPrefix()`: GitHub state file → fallback HEAD probe cascade. Singleton-cached promise
+- `resolveOvertureRelease()`: GitHub state file → fallback `2026-03-18.0`. Singleton-cached promise
+
+### `suggest-analysis.ts` — NL keyword routing
+- `suggestAnalysis()`: keyword matching → datasets, cross-indices, columns, sample SQL, focus regions
+- Routes 11 cross-index keywords + 9 dataset keywords + fallback overview

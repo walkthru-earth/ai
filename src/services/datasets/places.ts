@@ -1,0 +1,60 @@
+import type { DatasetDefinition } from "./types";
+import { S3_BASE } from "./types";
+
+export const placesDataset: DatasetDefinition = {
+  id: "places",
+  name: "Overture Places Index (72M POIs)",
+  description:
+    "Points of interest from Overture Maps — 72 million places with 13 categories and landmark counts. " +
+    "Restaurants, hospitals, schools, parks, shops, gyms, cafes, and more. " +
+    "Use for amenity density, neighborhood diversity (Shannon index), and urban function mapping. " +
+    "Use buildParquetUrl('places') to resolve latest release.",
+  columns: [
+    "h3_index",
+    "place_count",
+    "avg_confidence",
+    "n_food_and_drink",
+    "n_shopping",
+    "n_services_and_business",
+    "n_health_care",
+    "n_travel_and_transportation",
+    "n_lifestyle_services",
+    "n_education",
+    "n_community_and_government",
+    "n_cultural_and_historic",
+    "n_sports_and_recreation",
+    "n_lodging",
+    "n_arts_and_entertainment",
+    "n_geographic_entities",
+    "n_restaurant",
+    "n_hospital",
+    "n_school",
+    "n_park",
+  ],
+  columnDescriptions: {
+    h3_index: "H3 hexagonal cell identifier (BigInt)",
+    place_count: "Total number of POIs in H3 cell",
+    avg_confidence: "Average confidence score of places (0-1)",
+    n_food_and_drink: "Food and drink establishments (restaurants, cafes, bars, bakeries)",
+    n_shopping: "Shopping establishments (retail, supermarkets, malls)",
+    n_services_and_business: "Services and business (banks, offices, coworking)",
+    n_health_care: "Healthcare facilities (hospitals, clinics, pharmacies, dentists)",
+    n_travel_and_transportation: "Travel and transport (stations, airports, car rental)",
+    n_lifestyle_services: "Lifestyle services (gyms, salons, spas, fitness centers)",
+    n_education: "Education (schools, universities, libraries, training centers)",
+    n_community_and_government: "Community and government (city halls, post offices, police)",
+    n_cultural_and_historic: "Cultural and historic sites (museums, monuments, heritage)",
+    n_sports_and_recreation: "Sports and recreation (stadiums, parks, playgrounds, pools)",
+    n_lodging: "Lodging (hotels, hostels, B&Bs, vacation rentals)",
+    n_arts_and_entertainment: "Arts and entertainment (theaters, cinemas, galleries, nightlife)",
+    n_geographic_entities: "Geographic entities (neighborhoods, landmarks, natural features)",
+    n_restaurant: "Restaurants specifically (subset of food_and_drink)",
+    n_hospital: "Hospitals specifically (subset of health_care)",
+    n_school: "Schools specifically (subset of education)",
+    n_park: "Parks specifically (subset of sports_and_recreation)",
+  },
+  urlPattern: `${S3_BASE}/indices/places-index/v1/release={release}/h3/h3_res={h3_res}/data.parquet`,
+  h3ResRange: [1, 10],
+  defaultH3Res: 4,
+  category: "overture",
+};

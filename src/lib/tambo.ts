@@ -16,14 +16,10 @@ import { QueryDisplay, queryDisplaySchema } from "@/components/tambo/query-displ
 import { StatsCard, statsCardSchema } from "@/components/tambo/stats-card";
 import { StatsGrid, statsGridSchema } from "@/components/tambo/stats-grid";
 import { DataCard, dataCardSchema } from "@/components/ui/card-data";
+import { getCrossIndex } from "@/services/cross-indices";
+import { buildParquetUrl, describeDataset, listDatasets } from "@/services/datasets";
 import { runQuery } from "@/services/duckdb-wasm";
-import {
-  buildParquetUrl,
-  describeDataset,
-  getCrossIndex,
-  listDatasets,
-  suggestAnalysis,
-} from "@/services/walkthru-data";
+import { suggestAnalysis } from "@/services/suggest-analysis";
 
 /* ── Tools ─────────────────────────────────────────────────────────── */
 
@@ -31,59 +27,25 @@ export const tools: TamboTool[] = [
   {
     name: "runSQL",
     description:
-      "Execute DuckDB SQL (v1.5, WASM). Extensions pre-loaded: H3, A5, spatial, httpfs — NO INSTALL/LOAD. " +
-      "GEOMETRY: Parquet with GEOMETRY/WKB auto-handled — just SELECT * FROM file. lat/lng are SYNTHETIC (auto-generated), never reference them in follow-up SQL. Use SELECT * EXCLUDE (col) or SELECT *, expr FROM (SELECT * FROM file). Check geometryNote in output. " +
-      "COORDINATES: H3: h3_latlng_to_cell(lat, lng, res) — lat first. A5: a5_lonlat_to_cell(lng, lat, res) — lng first. ST_Point(lng, lat) — lng first. Respect user's grid choice (H3 vs A5). " +
-      "RULES: " +
-      "(1) HTTPS URLs in FROM. (2) LIMIT 500. (3) ONE statement, no semicolons. (4) h3_index is BIGINT → h3_h3_to_string(h3_index) AS hex for maps. " +
-      "(5) Res ranges: weather 0-5 (res 5 = 42M rows — see rule 13), building 3-8, population 1-8, terrain 1-10. " +
-      "(6) h3_cell_to_lat(h3_index)/h3_cell_to_lng(h3_index) return DOUBLE directly (preferred). h3_cell_to_latlng() returns DOUBLE[2] list NOT struct. h3_cell_area(h3_index, 'km^2'). h3_grid_ring/h3_grid_disk (NOT h3_k_ring). " +
-      "h3_great_circle_distance(lat1, lng1, lat2, lng2, 'km') — 5th arg (unit: 'km','m','rads') is MANDATORY. 4-arg call WILL FAIL. Also h3_grid_distance(cell1, cell2) for grid-hop count. " +
-      "(7) NEVER hardcode H3/A5 hex strings (LLMs hallucinate wrong indices). For user location: use pre-computed h3Cells from context with h3_grid_disk(h3_string_to_h3(context_cell)::BIGINT, radius). For arbitrary locations: compute h3_latlng_to_cell(lat, lng, res)::BIGINT. " +
-      "(8) No same-name column aliases (SELECT ST_AsWKB(geom) AS geom fails — circular ref). " +
-      "(9) queryId (qr_N) is CLIENT-SIDE store — NOT a DuckDB table. FROM qr_1 WILL FAIL. Re-query Parquet URL instead. " +
-      "(10) TIMESTAMP MATH: WASM has no ICU — TIMESTAMPTZ + INTERVAL fails. ALWAYS cast first: CAST(timestamp AS TIMESTAMP) + INTERVAL '72 hours'. Integer addition also fails. " +
-      "(11) WEATHER: Each file has 5-day forecast (21 timestamps, 6-hourly). Query ONE file — do NOT build URLs for future dates (404). Use buildParquetUrl('weather') to resolve latest date. Filter: WHERE CAST(timestamp AS TIMESTAMP) <= (SELECT CAST(MIN(timestamp) AS TIMESTAMP) FROM ...) + INTERVAL '72 hours'. " +
-      "(12) PRECIPITATION: GREATEST(precipitation_mm_6hr, 0) — model can produce tiny negatives. " +
-      "(13) MEMORY/OOM PREVENTION: DuckDB-WASM has ~3GB memory limit. Large files (weather res 5 = 42M rows, population res 8, building res 8) WILL OOM if loaded fully. " +
-      "ALWAYS push WHERE h3_index = ... directly into the Parquet scan (not in a CTE after SELECT *). " +
-      "Only SELECT needed columns — never SELECT * on large files. " +
-      "WRONG: WITH base AS (SELECT * FROM file) SELECT ... FROM base WHERE h3_index = X (loads ALL rows first → OOM). " +
-      "RIGHT: SELECT col1, col2 FROM file WHERE h3_index = X (Parquet predicate pushdown, reads only matching row groups). " +
-      "For multi-file joins: filter each file individually BEFORE joining. Use lower resolutions (res 3-4) for area/map queries. " +
-      "(14) CROSS-DATASET JOINS: All datasets share h3_index — joins are trivial BUT resolutions MUST match. " +
-      "Always use the SAME h3_res for all files in a join (e.g. all res=5). Join pattern: " +
-      "WITH cells AS (SELECT unnest(h3_grid_disk(..., N))::BIGINT AS h3_index) " +
-      "SELECT ... FROM file_a a JOIN cells USING (h3_index) JOIN file_b b ON a.h3_index = b.h3_index. " +
-      "Shared res range: weather∩building∩population∩terrain = res 3-5. Prefer res 5 for neighborhood detail, res 3 for city/regional overview. " +
-      "(15) QUERY PATTERNS: " +
-      "Population timeline: UNPIVOT on pop_2025..pop_2100 INTO NAME year VALUE population (wide→long for line charts). " +
-      "Rankings: NTILE(4) OVER (ORDER BY metric) for quartiles, ROW_NUMBER() for rank labels. " +
-      "Growth: ROUND(100.0*(pop_2050-pop_2025)/NULLIF(pop_2025,0), 1) AS growth_pct. " +
-      "Density index: building_count/NULLIF(pop_2025, 0) AS bldg_per_person. " +
-      "Lat/lng from H3: h3_cell_to_lat(h3_index), h3_cell_to_lng(h3_index) — no need for list_extract().",
+      "Execute DuckDB SQL (v1.5 WASM) against remote Parquet files. " +
+      "Returns queryId for GeoMap/Graph/DataTable components (zero token cost). " +
+      "CRITICAL: queryId (qr_N) is a CLIENT-SIDE store reference — NOT a DuckDB table. " +
+      "FROM qr_1 WILL FAIL. To compute stats from previous results, re-query the Parquet URL. " +
+      "See context for DuckDB rules, dataset URLs, and query patterns.",
     tool: runQuery,
     inputSchema: z.object({
       sql: z
         .string()
         .describe(
           "DuckDB SQL. HTTPS Parquet URLs in FROM. LIMIT 500. ONE statement. " +
-            "queryId (qr_N) is NOT a table — never FROM qr_1. Timestamp math: CAST(timestamp AS TIMESTAMP) + INTERVAL '72 hours' (TIMESTAMPTZ + INTERVAL fails in WASM). " +
-            "Geometry files: SELECT * (lat/lng auto-generated). H3 maps: h3_h3_to_string(h3_index) AS hex, <metric> AS value. " +
-            "Never hardcode H3/A5 strings — compute from coords or use context cells. " +
-            "H3 area: WITH c AS (SELECT h3_latlng_to_cell(lat, lng, res)::BIGINT AS h3) SELECT unnest(h3_grid_disk(h3, r))::BIGINT AS h3_index FROM c. " +
-            "Weather: query ONE file (has 5 days of forecasts), filter by timestamp. Use buildParquetUrl('weather'). " +
-            "Precip: GREATEST(precipitation_mm_6hr, 0). " +
-            "OOM: Push WHERE h3_index=X into Parquet scan (not in CTE after SELECT *). Only SELECT needed columns on large files.",
+            "NEVER use queryId (qr_N) in FROM — it is NOT a table. Re-query the Parquet URL instead. " +
+            "H3 maps: h3_h3_to_string(h3_index) AS hex, <metric> AS value. " +
+            "Geometry files: SELECT * (lat/lng auto-generated). " +
+            "OOM: push WHERE h3_index=X into Parquet scan. See context for full rules.",
         ),
     }),
     outputSchema: z.object({
-      queryId: z
-        .string()
-        .describe(
-          "Client-side store ID for components (pass to GeoMap/Graph/DataTable queryId prop). " +
-            "NOT a DuckDB table — NEVER use in SQL FROM clause. To compute stats from this data, re-query the Parquet URL.",
-        ),
+      queryId: z.string().describe("Client-side store ID for components. NOT a DuckDB table — never use in SQL FROM."),
       columns: z.array(z.string()),
       rowCount: z.number(),
       duration: z.number(),
@@ -91,19 +53,15 @@ export const tools: TamboTool[] = [
       geometryNote: z
         .string()
         .optional()
-        .describe(
-          "When present, indicates that lat/lng columns were AUTO-GENERATED from a geometry column. " +
-            "Do NOT reference lat/lng directly in follow-up SQL on the raw file. Read this note carefully.",
-        ),
+        .describe("When present, lat/lng are AUTO-GENERATED from geometry — don't reference in follow-up SQL."),
     }),
   },
   {
     name: "listDatasets",
-    description:
-      "List all available Walkthru Earth datasets. Optionally filter by category: weather, terrain, building, population.",
+    description: "List available datasets. Filter by category: weather, terrain, building, population, overture.",
     tool: listDatasets,
     inputSchema: z.object({
-      category: z.string().optional(),
+      category: z.string().optional().describe("Filter: weather, terrain, building, population, or overture"),
     }),
     outputSchema: z.array(
       z.object({
@@ -120,11 +78,18 @@ export const tools: TamboTool[] = [
   {
     name: "buildParquetUrl",
     description:
-      "Build the direct Parquet file URL for a given dataset and H3 resolution. Returns the URL, dataset info, and equivalent SQL.",
+      "Build direct Parquet URL for a dataset at given H3 resolution. Auto-resolves weather date and Overture release.",
     tool: buildParquetUrl,
     inputSchema: z.object({
-      dataset: z.string().describe("Dataset ID: weather, terrain, building, or population"),
-      h3Res: z.number().optional().describe("H3 resolution — weather 0-5, terrain 1-10, building 3-8, population 1-8"),
+      dataset: z
+        .string()
+        .describe(
+          "Dataset ID: weather, terrain, building, population, places, transportation, base, addresses, buildings-overture",
+        ),
+      h3Res: z
+        .number()
+        .optional()
+        .describe("H3 res — weather 0-5, building 3-8, population 1-8, terrain 1-10, overture 1-10"),
     }),
     outputSchema: z.object({
       url: z.string(),
@@ -134,11 +99,10 @@ export const tools: TamboTool[] = [
   },
   {
     name: "describeDataset",
-    description:
-      "Get detailed metadata about a dataset including all column names with descriptions, H3 resolution range, and equivalent SQL.",
+    description: "Get column names, descriptions, H3 res range, and sample SQL for a dataset.",
     tool: describeDataset,
     inputSchema: z.object({
-      dataset: z.string(),
+      dataset: z.string().describe("Dataset ID"),
     }),
     outputSchema: z.object({
       name: z.string(),
@@ -153,7 +117,9 @@ export const tools: TamboTool[] = [
   {
     name: "getCrossIndex",
     description:
-      "Get details about a cross-index analysis joining multiple datasets. Available: urban-density, housing-pressure, landslide-risk, vertical-living, population-growth, shrinking-cities.",
+      "Get cross-dataset analysis details — join pattern, weights, SQL template. " +
+      "11 analyses: urban-density, housing-pressure, landslide-risk, vertical-living, population-growth, shrinking-cities, " +
+      "walkability, fifteen-min-city, biophilic, heat-vulnerability, water-security.",
     tool: getCrossIndex,
     inputSchema: z.object({
       analysis: z.enum([
@@ -163,6 +129,11 @@ export const tools: TamboTool[] = [
         "vertical-living",
         "population-growth",
         "shrinking-cities",
+        "walkability",
+        "fifteen-min-city",
+        "biophilic",
+        "heat-vulnerability",
+        "water-security",
       ]),
     }),
     outputSchema: z.object({
@@ -172,21 +143,15 @@ export const tools: TamboTool[] = [
       joinColumn: z.string(),
       computedColumns: z.array(z.object({ name: z.string(), formula: z.string() })),
       equivalentSQL: z.string(),
-      focusRegion: z.object({
-        name: z.string(),
-        lat: z.number(),
-        lng: z.number(),
-        zoom: z.number(),
-      }),
+      focusRegion: z.object({ name: z.string(), lat: z.number(), lng: z.number(), zoom: z.number() }),
     }),
   },
   {
     name: "suggestAnalysis",
-    description:
-      "Given a natural language question about cities, climate, population, or terrain, suggest the best datasets and analysis approach.",
+    description: "Given a question, suggest best datasets and cross-index analysis approach.",
     tool: suggestAnalysis,
     inputSchema: z.object({
-      question: z.string(),
+      question: z.string().describe("Natural language question about cities, climate, amenities, walkability, etc."),
     }),
     outputSchema: z.object({
       suggestedDatasets: z.array(z.string()),
@@ -448,6 +413,20 @@ export function buildContextHelpers(geo: GeoIP | null) {
         weather:
           "indices/weather/model=GraphCast_GFS/date=YYYY-MM-DD/hour={0,12}/h3_res={0-5}/data.parquet — " +
           "Each file = 5-day forecast (21 steps, 6-hourly). Use buildParquetUrl to resolve latest date. Never build future-date URLs.",
+        places:
+          "indices/places-index/v1/release={ver}/h3/h3_res={1-10}/data.parquet — " +
+          "72M POIs, 13 categories (food, shopping, health, education, sports, etc.) + landmarks (restaurant, hospital, school, park). Use buildParquetUrl('places').",
+        transportation:
+          "indices/transportation-index/v1/release={ver}/h3/h3_res={1-10}/data.parquet — " +
+          "343M segments. Road types (motorway→footway), rail, water, surface (paved/unpaved), bridges, tunnels. Use buildParquetUrl('transportation').",
+        base:
+          "indices/base-index/v1/release={ver}/h3/h3_res={1-10}/data.parquet — " +
+          "Land use (park, recreation, protected, agriculture, residential), water (river, lake, ocean, stream, reservoir), " +
+          "infrastructure (transit, pedestrian, barrier, power, water_infra). Use buildParquetUrl('base').",
+        addresses:
+          "indices/addresses-index/v1/release={ver}/h3/h3_res={1-10}/data.parquet — Address points. Use DESCRIBE to explore columns.",
+        "buildings-overture":
+          "indices/buildings-index/v1/release={ver}/h3/h3_res={1-10}/data.parquet — Overture buildings (different from Global Building Atlas). Use DESCRIBE.",
       },
       componentTips: [
         "ALL viz components use queryId from runSQL — ZERO token cost for data. Never pass inline data arrays.",
@@ -496,6 +475,13 @@ export function buildContextHelpers(geo: GeoIP | null) {
           "Weather exposure: weather (wind, precip) JOIN building (height, density) → wind exposure index. " +
           "Population timeline: UNPIVOT population wide format → line chart of pop_2025..pop_2100. " +
           "All use same pattern: WITH cells AS (h3_grid_disk neighborhood) → JOIN all files USING (h3_index).",
+        "OVERTURE CROSS-INDICES (use getCrossIndex for SQL patterns and weights): " +
+          "Walkability (5 signals): transportation(road types) + base(pedestrian infra, barriers) + terrain(slope) + places(destinations). " +
+          "15-min city (7 signals): places(diversity, essentials) + transportation(walk, cycle) + base(transit, green space) + terrain(slope). " +
+          "Biophilic: base(nature+water) / population → nature per capita. " +
+          "Heat vulnerability (6 signals): building(volume, coverage) + transportation(paved) + base(nature deficit) + weather(temp, wind). " +
+          "Water security (6 signals): base(water) + population(growth) + weather(precip) + building(permeability) + terrain(retention). " +
+          "Overture datasets res 1-10. Shared range with ALL datasets: res 3-5.",
         "SMART DEFAULTS: For 'my location' queries, use the pre-computed h3Cells from context — never compute or hardcode. " +
           "For maps: zoom 11-12 for neighborhood, 8-9 for city, 4-5 for region. " +
           "For area queries: h3_grid_disk radius 2-3 for tight neighborhood, 5-8 for wider area. " +
@@ -520,6 +506,12 @@ export function buildInitialSuggestions(geo: GeoIP | null) {
         messageId: "s-buildings",
       },
       {
+        id: "s-walkability",
+        title: `Walkability near ${city}`,
+        detailedSuggestion: `How walkable is ${city}, ${country}? Show road types, pedestrian infra, and destinations.`,
+        messageId: "s-walkability",
+      },
+      {
         id: "s-population",
         title: "Population growth",
         detailedSuggestion: `Where is population growing fastest near ${city} by 2100?`,
@@ -540,6 +532,12 @@ export function buildInitialSuggestions(geo: GeoIP | null) {
       title: "Building density",
       detailedSuggestion: "Show me building density in Tokyo",
       messageId: "s-buildings",
+    },
+    {
+      id: "s-walkability",
+      title: "Walkability analysis",
+      detailedSuggestion: "How walkable is Amsterdam? Show road types, pedestrian infra, and amenity density.",
+      messageId: "s-walkability",
     },
     {
       id: "s-population",

@@ -2,12 +2,16 @@ import {
   ArrowRight,
   Building2,
   Cloud,
+  Footprints,
+  Landmark,
   Map,
+  MapPin,
   MessageSquare,
   Monitor,
   Moon,
   Mountain,
   Sun,
+  TreePine,
   Users,
   Zap,
 } from "lucide-react";
@@ -45,6 +49,34 @@ const DATASETS = [
     cells: "SSP2 to 2100",
     color: "from-rose-500/20 to-pink-500/10 border-rose-500/20",
   },
+  {
+    id: "places",
+    icon: Landmark,
+    name: "Places",
+    cells: "72M POIs",
+    color: "from-violet-500/20 to-purple-500/10 border-violet-500/20",
+  },
+  {
+    id: "transportation",
+    icon: Footprints,
+    name: "Transport",
+    cells: "343M segments",
+    color: "from-teal-500/20 to-cyan-500/10 border-teal-500/20",
+  },
+  {
+    id: "base",
+    icon: TreePine,
+    name: "Environment",
+    cells: "Land & Water",
+    color: "from-lime-500/20 to-green-500/10 border-lime-500/20",
+  },
+  {
+    id: "addresses",
+    icon: MapPin,
+    name: "Addresses",
+    cells: "Global",
+    color: "from-sky-500/20 to-blue-500/10 border-sky-500/20",
+  },
 ];
 
 const ANALYSES = [
@@ -54,6 +86,11 @@ const ANALYSES = [
   "Vertical Living",
   "Population Growth",
   "Shrinking Cities",
+  "Walkability",
+  "15-Minute City",
+  "Biophilic Index",
+  "Heat Vulnerability",
+  "Water Security",
 ];
 
 type Theme = "light" | "dark" | "system";
