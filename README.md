@@ -50,25 +50,74 @@ User → AI Agent → runSQL tool → DuckDB-WASM (in-browser)
 
 ## Datasets
 
-All data is open and hosted on S3 as H3-indexed Parquet files.
+All data is open and hosted on S3 as H3-indexed Parquet files. The AI resolves URLs automatically via `buildParquetUrl()`.
 
-| Dataset | Description | H3 Resolutions |
-|---------|-------------|-----------------|
-| Weather | GraphCast AI global forecast | Res 0–5 |
-| Terrain | GEDTM 30m elevation, slope, aspect (10.5B cells) | Res 1–10 |
-| Buildings | 2.75B buildings — count, height, footprint, density | Res 3–8 |
-| Population | SSP2 projections 2025–2100 | Res 1–8 |
+| Dataset | Description | H3 Res | Source |
+|---------|-------------|--------|--------|
+| Weather | GraphCast AI global forecast (5-day, 6-hourly) | 1–5 | NOAA |
+| Terrain | Elevation, slope, aspect, ruggedness (10.5B cells) | 1–10 | GEDTM 30m |
+| Buildings | 2.75B buildings — count, height, footprint, density | 3–8 | Global Building Atlas |
+| Population | SSP2 projections 2025–2100 (16 time steps) | 1–8 | WorldPop |
+| Places | 72M POIs — 13 categories + landmarks | 1–10 | Overture Maps |
+| Transportation | 343M road/rail/water segments, surface types | 1–10 | Overture Maps |
+| Base | Land use, water bodies, infrastructure | 1–10 | Overture Maps |
+| Addresses | Address points | 1–10 | Overture Maps |
+| Buildings (Overture) | Overture building footprints | 1–10 | Overture Maps |
+
+## Cross-Index Analyses
+
+11 composite analyses that join multiple datasets to answer complex questions:
+
+| Analysis | Datasets | Signals |
+|----------|----------|---------|
+| Walkability | transport + base + terrain + places | Road types, pedestrian infra, barriers, slope, destinations |
+| 15-Minute City | places + transport + base + terrain | Amenity diversity, essentials, walkability, cycling, transit, green space |
+| Biophilic | base + population | Nature per capita (parks, water, green space vs people) |
+| Heat Vulnerability | building + transport + base + weather | Building mass, paved surfaces, nature deficit, temperature |
+| Water Security | base + population + weather + building + terrain | Water sources, infrastructure, precipitation, permeability |
+| Urban Density | building + population | Buildings per person, coverage ratio |
+| Housing Pressure | population + building | Population growth vs building capacity |
+| Landslide Risk | terrain + building | Slope + ruggedness vs built environment |
+| Vertical Living | building + population | High-rise buildings vs population |
+| Population Growth | population | 2025 → 2100 growth trajectories |
+| Shrinking Cities | population | Declining population areas |
+
+## Architecture
+
+```
+src/
+├── app/                          # Pages (landing, explore, chat, interactables)
+├── components/
+│   ├── tambo/                    # AI-driven components (GeoMap, Graph, DataTable, etc.)
+│   └── ui/                       # shadcn/ui primitives
+├── lib/
+│   └── tambo/                    # Modular AI configuration
+│       ├── tools/                # 6 tool registrations (runSQL, datasets, cross-index, suggest)
+│       ├── components/           # 11 component registrations
+│       ├── context/              # AI context (behavior, DuckDB rules, dataset paths, tips)
+│       └── suggestions.ts        # Geo-personalized suggestion chips
+└── services/
+    ├── datasets/                 # 9 dataset modules + registry
+    ├── cross-indices/            # 11 cross-index modules + registry
+    ├── resolvers.ts              # Weather date + Overture release resolution
+    ├── suggest-analysis.ts       # NL keyword → dataset routing
+    ├── duckdb-wasm.ts            # DuckDB init, query execution, geometry detection
+    └── query-store.ts            # Reactive query result store + cross-filter bus
+```
 
 ## Features
 
-- **Interactive maps** — deck.gl + MapLibre with H3 hexagons, scatterplot, arc, WKB geometry layers, 6 color schemes, 3D extrusion, light/dark basemap
+- **Interactive maps** — deck.gl + MapLibre with H3 hexagons, A5 pentagons, scatterplot, arc, WKB geometry layers, 6 color schemes, 3D extrusion, light/dark basemap
 - **Multi-layer support** — Up to 5 layers per map with floating control panel
-- **Charts** — Bar, line, pie via Recharts with smart axis labels
-- **Data tables** — Auto-derived columns with sorting and cross-filter highlighting
+- **Charts** — 10 chart types (bar, line, area, pie, scatter, radar, radialBar, treemap, composed, funnel) via Recharts
+- **Data tables** — Auto-derived columns with sorting, pagination, and cross-filter highlighting
 - **Insight cards** — AI-generated analysis summaries with severity levels
-- **GeoArrow zero-copy** — DuckDB Arrow tables → GPU buffers with no JS intermediary. Auto-detects geometry columns and returns `geometryNote` to AI
+- **Cross-index analyses** — 11 composite scores joining 2–5 datasets (walkability, heat vulnerability, etc.)
+- **GeoArrow zero-copy** — DuckDB Arrow tables → GPU buffers with no JS intermediary. Auto-detects geometry columns
+- **Geometry auto-detection** — Parquet files with GEOMETRY columns auto-render on the map. Just `SELECT *`
 - **Mobile responsive** — Bottom sheet chat on mobile, touch-optimized dashboard
 - **Theme** — Dark/light/system with full CSS variable theming
+- **Geo-personalized** — Suggestion chips and initial context based on user's location
 
 ## Commands
 
