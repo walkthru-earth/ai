@@ -208,3 +208,46 @@ function subscribeFlyTo(cb: () => void): () => void {
 export function useFlyToVersion(): number {
   return useSyncExternalStore(subscribeFlyTo, getFlyToVersion, () => 0);
 }
+
+/* ── Panel Dismiss Bus ─────────────────────────────────────────────── */
+
+export interface DismissRequest {
+  /** "all" to clear everything, or specific component type/panelId */
+  target: "all" | string;
+}
+
+let dismissRequest: DismissRequest | null = null;
+let dismissVersion = 0;
+const dismissListeners = new Set<() => void>();
+
+function emitDismiss() {
+  for (const fn of dismissListeners) fn();
+}
+
+/** Request panel dismissal — called by AI tool. target: "all", componentName, or panelId. */
+export function requestDismissPanel(target: string): void {
+  dismissRequest = { target };
+  dismissVersion++;
+  emitDismiss();
+}
+
+/** Single-consumer: first caller clears the request */
+export function consumeDismissRequest(): DismissRequest | null {
+  const r = dismissRequest;
+  dismissRequest = null;
+  return r;
+}
+
+function getDismissVersion() {
+  return dismissVersion;
+}
+
+function subscribeDismiss(cb: () => void): () => void {
+  dismissListeners.add(cb);
+  return () => dismissListeners.delete(cb);
+}
+
+/** Returns the latest dismiss version (triggers re-render when a new request is made) */
+export function useDismissVersion(): number {
+  return useSyncExternalStore(subscribeDismiss, getDismissVersion, () => 0);
+}

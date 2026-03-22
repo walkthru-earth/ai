@@ -18,7 +18,9 @@ export function buildDuckdbWasmNotes(queryLimit: number): string[] {
     "v1.5: GEOMETRY core type. TRY_CAST(x AS GEOMETRY) broken → TRY(ST_GeomFromText(x)). Lambda: lambda x: x + 1 (NOT x -> x + 1). " +
       "WASM LIMITATION: DuckDB-WASM can't serialize GEOMETRY to Arrow (issue #2187). The system auto-handles this by converting to WKB — just use SELECT * with a geometry column.",
     "Spatial: ST_Buffer/ST_Contains/ST_Intersects/ST_DWithin auto-render. ST_Distance_Spheroid(a,b) → meters. geom && ST_MakeEnvelope(w,s,e,n) for bbox pushdown.",
-    "CRITICAL: queryId (qr_N) is client-side — NOT a DuckDB table. " +
+    "CRITICAL: queryId (qr_N) is a CLIENT-SIDE store ID — FROM qr_1 WILL ALWAYS FAIL with 'Table not found'. " +
+      "To derive new data from previous results: include ALL needed columns in the ORIGINAL query, or re-run the full SQL with modifications. " +
+      "NEVER write SELECT ... FROM qr_N — it does not exist in DuckDB. " +
       "Timestamp math: CAST(ts AS TIMESTAMP) + INTERVAL '72 hours' (WASM has no ICU — TIMESTAMPTZ + INTERVAL fails). " +
       "CAST(TIMESTAMP AS BIGINT) FAILS — use epoch(ts) for seconds or CAST(ts AS VARCHAR) for display.",
     "Weather: 5-day/21-step forecast. MUST call buildParquetUrl('weather') FIRST — NEVER guess the URL (date changes daily, guessing WILL 404). " +

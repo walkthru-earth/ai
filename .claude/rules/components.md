@@ -63,8 +63,9 @@ All viz components use `useInDashboardPanel()` to detect context:
 
 - Panel header: `[grip] [title] ... [maximize] [close]`. Title from `content.props.title`.
 - Panel ID dedup: `Set<string>` with `compIdx` suffix for collisions.
-- Desktop: `react-grid-layout`, rowHeight 80px. Maps 8 rows, graphs 5, tables 4.
-- Touch: `@dnd-kit/sortable`, TouchSensor (1.2s delay). Grip-only drag. Maps `h-[420px]`, others `h-[280px]`.
+- Desktop: `react-grid-layout`, rowHeight 80px. Maps 8 rows, graphs 5, tables 4, compact components 2 rows. First panel and maps always full-width (`w: 12`). Non-first/non-map panels pair in 2-column layout (`w: 6`). `nonFullCount` counter tracks column position (resets after full-width panels for correct pairing).
+- **Compact panel sizing**: `isCompactComponent()` identifies StatsGrid, StatsCard, InsightCard, DatasetCard, QueryDisplay, DataCard — 2 grid rows (160px) via `panelHeight()`, `h-auto` on touch. Full-width when first panel (same as all first panels).
+- Touch: `@dnd-kit/sortable`, TouchSensor (1.2s delay). Grip-only drag. Maps `h-[420px]`, compact `h-auto`, others `h-[280px]`.
 - Maximized panel: `fixed inset-0 z-40 bg-background` — covers all floating UI. Minimize via `queueMicrotask` to avoid setState-during-render.
 - Thread reset: `useEffect(currentThreadId)` loads order/layouts/dismissed from localStorage. NEVER in render body.
 - **Persisted state (all per-thread in localStorage)**:

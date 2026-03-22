@@ -14,6 +14,7 @@ import type * as React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ResponsiveGridLayout, useContainerWidth } from "react-grid-layout";
 import { basePath, cn } from "@/lib/utils";
+import { consumeDismissRequest, useDismissVersion } from "@/services/query-store";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import { GripVertical, Maximize2, Minimize2, X } from "lucide-react";
@@ -34,9 +35,21 @@ function panelHeight(name: string, isFirst: boolean): number {
   if (n.includes("querydisplay") || n.includes("query")) return 3;
   if (n.includes("insightcard") || n.includes("insight")) return 3;
   if (n.includes("datasetcard") || n.includes("dataset")) return 3;
-  if (n.includes("statscard") || n.includes("stat")) return 2;
-  if (n.includes("statsgrid")) return 3;
+  if (n.includes("statsgrid") || n.includes("statscard") || n.includes("stat")) return 2;
   return isFirst ? 8 : 4;
+}
+
+/** Whether a component is compact (should never be full-width first panel). */
+function isCompactComponent(name: string): boolean {
+  const n = name.toLowerCase();
+  return (
+    n.includes("statscard") ||
+    n.includes("statsgrid") ||
+    n.includes("insightcard") ||
+    n.includes("datasetcard") ||
+    n.includes("querydisplay") ||
+    n.includes("datacard")
+  );
 }
 
 function useIsTouchDevice(): boolean {
@@ -283,6 +296,40 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
     return panelOrder.map((id) => map.get(id)).filter(Boolean) as PanelInfo[];
   }, [panels, panelOrder]);
 
+  // Listen for AI-triggered panel dismissals (dismissPanels tool)
+  const dismissVersion = useDismissVersion();
+  useEffect(() => {
+    if (dismissVersion === 0) return;
+    const req = consumeDismissRequest();
+    if (!req) return;
+    setTimeout(() => {
+      setDismissedIds((prev) => {
+        let idsToAdd: string[];
+        if (req.target === "all") {
+          idsToAdd = panelIds;
+        } else {
+          // Match by componentName (case-insensitive) or by exact panel ID
+          const t = req.target.toLowerCase();
+          idsToAdd = panels
+            .filter((p) => p.componentName.toLowerCase().includes(t) || p.id === req.target)
+            .map((p) => p.id);
+        }
+        if (idsToAdd.length === 0) return prev;
+        const next = new Set(prev);
+        for (const id of idsToAdd) next.add(id);
+        if (dismissedKey) {
+          try {
+            localStorage.setItem(dismissedKey, JSON.stringify([...next]));
+          } catch {
+            /* quota exceeded */
+          }
+        }
+        return next;
+      });
+      setMaximizedId(null);
+    }, 0);
+  }, [dismissVersion, panelIds, panels, dismissedKey]);
+
   // Defer dismissal to next tick — withTamboInteractable unregisters during unmount
   // which triggers setState in TamboRegistryProvider; deferring avoids "update during render"
   const removePanel = useCallback(
@@ -352,22 +399,26 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
   const layouts = useMemo(() => {
     let yOffset = 0;
     let pendingLeftH = 0;
+    let nonFullCount = 0;
     const lg: any[] = panels.map((panel, i) => {
       const existing = savedLayouts.lg?.find((l) => l.i === panel.id);
       if (existing) return existing;
       const name = panel.componentName || "";
       const h = panelHeight(name, i === 0);
       const isMap = name.toLowerCase().includes("map") || name.toLowerCase().includes("h3map");
+      // Full-width: maps always, first panel always
       if (i === 0 || isMap) {
         if (pendingLeftH > 0) {
           yOffset += pendingLeftH;
           pendingLeftH = 0;
         }
+        nonFullCount = 0;
         const item = { i: panel.id, x: 0, y: yOffset, w: 12, h, minW: 4, minH: 2 };
         yOffset += h;
         return item;
       }
-      const col = (i - 1) % 2;
+      const col = nonFullCount % 2;
+      nonFullCount++;
       const item = { i: panel.id, x: col * 6, y: yOffset, w: 6, h, minW: 3, minH: 2 };
       if (col === 0) {
         pendingLeftH = h;
@@ -389,6 +440,7 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
 
     let mdY = 0;
     let mdPendingLeftH = 0;
+    let mdNonFullCount = 0;
     const md: any[] = panels.map((panel, i) => {
       const name = panel.componentName || "";
       const h = panelHeight(name, i === 0);
@@ -398,11 +450,13 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
           mdY += mdPendingLeftH;
           mdPendingLeftH = 0;
         }
+        mdNonFullCount = 0;
         const item = { i: panel.id, x: 0, y: mdY, w: 8, h, minW: 4, minH: 2 };
         mdY += h;
         return item;
       }
-      const col = (i - 1) % 2;
+      const col = mdNonFullCount % 2;
+      mdNonFullCount++;
       const item = { i: panel.id, x: col * 4, y: mdY, w: 4, h, minW: 3, minH: 2 };
       if (col === 0) {
         mdPendingLeftH = h;
@@ -508,7 +562,8 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
               {orderedPanels.map((panel) => {
                 const name = (panel.componentName || "").toLowerCase();
                 const isMap = name.includes("map") || name.includes("h3map");
-                const minH = isMap ? "h-[420px]" : "h-[280px]";
+                const compact = isCompactComponent(panel.componentName || "");
+                const minH = isMap ? "h-[420px]" : compact ? "h-auto" : "h-[280px]";
                 return (
                   <SortablePanel
                     key={panel.id}

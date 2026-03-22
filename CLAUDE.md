@@ -31,7 +31,7 @@ pnpm lint:fix     # biome auto-fix
 
 **Cross-filter bus**: Lightweight pub/sub in `query-store.ts`. Components emit/consume `bbox` (map viewport) and `value` (click) filters. Requires shared `queryId` + `hex`/`pentagon` column.
 
-**Dashboard canvas**: Desktop = `react-grid-layout`, Touch = `@dnd-kit/sortable` (1.2s hold, grip-only drag). Panel IDs are deduplicated via `Set`. State persisted to localStorage per thread: panel order (`panel-order-${threadId}`), panel layouts/sizes (`panel-layouts-${threadId}`, debounced 500ms), dismissed panels (`panel-dismissed-${threadId}`).
+**Dashboard canvas**: Desktop = `react-grid-layout`, Touch = `@dnd-kit/sortable` (1.2s hold, grip-only drag). Panel IDs are deduplicated via `Set`. State persisted to localStorage per thread: panel order (`panel-order-${threadId}`), panel layouts/sizes (`panel-layouts-${threadId}`, debounced 500ms), dismissed panels (`panel-dismissed-${threadId}`). First panel and maps always full-width. Non-first/non-map panels pair in 2-column layout. `nonFullCount` counter tracks column position (resets after full-width panels). **Compact panel sizing**: StatsGrid/StatsCard/InsightCard/DatasetCard/QueryDisplay/DataCard get 2 grid rows (160px) via `panelHeight()` and `h-auto` on touch via `isCompactComponent()`.
 
 **Data service (modular)**:
 - `src/services/datasets/` — 9 dataset modules + registry index
@@ -146,7 +146,8 @@ src/lib/tambo/
 │   ├── dataset-tools.ts      # listDatasets + buildParquetUrl + describeDataset
 │   ├── cross-index.ts        # getCrossIndex — 11 cross-dataset analyses
 │   ├── suggest.ts            # suggestAnalysis — NL keyword routing
-│   └── arcgis.ts             # describeArcGISLayer — FeatureServer metadata + pre-load
+│   ├── arcgis.ts             # describeArcGISLayer — FeatureServer metadata + pre-load
+│   └── dashboard.ts          # dismissPanels — clear all or specific panels by type/id
 ├── components/
 │   ├── index.ts              # Aggregates all components into TamboComponent[]
 │   ├── geo-map.ts            # GeoMap + H3Map (deck.gl map)

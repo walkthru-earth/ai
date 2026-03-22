@@ -356,10 +356,8 @@ function extractHoverProps(info: any, layerType: LayerType): Record<string, unkn
     }
   }
   // Standard layers: object is a JS object
-  if (layerType === "h3") return { hex: obj.hex, value: obj.value };
-  if (layerType === "a5") return { pentagon: obj.pentagon, value: obj.value };
   if (layerType === "geojson" && obj.properties) return obj.properties;
-  // Scatterplot, arc, wkb: return all props except internal
+  // H3, A5, scatterplot, arc: return all props except internal keys
   const result: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(obj)) {
     if (k.startsWith("_") || SKIP_HOVER_KEYS.has(k)) continue;
@@ -823,8 +821,6 @@ function buildLayers(
 
 /* ── Tooltip formatting ─────────────────────────────────────────── */
 
-const MAX_TOOLTIP_FIELDS = 6;
-
 function formatTooltipValue(val: unknown): string {
   if (val == null) return "—";
   if (typeof val === "number") {
@@ -836,11 +832,11 @@ function formatTooltipValue(val: unknown): string {
 }
 
 function MapTooltip({ hover, containerRect }: { hover: HoverInfo; containerRect: DOMRect | null }) {
-  const entries = Object.entries(hover.object).slice(0, MAX_TOOLTIP_FIELDS);
+  const entries = Object.entries(hover.object);
   if (entries.length === 0) return null;
 
   // Position tooltip, keeping it within bounds
-  const tooltipW = 220;
+  const tooltipW = 240;
   const tooltipH = entries.length * 24 + 16;
   const cw = containerRect?.width ?? 800;
   const ch = containerRect?.height ?? 600;
@@ -849,21 +845,16 @@ function MapTooltip({ hover, containerRect }: { hover: HoverInfo; containerRect:
 
   return (
     <div
-      className="absolute z-20 pointer-events-none rounded-lg border bg-card/95 shadow-lg backdrop-blur-sm overflow-hidden"
+      className="absolute z-20 pointer-events-none rounded-lg border bg-card/95 shadow-lg backdrop-blur-sm overflow-hidden max-h-[60vh] overflow-y-auto"
       style={{ left: x, top: y, maxWidth: tooltipW }}
     >
       <div className="px-2.5 py-1.5 space-y-0.5">
         {entries.map(([key, val]) => (
           <div key={key} className="flex items-baseline gap-1.5 text-xs">
-            <span className="text-muted-foreground truncate shrink-0 max-w-[80px]">{key}</span>
+            <span className="text-muted-foreground truncate shrink-0 max-w-[90px]">{key}</span>
             <span className="text-foreground font-medium truncate">{formatTooltipValue(val)}</span>
           </div>
         ))}
-        {Object.keys(hover.object).length > MAX_TOOLTIP_FIELDS && (
-          <div className="text-[10px] text-muted-foreground/60">
-            +{Object.keys(hover.object).length - MAX_TOOLTIP_FIELDS} more
-          </div>
-        )}
       </div>
     </div>
   );

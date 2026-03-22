@@ -14,12 +14,13 @@ paths:
 ```
 src/lib/tambo/
 ├── index.ts              # Aggregator: tamboProviderConfig + re-exports
-├── tools/                # 7 tool registrations (1 file per tool or related group)
+├── tools/                # 8 tool registrations (1 file per tool or related group)
 │   ├── run-sql.ts        # runSQL — most critical, queryId pattern
 │   ├── dataset-tools.ts  # listDatasets + buildParquetUrl + describeDataset
 │   ├── cross-index.ts    # getCrossIndex (11 analyses)
 │   ├── suggest.ts        # suggestAnalysis
-│   └── arcgis.ts         # describeArcGISLayer — ArcGIS FeatureServer metadata + pre-load
+│   ├── arcgis.ts         # describeArcGISLayer — ArcGIS FeatureServer metadata + pre-load
+│   └── dashboard.ts      # dismissPanels — clear all or specific panels by type/id
 ├── components/           # 11 component registrations
 │   ├── geo-map.ts        # GeoMap + H3Map (deck.gl)
 │   ├── graph.ts          # Graph (10 chart types)
@@ -27,7 +28,7 @@ src/lib/tambo/
 │   ├── objex-viewer.ts   # ObjexViewer (3D raster)
 │   └── static.ts         # StatsCard, StatsGrid, InsightCard, DatasetCard, QueryDisplay, DataCard
 ├── context/              # AI context helpers (split by concern)
-│   ├── behavior.ts       # AI behavior rules
+│   ├── behavior.ts       # AI behavior rules (analytical commentary, decisiveness)
 │   ├── duckdb-notes.ts   # DuckDB v1.5 WASM rules
 │   ├── dataset-paths.ts  # 9 dataset S3 paths
 │   └── component-tips.ts # Component usage tips + cross-index patterns

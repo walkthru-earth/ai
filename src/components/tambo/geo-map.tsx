@@ -349,8 +349,8 @@ function transformQueryToLayer(
         const val = row[opts.valueColumn];
         if (pentagon != null) {
           const numVal = toNum(val);
-          // A5Layer accepts bigint or hex string — pass as string
-          data.push({ pentagon: String(pentagon), value: numVal });
+          // Pass all row data so tooltip can display all columns
+          data.push({ ...row, pentagon: String(pentagon), value: numVal });
           vals.push(numVal);
           const lat = resolveColumn(row, "lat", "latitude") as number | undefined;
           const lng = resolveColumn(row, "lng", "longitude") as number | undefined;
@@ -367,7 +367,8 @@ function transformQueryToLayer(
         const val = row[opts.valueColumn];
         if (typeof hex === "string" && hex.length > 0) {
           const numVal = toNum(val);
-          data.push({ hex, value: numVal });
+          // Pass all row data so tooltip can display all columns
+          data.push({ ...row, hex, value: numVal });
           vals.push(numVal);
           const lat = resolveColumn(row, "lat", "latitude") as number | undefined;
           const lng = resolveColumn(row, "lng", "longitude") as number | undefined;
