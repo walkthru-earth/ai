@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import * as React from "react";
 import { z } from "zod";
+import { CardSkeleton } from "@/components/ui/card-skeleton";
 import { cn } from "@/lib/utils";
 
 export const statsCardSchema = z.object({
@@ -58,7 +59,7 @@ const COLOR_CLASSES: Record<string, string> = {
 export const StatsCard = React.forwardRef<HTMLDivElement, StatsCardProps>(
   ({ title, value, subtitle, change, trend = "flat", icon, color = "blue" }, ref) => {
     if (!title) {
-      return <div ref={ref} className="rounded-xl border p-4 animate-pulse bg-muted/30 h-28" />;
+      return <CardSkeleton ref={ref} className="h-28" />;
     }
 
     const trendIcon = trend === "up" ? "↑" : trend === "down" ? "↓" : "→";

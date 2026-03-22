@@ -1,5 +1,6 @@
 import * as React from "react";
 import { z } from "zod";
+import { CardSkeleton } from "@/components/ui/card-skeleton";
 import { StatsCard, statsCardSchema } from "./stats-card";
 
 export const statsGridSchema = z.object({
@@ -20,7 +21,7 @@ export const StatsGrid = React.forwardRef<HTMLDivElement, StatsGridProps>(({ tit
     return (
       <div ref={ref} className="grid grid-cols-2 gap-3">
         {[...Array(4)].map((_, i) => (
-          <div key={i} className="rounded-xl border p-4 animate-pulse bg-muted/30 h-28" />
+          <CardSkeleton key={i} className="h-28" />
         ))}
       </div>
     );

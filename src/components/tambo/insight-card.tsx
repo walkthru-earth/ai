@@ -1,6 +1,7 @@
 import { AlertOctagon, AlertTriangle, CheckCircle2, Info, MapPin } from "lucide-react";
 import * as React from "react";
 import { z } from "zod";
+import { CardSkeleton } from "@/components/ui/card-skeleton";
 import { cn } from "@/lib/utils";
 
 export const insightCardSchema = z.object({
@@ -56,7 +57,7 @@ export const InsightCard = React.forwardRef<HTMLDivElement, InsightCardProps>(
     const style = SEVERITY_STYLES[severity ?? "info"] ?? SEVERITY_STYLES.info;
 
     if (!title) {
-      return <div ref={ref} className="rounded-xl border p-4 animate-pulse bg-muted/30 h-32" />;
+      return <CardSkeleton ref={ref} className="h-32" />;
     }
 
     return (

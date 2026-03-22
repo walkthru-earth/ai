@@ -1,6 +1,7 @@
 import { Building2, Cloud, Database, Mountain, Users } from "lucide-react";
 import * as React from "react";
 import { z } from "zod";
+import { CardSkeleton } from "@/components/ui/card-skeleton";
 import { cn } from "@/lib/utils";
 
 export const datasetCardSchema = z.object({
@@ -37,7 +38,7 @@ export const DatasetCard = React.forwardRef<HTMLDivElement, DatasetCardProps>(
     const style = CATEGORY_STYLES[category] ?? CATEGORY_STYLES["cross-index"];
 
     if (!name) {
-      return <div ref={ref} className="rounded-xl border p-4 animate-pulse bg-muted/30 h-36" />;
+      return <CardSkeleton ref={ref} className="h-36" />;
     }
 
     return (
