@@ -1,11 +1,40 @@
 import { withTamboInteractable } from "@tambo-ai/react";
 import { cva } from "class-variance-authority";
 import * as React from "react";
-import { useMemo } from "react";
-import * as RechartsCore from "recharts";
+import { useCallback, useMemo } from "react";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ComposedChart,
+  Funnel,
+  FunnelChart,
+  LabelList,
+  Legend,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  PolarAngleAxis,
+  PolarGrid,
+  PolarRadiusAxis,
+  Radar,
+  RadarChart,
+  RadialBar,
+  RadialBarChart,
+  ResponsiveContainer,
+  Scatter,
+  ScatterChart,
+  Tooltip,
+  Treemap,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { z } from "zod";
 import { cn } from "@/lib/utils";
-import { setCrossFilter, useCrossFilter, useQueryResult } from "@/services/query-store";
+import { applyCrossFilter, setCrossFilter, useCrossFilter, useQueryResult } from "@/services/query-store";
 import { useInDashboardPanel } from "./panel-context";
 
 /* ── Variants ─────────────────────────────────────────────────────── */
@@ -128,6 +157,68 @@ const defaultColors = [
   "hsl(190, 90%, 50%)",
 ];
 
+/* ── Module-level constants ───────────────────────────────────────── */
+
+const tooltipStyle = {
+  backgroundColor: "var(--card)",
+  border: "1px solid var(--border)",
+  borderRadius: "0.5rem",
+  color: "var(--foreground)",
+};
+
+const tooltipFormatter = (value: number, name: string) => {
+  const formatted =
+    Math.abs(value) >= 1000
+      ? value.toLocaleString(undefined, { maximumFractionDigits: 1 })
+      : String(Math.round(value * 100) / 100);
+  return [formatted, name];
+};
+
+/* ── CustomXTick ──────────────────────────────────────────────────── */
+
+interface CustomXTickProps {
+  x?: number;
+  y?: number;
+  payload?: { value: string };
+  rotated: boolean;
+  longLabels: boolean;
+  shortenXTick: (v: string) => { short: string; full: string };
+}
+
+const CustomXTick = ({ x, y, payload, rotated, longLabels, shortenXTick }: CustomXTickProps) => {
+  if (!payload?.value) return null;
+  const { short, full } = longLabels
+    ? shortenXTick(payload.value)
+    : { short: String(payload.value), full: String(payload.value) };
+  const isTruncated = short !== full;
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text
+        x={0}
+        y={0}
+        dy={10}
+        textAnchor={rotated ? "end" : "middle"}
+        transform={rotated ? "rotate(-45)" : undefined}
+        fill="var(--muted-foreground)"
+        fontSize={longLabels ? 9 : 10}
+        style={isTruncated ? { cursor: "help" } : undefined}
+      >
+        {isTruncated && <title>{full}</title>}
+        {short}
+      </text>
+    </g>
+  );
+};
+
+// Shorten a label string, keeping the full text for hover
+const shortenXTick = (v: string): { short: string; full: string } => {
+  const s = String(v);
+  if (s.length <= 10) return { short: s, full: s };
+  const dtMatch = s.match(/\d{4}-(\d{2}-\d{2})\s*(\d{2}:\d{2})/);
+  if (dtMatch) return { short: `${dtMatch[1]} ${dtMatch[2]}`, full: s };
+  return s.length > 14 ? { short: `${s.slice(0, 12)}…`, full: s } : { short: s, full: s };
+};
+
 /* ── Component ─────────────────────────────────────────────────────── */
 
 export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
@@ -146,19 +237,7 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
         if (!queryResult || queryResult.rows.length === 0) return null;
 
         // Apply spatial cross-filter: only show rows whose hex is in the map viewport
-        let rows = queryResult.rows;
-        if (
-          crossFilter &&
-          crossFilter.sourceComponent !== "Graph" &&
-          crossFilter.filterType === "bbox" &&
-          crossFilter.values.length > 0
-        ) {
-          const visibleSet = new Set(crossFilter.values);
-          const matchCol = queryResult.columns.includes(crossFilter.column) ? crossFilter.column : null;
-          if (matchCol) {
-            rows = rows.filter((r) => visibleSet.has(r[matchCol] as string));
-          }
-        }
+        const rows = applyCrossFilter(queryResult.rows, queryResult.columns, crossFilter, "Graph");
 
         return {
           type: chartType ?? "bar",
@@ -173,6 +252,25 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
     }, [queryId, queryResult, xColumn, yColumns, chartType, data, crossFilter]);
 
     const heightClass = inPanel ? "h-full" : "h-[320px]";
+
+    // Cross-filter: highlight matching bar/point (must be before early returns for hook rules)
+    const handleBarClick = useCallback(
+      (entry: any) => {
+        const clickedLabel = entry?.name ?? entry?.payload?.name;
+        if (clickedLabel != null) {
+          if (queryId && xColumn) {
+            setCrossFilter({
+              sourceQueryId: queryId,
+              sourceComponent: "Graph",
+              filterType: "value",
+              column: xColumn,
+              values: [clickedLabel],
+            });
+          }
+        }
+      },
+      [queryId, xColumn],
+    );
 
     // Loading state
     if (!resolvedData) {
@@ -206,23 +304,6 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
       ...Object.fromEntries(validDatasets.map((d) => [d.label, d.data[i] ?? 0])),
     }));
 
-    // Cross-filter: highlight matching bar/point
-    const handleBarClick = (entry: any) => {
-      const clickedLabel = entry?.name ?? entry?.payload?.name;
-      if (clickedLabel != null) {
-        // clickedLabel available for cross-filter below
-        if (queryId && xColumn) {
-          setCrossFilter({
-            sourceQueryId: queryId,
-            sourceComponent: "Graph",
-            filterType: "value",
-            column: xColumn,
-            values: [clickedLabel],
-          });
-        }
-      }
-    };
-
     // Auto-rotate/hide X labels when many data points
     const manyPoints = chartData.length > 10;
     // Detect if X labels are long (e.g. datetime strings) — need more rotation + truncation
@@ -230,40 +311,17 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
     const longLabels = maxLabelLen > 12;
     const rotated = manyPoints || longLabels;
 
-    // Shorten a label string, keeping the full text for hover
-    const shortenXTick = (v: string): { short: string; full: string } => {
-      const s = String(v);
-      if (s.length <= 10) return { short: s, full: s };
-      const dtMatch = s.match(/\d{4}-(\d{2}-\d{2})\s*(\d{2}:\d{2})/);
-      if (dtMatch) return { short: `${dtMatch[1]} ${dtMatch[2]}`, full: s };
-      return s.length > 14 ? { short: `${s.slice(0, 12)}…`, full: s } : { short: s, full: s };
-    };
-
-    // Custom X-axis tick with <title> for hover on truncated text
-    const CustomXTick = ({ x, y, payload }: any) => {
-      if (!payload?.value) return null;
-      const { short, full } = longLabels
-        ? shortenXTick(payload.value)
-        : { short: String(payload.value), full: String(payload.value) };
-      const isTruncated = short !== full;
-      return (
-        <g transform={`translate(${x},${y})`}>
-          <text
-            x={0}
-            y={0}
-            dy={10}
-            textAnchor={rotated ? "end" : "middle"}
-            transform={rotated ? "rotate(-45)" : undefined}
-            fill="var(--muted-foreground)"
-            fontSize={longLabels ? 9 : 10}
-            style={isTruncated ? { cursor: "help" } : undefined}
-          >
-            {isTruncated && <title>{full}</title>}
-            {short}
-          </text>
-        </g>
-      );
-    };
+    // Tooltip formatter that uses yLabel for single-dataset charts
+    const tooltipFormatterWithLabel =
+      yLabel && validDatasets.length === 1
+        ? (value: number, _name: string) => {
+            const formatted =
+              Math.abs(value) >= 1000
+                ? value.toLocaleString(undefined, { maximumFractionDigits: 1 })
+                : String(Math.round(value * 100) / 100);
+            return [formatted, yLabel];
+          }
+        : tooltipFormatter;
 
     const xAxisProps = {
       dataKey: "name" as const,
@@ -272,7 +330,11 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
       tickLine: false,
       interval: manyPoints ? Math.ceil(chartData.length / 8) : 0,
       height: rotated ? 55 : 30,
-      tick: longLabels ? CustomXTick : undefined,
+      tick: longLabels
+        ? (props: any) => (
+            <CustomXTick {...props} rotated={rotated} longLabels={longLabels} shortenXTick={shortenXTick} />
+          )
+        : undefined,
       // When not using custom tick, use basic props
       ...(longLabels
         ? {}
@@ -343,44 +405,24 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
         : undefined,
     };
 
-    const tooltipStyle = {
-      backgroundColor: "var(--card)",
-      border: "1px solid var(--border)",
-      borderRadius: "0.5rem",
-      color: "var(--foreground)",
-    };
-
-    // Format tooltip values: round to reasonable precision
-    const tooltipFormatter = (value: number, name: string) => {
-      const formatted =
-        Math.abs(value) >= 1000
-          ? value.toLocaleString(undefined, { maximumFractionDigits: 1 })
-          : String(Math.round(value * 100) / 100);
-      return [formatted, yLabel && validDatasets.length === 1 ? yLabel : name];
-    };
-
     const renderChart = () => {
       switch (type) {
         case "bar":
           return (
-            <RechartsCore.BarChart data={chartData} onClick={handleBarClick}>
-              <RechartsCore.CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-              <RechartsCore.XAxis {...xAxisProps} />
-              <RechartsCore.YAxis {...yAxisProps} />
-              <RechartsCore.Tooltip
+            <BarChart data={chartData} onClick={handleBarClick}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+              <XAxis {...xAxisProps} />
+              <YAxis {...yAxisProps} />
+              <Tooltip
                 contentStyle={tooltipStyle}
-                formatter={tooltipFormatter}
+                formatter={tooltipFormatterWithLabel}
                 cursor={{ fill: "var(--muted-foreground)", fillOpacity: 0.1 }}
               />
               {showLegend && validDatasets.length > 1 && (
-                <RechartsCore.Legend
-                  verticalAlign="top"
-                  height={24}
-                  wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }}
-                />
+                <Legend verticalAlign="top" height={24} wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }} />
               )}
               {validDatasets.map((d, i) => (
-                <RechartsCore.Bar
+                <Bar
                   key={d.label}
                   dataKey={d.label}
                   fill={d.color ?? defaultColors[i % defaultColors.length]}
@@ -388,24 +430,20 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
                   isAnimationActive={false}
                 />
               ))}
-            </RechartsCore.BarChart>
+            </BarChart>
           );
         case "line":
           return (
-            <RechartsCore.LineChart data={chartData}>
-              <RechartsCore.CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-              <RechartsCore.XAxis {...xAxisProps} />
-              <RechartsCore.YAxis {...yAxisProps} />
-              <RechartsCore.Tooltip contentStyle={tooltipStyle} formatter={tooltipFormatter} />
+            <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+              <XAxis {...xAxisProps} />
+              <YAxis {...yAxisProps} />
+              <Tooltip contentStyle={tooltipStyle} formatter={tooltipFormatterWithLabel} />
               {showLegend && validDatasets.length > 1 && (
-                <RechartsCore.Legend
-                  verticalAlign="top"
-                  height={24}
-                  wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }}
-                />
+                <Legend verticalAlign="top" height={24} wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }} />
               )}
               {validDatasets.map((d, i) => (
-                <RechartsCore.Line
+                <Line
                   key={d.label}
                   type="monotone"
                   dataKey={d.label}
@@ -415,11 +453,11 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
                   isAnimationActive={false}
                 />
               ))}
-            </RechartsCore.LineChart>
+            </LineChart>
           );
         case "area":
           return (
-            <RechartsCore.AreaChart data={chartData}>
+            <AreaChart data={chartData}>
               <defs>
                 {validDatasets.map((d, i) => {
                   const color = d.color ?? defaultColors[i % defaultColors.length];
@@ -431,19 +469,15 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
                   );
                 })}
               </defs>
-              <RechartsCore.CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-              <RechartsCore.XAxis {...xAxisProps} />
-              <RechartsCore.YAxis {...yAxisProps} />
-              <RechartsCore.Tooltip contentStyle={tooltipStyle} formatter={tooltipFormatter} />
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+              <XAxis {...xAxisProps} />
+              <YAxis {...yAxisProps} />
+              <Tooltip contentStyle={tooltipStyle} formatter={tooltipFormatterWithLabel} />
               {showLegend && validDatasets.length > 1 && (
-                <RechartsCore.Legend
-                  verticalAlign="top"
-                  height={24}
-                  wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }}
-                />
+                <Legend verticalAlign="top" height={24} wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }} />
               )}
               {validDatasets.map((d, i) => (
-                <RechartsCore.Area
+                <Area
                   key={d.label}
                   type="monotone"
                   dataKey={d.label}
@@ -453,7 +487,7 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
                   isAnimationActive={false}
                 />
               ))}
-            </RechartsCore.AreaChart>
+            </AreaChart>
           );
         case "scatter": {
           // Scatter: first yColumn = X-axis, second yColumn = Y-axis (or use xColumn for labels)
@@ -467,9 +501,9 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
             ...d,
           }));
           return (
-            <RechartsCore.ScatterChart>
-              <RechartsCore.CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-              <RechartsCore.XAxis
+            <ScatterChart>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <XAxis
                 type="number"
                 dataKey="x"
                 name={scatterDs.label}
@@ -489,7 +523,7 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
                     : undefined
                 }
               />
-              <RechartsCore.YAxis
+              <YAxis
                 type="number"
                 dataKey="y"
                 name={scatterY.label}
@@ -508,27 +542,23 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
                     : undefined
                 }
               />
-              <RechartsCore.Tooltip contentStyle={tooltipStyle} />
-              <RechartsCore.Scatter data={scatterData} fill={defaultColors[0]} isAnimationActive={false} />
-            </RechartsCore.ScatterChart>
+              <Tooltip contentStyle={tooltipStyle} />
+              <Scatter data={scatterData} fill={defaultColors[0]} isAnimationActive={false} />
+            </ScatterChart>
           );
         }
         case "radar": {
           return (
-            <RechartsCore.RadarChart cx="50%" cy="50%" outerRadius="70%" data={chartData}>
-              <RechartsCore.PolarGrid stroke="var(--border)" />
-              <RechartsCore.PolarAngleAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={10} />
-              <RechartsCore.PolarRadiusAxis stroke="var(--muted-foreground)" fontSize={9} />
-              <RechartsCore.Tooltip contentStyle={tooltipStyle} formatter={tooltipFormatter} />
+            <RadarChart cx="50%" cy="50%" outerRadius="70%" data={chartData}>
+              <PolarGrid stroke="var(--border)" />
+              <PolarAngleAxis dataKey="name" stroke="var(--muted-foreground)" fontSize={10} />
+              <PolarRadiusAxis stroke="var(--muted-foreground)" fontSize={9} />
+              <Tooltip contentStyle={tooltipStyle} formatter={tooltipFormatterWithLabel} />
               {showLegend && validDatasets.length > 1 && (
-                <RechartsCore.Legend
-                  verticalAlign="top"
-                  height={24}
-                  wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }}
-                />
+                <Legend verticalAlign="top" height={24} wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }} />
               )}
               {validDatasets.map((d, i) => (
-                <RechartsCore.Radar
+                <Radar
                   key={d.label}
                   name={d.label}
                   dataKey={d.label}
@@ -538,7 +568,7 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
                   isAnimationActive={false}
                 />
               ))}
-            </RechartsCore.RadarChart>
+            </RadarChart>
           );
         }
         case "radialBar": {
@@ -549,28 +579,17 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
               fill: defaultColors[i % defaultColors.length],
             })) ?? [];
           return (
-            <RechartsCore.RadialBarChart
-              cx="50%"
-              cy="50%"
-              innerRadius="20%"
-              outerRadius="90%"
-              barSize={16}
-              data={rbData}
-            >
-              <RechartsCore.RadialBar
+            <RadialBarChart cx="50%" cy="50%" innerRadius="20%" outerRadius="90%" barSize={16} data={rbData}>
+              <RadialBar
                 dataKey="value"
                 isAnimationActive={false}
                 label={{ fill: "var(--foreground)", fontSize: 10, position: "insideStart" }}
               />
-              <RechartsCore.Tooltip contentStyle={tooltipStyle} />
+              <Tooltip contentStyle={tooltipStyle} />
               {showLegend && (
-                <RechartsCore.Legend
-                  verticalAlign="top"
-                  height={24}
-                  wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }}
-                />
+                <Legend verticalAlign="top" height={24} wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }} />
               )}
-            </RechartsCore.RadialBarChart>
+            </RadialBarChart>
           );
         }
         case "treemap": {
@@ -581,7 +600,7 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
               fill: defaultColors[i % defaultColors.length],
             })) ?? [];
           return (
-            <RechartsCore.Treemap
+            <Treemap
               data={tmData}
               dataKey="size"
               nameKey="name"
@@ -631,21 +650,17 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
         case "composed":
           // First yColumn rendered as bar, remaining as lines overlaid
           return (
-            <RechartsCore.ComposedChart data={chartData} onClick={handleBarClick}>
-              <RechartsCore.CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
-              <RechartsCore.XAxis {...xAxisProps} />
-              <RechartsCore.YAxis {...yAxisProps} />
-              <RechartsCore.Tooltip contentStyle={tooltipStyle} formatter={tooltipFormatter} />
+            <ComposedChart data={chartData} onClick={handleBarClick}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+              <XAxis {...xAxisProps} />
+              <YAxis {...yAxisProps} />
+              <Tooltip contentStyle={tooltipStyle} formatter={tooltipFormatterWithLabel} />
               {showLegend && validDatasets.length > 1 && (
-                <RechartsCore.Legend
-                  verticalAlign="top"
-                  height={24}
-                  wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }}
-                />
+                <Legend verticalAlign="top" height={24} wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }} />
               )}
               {validDatasets.map((d, i) =>
                 i === 0 ? (
-                  <RechartsCore.Bar
+                  <Bar
                     key={d.label}
                     dataKey={d.label}
                     fill={d.color ?? defaultColors[i % defaultColors.length]}
@@ -654,7 +669,7 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
                     opacity={0.7}
                   />
                 ) : (
-                  <RechartsCore.Line
+                  <Line
                     key={d.label}
                     type="monotone"
                     dataKey={d.label}
@@ -665,14 +680,14 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
                   />
                 ),
               )}
-            </RechartsCore.ComposedChart>
+            </ComposedChart>
           );
         case "pie": {
           const pieDs = validDatasets[0];
           if (!pieDs) return null;
           return (
-            <RechartsCore.PieChart>
-              <RechartsCore.Pie
+            <PieChart>
+              <Pie
                 data={pieDs.data.slice(0, maxPts).map((v, i) => ({
                   name: labels[i],
                   value: v,
@@ -686,15 +701,11 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
                 labelLine={false}
                 isAnimationActive={false}
               />
-              <RechartsCore.Tooltip contentStyle={tooltipStyle} formatter={tooltipFormatter} />
+              <Tooltip contentStyle={tooltipStyle} formatter={tooltipFormatterWithLabel} />
               {showLegend && (
-                <RechartsCore.Legend
-                  verticalAlign="top"
-                  height={24}
-                  wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }}
-                />
+                <Legend verticalAlign="top" height={24} wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }} />
               )}
-            </RechartsCore.PieChart>
+            </PieChart>
           );
         }
         case "funnel": {
@@ -705,18 +716,12 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
               fill: defaultColors[i % defaultColors.length],
             })) ?? [];
           return (
-            <RechartsCore.FunnelChart>
-              <RechartsCore.Tooltip contentStyle={tooltipStyle} formatter={tooltipFormatter} />
-              <RechartsCore.Funnel dataKey="value" data={fnData} isAnimationActive={false}>
-                <RechartsCore.LabelList
-                  position="right"
-                  fill="var(--foreground)"
-                  stroke="none"
-                  fontSize={10}
-                  dataKey="name"
-                />
-              </RechartsCore.Funnel>
-            </RechartsCore.FunnelChart>
+            <FunnelChart>
+              <Tooltip contentStyle={tooltipStyle} formatter={tooltipFormatterWithLabel} />
+              <Funnel dataKey="value" data={fnData} isAnimationActive={false}>
+                <LabelList position="right" fill="var(--foreground)" stroke="none" fontSize={10} dataKey="name" />
+              </Funnel>
+            </FunnelChart>
           );
         }
         default:
@@ -732,9 +737,9 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
           <div className="p-2 sm:p-4 h-full flex flex-col">
             {showTitle && <h3 className="text-xs sm:text-sm font-semibold mb-1 sm:mb-3 text-foreground">{title}</h3>}
             <div className="w-full flex-1 min-h-0">
-              <RechartsCore.ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+              <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                 {renderChart() ?? <></>}
-              </RechartsCore.ResponsiveContainer>
+              </ResponsiveContainer>
             </div>
           </div>
         </div>
