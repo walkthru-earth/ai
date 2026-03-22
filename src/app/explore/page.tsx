@@ -1,3 +1,4 @@
+import type { Suggestion } from "@tambo-ai/react";
 import { TamboProvider, useTambo, useTamboThreadList } from "@tambo-ai/react";
 import { ChevronDown, ChevronLeft, ChevronRight, Clock, MessageSquare, Plus, Share2, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -22,12 +23,10 @@ import {
 import { ScrollableMessageContainer } from "@/components/tambo/scrollable-message-container";
 import { ThreadContent, ThreadContentMessages } from "@/components/tambo/thread-content";
 import { WalkthruLogo } from "@/components/walkthru-logo";
-import { buildContextHelpers, buildInitialSuggestions, tamboProviderConfig } from "@/lib/tambo";
+import { tamboProviderConfig } from "@/lib/tambo";
 import { useReplayQueries } from "@/lib/thread-hooks";
-import { useAnonymousUserKey } from "@/lib/use-anonymous-user-key";
-import { type GeoIP, useGeoIP } from "@/lib/use-geo-ip";
+import { usePageBootstrap } from "@/lib/use-page-bootstrap";
 import { basePath, cn } from "@/lib/utils";
-import { preloadDuckDB } from "@/services/duckdb-wasm";
 
 /* ── Helper: extract thread preview name ──────────────────────────── */
 
@@ -165,10 +164,9 @@ function MobileBottomSheet({
   return (
     <div
       className={cn(
-        "sm:hidden fixed inset-x-0 bottom-0 z-30 glass-panel transition-all duration-300 ease-out flex flex-col",
+        "sm:hidden fixed inset-x-0 bottom-0 z-30 glass-panel transition-all duration-300 ease-out flex flex-col border-t border-border",
         expanded && "top-0",
       )}
-      style={{ borderTop: "1px solid var(--border)" }}
     >
       {/* Drag handle — swipe up to expand, down to collapse, tap to toggle */}
       <div
@@ -185,18 +183,12 @@ function MobileBottomSheet({
   );
 }
 
-function ExplorerLayout({ geo }: { geo: GeoIP | null }) {
-  const defaultSuggestions = useMemo(() => buildInitialSuggestions(geo), [geo]);
+function ExplorerLayout({ suggestions: defaultSuggestions }: { suggestions: Suggestion[] }) {
   const [isChatOpen, setIsChatOpen] = useState(true);
   const [showHistory, setShowHistory] = useState(false);
   // Mobile: "collapsed" = input bar at bottom, "expanded" = full-screen chat
   const [mobileChat, setMobileChat] = useState<"collapsed" | "expanded">("collapsed");
   const { messages, currentThreadId, switchThread } = useTambo();
-
-  // Preload DuckDB on mount so it's warm before the first query
-  useEffect(() => {
-    preloadDuckDB();
-  }, []);
 
   // Auto-expand mobile chat when a new message arrives (user submitted)
   const prevMessageCount = useRef(messages.length);
@@ -270,8 +262,7 @@ function ExplorerLayout({ geo }: { geo: GeoIP | null }) {
       <div
         className={`hidden sm:flex ${
           isChatOpen ? "sm:w-[400px]" : "w-0"
-        } glass-panel transition-all duration-300 ease-out flex-col relative flex-shrink-0 z-20`}
-        style={{ borderRight: "1px solid var(--border)" }}
+        } glass-panel transition-all duration-300 ease-out flex-col relative flex-shrink-0 z-20 border-r border-border`}
       >
         {isChatOpen && (
           <>
@@ -427,13 +418,11 @@ function ExplorerLayout({ geo }: { geo: GeoIP | null }) {
 /* ── Page ──────────────────────────────────────────────────────────── */
 
 export default function ExplorePage() {
-  const userKey = useAnonymousUserKey();
-  const geo = useGeoIP();
-  const contextHelpers = useMemo(() => buildContextHelpers(geo), [geo]);
+  const { userKey, contextHelpers, suggestions } = usePageBootstrap();
 
   return (
     <TamboProvider {...tamboProviderConfig} userKey={userKey} contextHelpers={contextHelpers}>
-      <ExplorerLayout geo={geo} />
+      <ExplorerLayout suggestions={suggestions} />
     </TamboProvider>
   );
 }

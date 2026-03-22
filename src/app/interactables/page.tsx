@@ -19,17 +19,17 @@ export default function InteractablesPage() {
 
   return (
     <TamboProvider {...tamboProviderConfig} userKey={userKey}>
-      <div className="flex h-screen bg-gray-50">
+      <div className="flex h-screen bg-background">
         {/* Chat Sidebar */}
         <div
           className={`${
             isChatOpen ? "w-80" : "w-0"
-          } border-r border-gray-200 bg-white transition-all duration-300 flex flex-col relative`}
+          } border-r border-border bg-card transition-all duration-300 flex flex-col relative`}
         >
           {isChatOpen && (
             <>
-              <div className="p-4 border-b border-gray-200">
-                <h2 className="text-lg font-semibold text-gray-900">Chat Assistant</h2>
+              <div className="p-4 border-b border-border">
+                <h2 className="text-lg font-semibold text-foreground">Chat Assistant</h2>
               </div>
 
               <ScrollableMessageContainer className="flex-1 p-4">
@@ -38,7 +38,7 @@ export default function InteractablesPage() {
                 </ThreadContent>
               </ScrollableMessageContainer>
 
-              <div className="p-4 border-t border-gray-200">
+              <div className="p-4 border-t border-border">
                 <MessageInput variant="bordered">
                   <MessageInputTextarea placeholder="Update the settings..." />
                   <MessageInputToolbar>
@@ -52,7 +52,7 @@ export default function InteractablesPage() {
           {/* Toggle Button */}
           <button
             onClick={() => setIsChatOpen(!isChatOpen)}
-            className="absolute -right-10 top-1/2 -translate-y-1/2 bg-white border border-gray-200 rounded-r-lg p-2 hover:bg-gray-50"
+            className="absolute -right-10 top-1/2 -translate-y-1/2 bg-card border border-border rounded-r-lg p-2 hover:bg-muted"
           >
             {isChatOpen ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
           </button>

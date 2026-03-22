@@ -126,8 +126,8 @@ const messageInputVariants = cva("w-full", {
       solid: [
         "[&>div]:bg-background",
         "[&>div]:border-0",
-        "[&>div]:shadow-xl [&>div]:shadow-black/5 [&>div]:dark:shadow-black/20",
-        "[&>div]:ring-1 [&>div]:ring-black/5 [&>div]:dark:ring-white/10",
+        "[&>div]:shadow-xl [&>div]:shadow-black/10",
+        "[&>div]:ring-1 [&>div]:ring-border",
         "[&_textarea]:bg-transparent",
         "[&_textarea]:rounded-lg",
       ].join(" "),
