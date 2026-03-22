@@ -7,8 +7,8 @@ import { Link2, Link2Off, Monitor, Moon, Settings, Sun } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
-  A5_RES_OPTIONS,
-  H3_RES_OPTIONS,
+  A5_RES_RANGE,
+  H3_RES_RANGE,
   QUERY_LIMIT_PRESETS,
   type Theme,
   updateSettings,
@@ -136,6 +136,40 @@ function QueryLimitControl() {
   );
 }
 
+function ResInput({
+  label,
+  value,
+  min,
+  max,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-[10px] text-muted-foreground w-5 shrink-0 font-mono">{label}</span>
+      <input
+        type="number"
+        min={min}
+        max={max}
+        value={value}
+        onChange={(e) => {
+          const v = Number.parseInt(e.target.value, 10);
+          if (Number.isFinite(v)) onChange(Math.max(min, Math.min(max, v)));
+        }}
+        className="w-14 px-2 py-1.5 rounded-md border border-input bg-background text-foreground text-xs font-mono tabular-nums text-center focus:outline-none focus:ring-1 focus:ring-ring"
+      />
+      <span className="text-[9px] text-muted-foreground/60">
+        {min}–{max}
+      </span>
+    </div>
+  );
+}
+
 function GridResolutionControl() {
   const { defaultH3Res, defaultA5Res } = useSettings();
 
@@ -145,46 +179,22 @@ function GridResolutionControl() {
         Grid resolution
       </div>
       <div className="space-y-1.5">
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] text-muted-foreground w-5 shrink-0 font-mono">H3</span>
-          <div className="flex gap-0.5 flex-1">
-            {H3_RES_OPTIONS.map((opt) => (
-              <button
-                key={String(opt.value)}
-                type="button"
-                onClick={() => updateSettings({ defaultH3Res: opt.value })}
-                className={`flex-1 px-1 py-1.5 rounded text-[10px] font-medium transition-colors ${
-                  defaultH3Res === opt.value
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted"
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] text-muted-foreground w-5 shrink-0 font-mono">A5</span>
-          <div className="flex gap-0.5 flex-1">
-            {A5_RES_OPTIONS.map((opt) => (
-              <button
-                key={String(opt.value)}
-                type="button"
-                onClick={() => updateSettings({ defaultA5Res: opt.value })}
-                className={`flex-1 px-1 py-1.5 rounded text-[10px] font-medium transition-colors ${
-                  defaultA5Res === opt.value
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted"
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
+        <ResInput
+          label="H3"
+          value={defaultH3Res}
+          min={H3_RES_RANGE.min}
+          max={H3_RES_RANGE.max}
+          onChange={(v) => updateSettings({ defaultH3Res: v })}
+        />
+        <ResInput
+          label="A5"
+          value={defaultA5Res}
+          min={A5_RES_RANGE.min}
+          max={A5_RES_RANGE.max}
+          onChange={(v) => updateSettings({ defaultA5Res: v })}
+        />
       </div>
-      <p className="text-[9px] text-muted-foreground/60 mt-1">Auto = AI picks the best resolution per query</p>
+      <p className="text-[9px] text-muted-foreground/60 mt-1.5">Higher = more detail, slower queries</p>
     </div>
   );
 }

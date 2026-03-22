@@ -94,14 +94,11 @@ export function buildContextHelpers(geo: GeoIP | null) {
         behavior: behaviorRules,
         duckdbWasmNotes: buildDuckdbWasmNotes(queryLimit),
         queryLimit,
-        defaultH3Res: defaultH3Res ?? "auto (AI decides)",
-        defaultA5Res: defaultA5Res ?? "auto (AI decides)",
+        defaultH3Res,
+        defaultA5Res,
         gridResolutionNote:
-          defaultH3Res || defaultA5Res
-            ? `User has set default grid resolution: ${defaultH3Res ? `H3 res ${defaultH3Res}` : ""}${defaultH3Res && defaultA5Res ? ", " : ""}${defaultA5Res ? `A5 res ${defaultA5Res}` : ""}. ` +
-              "ALWAYS use this resolution for queries unless the user explicitly asks for a different one. " +
-              "Pass this resolution to buildParquetUrl() and use it in SQL queries."
-            : undefined,
+          `User's default grid resolution: H3 res ${defaultH3Res}, A5 res ${defaultA5Res}. ` +
+          "ALWAYS use these resolutions for buildParquetUrl() and SQL queries unless the user explicitly asks for a different one.",
         s3Base: S3_BASE,
         datasets: datasetPaths,
         componentTips: buildComponentTips(queryLimit),
