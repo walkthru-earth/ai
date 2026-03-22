@@ -27,12 +27,12 @@ interface DashboardCanvasProps {
   children?: React.ReactNode;
 }
 
-/** Panel height in grid rows (×80px). Module-scoped pure function — no closures. */
+/** Panel height in grid rows (×80px). Maps get 2× default height. */
 function panelHeight(name: string): number {
   const n = name.toLowerCase();
   if (n.includes("h3map") || n.includes("map")) return 8;
   if (n.includes("graph")) return 5;
-  if (n.includes("datatable") || n.includes("table")) return 4;
+  if (n.includes("datatable") || n.includes("table")) return 5;
   if (n.includes("querydisplay") || n.includes("query")) return 3;
   if (n.includes("insightcard") || n.includes("insight")) return 3;
   if (n.includes("datasetcard") || n.includes("dataset")) return 3;
@@ -40,8 +40,8 @@ function panelHeight(name: string): number {
   return 4;
 }
 
-/** Whether a component should always render full-width. */
-function isFullWidthComponent(name: string): boolean {
+/** Whether a component is a map (floats to top of panel order). */
+function isMapComponent(name: string): boolean {
   const n = name.toLowerCase();
   return n.includes("map") || n.includes("h3map");
 }
@@ -262,11 +262,11 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
       const existing = prev.filter((id) => panelIds.includes(id));
       const newIds = panelIds.filter((id) => !prev.includes(id));
       // Sort new panels: maps first, then others in original order
-      const newMaps = newIds.filter((id) => isFullWidthComponent(panelNameById.get(id) || ""));
-      const newOthers = newIds.filter((id) => !isFullWidthComponent(panelNameById.get(id) || ""));
+      const newMaps = newIds.filter((id) => isMapComponent(panelNameById.get(id) || ""));
+      const newOthers = newIds.filter((id) => !isMapComponent(panelNameById.get(id) || ""));
       // Insert map panels before other existing panels (but after existing maps)
-      const existingMaps = existing.filter((id) => isFullWidthComponent(panelNameById.get(id) || ""));
-      const existingOthers = existing.filter((id) => !isFullWidthComponent(panelNameById.get(id) || ""));
+      const existingMaps = existing.filter((id) => isMapComponent(panelNameById.get(id) || ""));
+      const existingOthers = existing.filter((id) => !isMapComponent(panelNameById.get(id) || ""));
       const next = [...existingMaps, ...newMaps, ...existingOthers, ...newOthers];
       if (next.length === prev.length && next.every((id, i) => id === prev[i])) return prev;
       return next;
@@ -370,45 +370,25 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
   }, []);
 
   // Desktop grid layouts
+  // All panels full-width, stacked vertically. User can resize via drag handles.
   const layouts = useMemo(() => {
-    let yOffset = 0;
-    let pendingLeftH = 0;
-    let nonFullCount = 0;
-    const lg: any[] = orderedPanels.map((panel, i) => {
-      const name = panel.componentName || "";
-      const h = panelHeight(name);
-      const fullWidth = isFullWidthComponent(name);
+    let lgY = 0;
+    const lg: any[] = orderedPanels.map((panel) => {
       const existing = savedLayouts.lg?.find((l) => l.i === panel.id);
-      // Enforce full-width for maps even from saved layouts (user may have old half-width saves)
-      if (existing) {
-        if (fullWidth && existing.w < 12) {
-          return { ...existing, w: 12, x: 0 };
-        }
-        return existing;
-      }
-      // Full-width: maps always get w:12
-      if (fullWidth) {
-        if (pendingLeftH > 0) {
-          yOffset += pendingLeftH;
-          pendingLeftH = 0;
-        }
-        nonFullCount = 0;
-        const item = { i: panel.id, x: 0, y: yOffset, w: 12, h, minW: 4, minH: 2 };
-        yOffset += h;
-        return item;
-      }
-      const col = nonFullCount % 2;
-      nonFullCount++;
-      const item = { i: panel.id, x: col * 6, y: yOffset, w: 6, h, minW: 3, minH: 2 };
-      if (col === 0) {
-        pendingLeftH = h;
-      } else {
-        yOffset += Math.max(pendingLeftH, h);
-        pendingLeftH = 0;
-      }
+      if (existing) return existing;
+      const h = panelHeight(panel.componentName || "");
+      const item = { i: panel.id, x: 0, y: lgY, w: 12, h, minW: 4, minH: 2 };
+      lgY += h;
       return item;
     });
-    if (pendingLeftH > 0) yOffset += pendingLeftH;
+
+    let mdY = 0;
+    const md: any[] = orderedPanels.map((panel) => {
+      const h = panelHeight(panel.componentName || "");
+      const item = { i: panel.id, x: 0, y: mdY, w: 8, h, minW: 4, minH: 2 };
+      mdY += h;
+      return item;
+    });
 
     let smY = 0;
     const sm: any[] = orderedPanels.map((panel) => {
@@ -417,36 +397,6 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
       smY += h;
       return item;
     });
-
-    let mdY = 0;
-    let mdPendingLeftH = 0;
-    let mdNonFullCount = 0;
-    const md: any[] = orderedPanels.map((panel) => {
-      const name = panel.componentName || "";
-      const h = panelHeight(name);
-      const fullWidth = isFullWidthComponent(name);
-      if (fullWidth) {
-        if (mdPendingLeftH > 0) {
-          mdY += mdPendingLeftH;
-          mdPendingLeftH = 0;
-        }
-        mdNonFullCount = 0;
-        const item = { i: panel.id, x: 0, y: mdY, w: 8, h, minW: 4, minH: 2 };
-        mdY += h;
-        return item;
-      }
-      const col = mdNonFullCount % 2;
-      mdNonFullCount++;
-      const item = { i: panel.id, x: col * 4, y: mdY, w: 4, h, minW: 3, minH: 2 };
-      if (col === 0) {
-        mdPendingLeftH = h;
-      } else {
-        mdY += Math.max(mdPendingLeftH, h);
-        mdPendingLeftH = 0;
-      }
-      return item;
-    });
-    if (mdPendingLeftH > 0) mdY += mdPendingLeftH;
 
     return { lg, md, sm };
   }, [orderedPanels, savedLayouts]);
