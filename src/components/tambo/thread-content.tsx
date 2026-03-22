@@ -112,7 +112,7 @@ const ThreadContentMessages = React.forwardRef<HTMLDivElement, ThreadContentMess
   ({ className, ...props }, ref) => {
     const { messages, isGenerating, variant } = useThreadContentContext();
 
-    const filteredMessages = messages.filter((message) => message.role !== "system");
+    const filteredMessages = React.useMemo(() => messages.filter((message) => message.role !== "system"), [messages]);
 
     return (
       <div ref={ref} className={cn("flex flex-col gap-2", className)} data-slot="thread-content-messages" {...props}>
