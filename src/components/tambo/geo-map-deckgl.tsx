@@ -1015,7 +1015,23 @@ export default function DeckGLMap({
     const newStyle = resolvedDark ? CARTO_DARK : CARTO_LIGHT;
     const currentStyle = (map.getStyle() as any)?.name;
     if ((resolvedDark && currentStyle === "Dark Matter") || (!resolvedDark && currentStyle === "Positron")) return;
-    map.setStyle(newStyle);
+    // Guard: MapLibre's setStyle crashes with "this.style is undefined" if called before
+    // the initial style is loaded (race condition during rapid theme switches or first render).
+    if (!map.isStyleLoaded()) {
+      map.once("load", () => {
+        try {
+          map.setStyle(newStyle);
+        } catch {
+          /* MapLibre internal race — style will load on next theme change */
+        }
+      });
+      return;
+    }
+    try {
+      map.setStyle(newStyle);
+    } catch {
+      /* MapLibre internal race — style will load on next theme change */
+    }
     map.once("styledata", () => {
       if (overlayRef.current) {
         overlayRef.current.setProps({ layers: layersRef.current });

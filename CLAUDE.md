@@ -55,7 +55,7 @@ pnpm lint:fix     # biome auto-fix
 - Use `h3_grid_ring` not `h3_k_ring` (deprecated)
 - `h3_cell_area(h3_index, 'km^2')` not `h3_cell_area_km2`
 - `ST_AsGeoJSON(geometry)` converts spatial geometry to GeoJSON string for GeoMap (but prefer geometry auto-detection — no conversion needed)
-- ONE statement per call, always LIMIT 500, HTTPS URLs in FROM
+- ONE statement per call, always use LIMIT {queryLimit} (user-configurable, default 10000, set via settings gear icon), HTTPS URLs in FROM
 - **v1.5 syntax**: Use `lambda x: x + 1` NOT `x -> x + 1` (arrow syntax deprecated). `TRY_CAST(x AS GEOMETRY)` is broken — use `TRY(ST_GeomFromText(x))`.
 - **Spatial filter pushdown**: `geom && ST_MakeEnvelope(w,s,e,n)` prunes Parquet row groups for bbox queries (uses column stats).
 - **Coordinate order**: `lat` = latitude (north/south, e.g. 30.05 for Cairo), `lng` = longitude (east/west, e.g. 31.25 for Cairo). H3: `h3_latlng_to_cell(lat, lng, res)` — lat FIRST. A5: `a5_lonlat_to_cell(lng, lat, res)` — lng FIRST (opposite of H3!). DuckDB spatial: `ST_Point(lng, lat)` (x=lon, y=lat). deck.gl GeoMap props: `latitude`/`longitude`.
@@ -72,6 +72,21 @@ pnpm lint:fix     # biome auto-fix
 - **Geometry detection skips CTEs** — `DESCRIBE (WITH ...)` is invalid DuckDB syntax. CTE queries bypass geometry auto-detection (they're computed queries, not raw Parquet geometry).
 - **No same-name column aliasing** — `SELECT ST_AsWKB(geom) AS geom` fails in DuckDB v1.5 (circular alias due to friendly SQL reusable aliases). Use a different alias name like `wkb_data`.
 - **Prefer `SELECT *` for geometry files** — the system auto-handles geometry extraction. Do NOT manually call `ST_AsWKB`/`ST_GeomFromWKB`/`ST_AsGeoJSON`.
+- **GeoJSON/WFS SQL patterns**: Use `read_json_auto` + `unnest(features)` + `ST_GeomFromGeoJSON` for GeoJSON FeatureCollections. **CRITICAL**: `read_json_auto` returns STRUCTs, NOT JSON strings. Rules: (1) Use struct dot notation (`f.id`, `f.properties.name`) — JSON path operators (`f->>'$.id'`) fail in DuckDB-WASM. (2) Use `unnest(f.properties)` to expand all property fields into columns — `f.properties.*` is a parser error. (3) Use `to_json(f.geometry)` when passing to `ST_GeomFromGeoJSON` — direct struct may not auto-cast in WASM. `ST_GeomFromGeoJSON` produces native GEOMETRY → auto-detection → EXCLUDE from Arrow (WASM can't serialize GEOMETRY) → WKB → GeoArrow → deck.gl zero-copy rendering. Pattern:
+  ```sql
+  -- unnest(f.properties) expands ALL struct fields into individual columns
+  WITH fc AS (
+    SELECT unnest(features) AS f
+    FROM read_json_auto('https://example.com/data.geojson')
+  )
+  SELECT f.id AS feature_id,
+         unnest(f.properties),
+         ST_GeomFromGeoJSON(to_json(f.geometry)) AS geometry
+  FROM fc
+  WHERE f.geometry IS NOT NULL
+  LIMIT {queryLimit}
+  ```
+  For WFS endpoints: same pattern with `read_json_auto('https://host/ows?service=WFS&version=1.1.0&request=GetFeature&typeName=layer&outputFormat=application/json')`. Note: remote URLs must be CORS-enabled for DuckDB-WASM httpfs to fetch them. Works with most WFS endpoints, GitHub raw URLs, and data portals. Servers without CORS headers will silently return 0 rows.
 
 ### DuckDB Friendly SQL (use these for cleaner queries)
 

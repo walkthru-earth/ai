@@ -189,12 +189,15 @@ interface GeomDetection {
  */
 async function detectGeometryColumns(conn: any, sql: string): Promise<GeomDetection | null> {
   try {
-    // Skip geometry detection for CTE queries — DESCRIBE (WITH ...) is invalid DuckDB syntax,
-    // and CTEs are computed queries unlikely to have raw GEOMETRY columns from Parquet files.
+    // DESCRIBE (WITH ...) is invalid DuckDB syntax, so wrap CTE queries in a subquery.
+    // This enables geometry auto-detection for GeoJSON/WFS queries that use CTEs
+    // (e.g. WITH fc AS (SELECT unnest(features)...) SELECT ST_GeomFromGeoJSON(...) AS geometry FROM fc).
     const trimmed = sql.trimStart().toUpperCase();
-    if (trimmed.startsWith("WITH")) return null;
+    const describeSql = trimmed.startsWith("WITH")
+      ? `DESCRIBE (SELECT * FROM (${sql}) __detect_geom LIMIT 0)`
+      : `DESCRIBE (${sql})`;
 
-    const descResult = await conn.query(`DESCRIBE (${sql})`);
+    const descResult = await conn.query(describeSql);
     const nameVec = descResult.getChild("column_name");
     const typeVec = descResult.getChild("column_type");
     if (!nameVec || !typeVec) return null;
@@ -254,7 +257,12 @@ function wrapSqlForGeometry(
   // For native GEOMETRY: ST_AsWKB converts to standard WKB. For BLOB: data is already WKB.
   const wkbExpr = isNativeGeometry ? `ST_AsWKB("${geomColumn}")` : `"${geomColumn}"`;
 
-  return `SELECT __src.*${coordCols}, ${wkbExpr} AS __geo_wkb FROM (${sql}) __src`;
+  // EXCLUDE native GEOMETRY columns from __src.* — DuckDB-WASM can't convert GEOMETRY to Arrow
+  // ("Unsupported type in DuckDB -> Arrow Conversion: GEOMETRY"). The WKB version (__geo_wkb)
+  // is Arrow-compatible and used for rendering instead.
+  const excludeGeom = isNativeGeometry ? ` EXCLUDE ("${geomColumn}")` : "";
+
+  return `SELECT __src.*${excludeGeom}${coordCols}, ${wkbExpr} AS __geo_wkb FROM (${sql}) __src`;
 }
 
 /**
@@ -406,7 +414,108 @@ export async function runQuery(input: { sql: string } | string): Promise<{
       ...(geometryNote && { geometryNote }),
     };
   } catch (error: any) {
-    throw new Error(`DuckDB query error: ${error?.message ?? String(error)}`);
+    // DuckDB-WASM can't convert GEOMETRY to Arrow — retry with GEOMETRY columns cast to WKB.
+    // This catches cases where geometry slipped through (e.g. detection missed it).
+    const msg = error?.message ?? String(error);
+    if (msg.includes("Unsupported type") && msg.includes("GEOMETRY")) {
+      try {
+        // Re-run DESCRIBE to find GEOMETRY columns, then wrap each with ST_AsWKB + EXCLUDE
+        const descResult = await conn.query(
+          sql.trimStart().toUpperCase().startsWith("WITH")
+            ? `DESCRIBE (SELECT * FROM (${sql}) __fb LIMIT 0)`
+            : `DESCRIBE (${sql})`,
+        );
+        const nameVec = descResult.getChild("column_name");
+        const typeVec = descResult.getChild("column_type");
+        if (nameVec && typeVec) {
+          const geomCols: string[] = [];
+          for (let i = 0; i < descResult.numRows; i++) {
+            const colType = String(typeVec.get(i) ?? "").toUpperCase();
+            if (colType.startsWith("GEOMETRY")) {
+              geomCols.push(String(nameVec.get(i)));
+            }
+          }
+          if (geomCols.length > 0) {
+            const excludeClause = `EXCLUDE (${geomCols.map((c) => `"${c}"`).join(", ")})`;
+            const wkbCols = geomCols.map((c) => `ST_AsWKB("${c}") AS "${c}_wkb"`).join(", ");
+            const fallbackSql = `SELECT __fb.*${excludeClause}, ${wkbCols} FROM (${sql}) __fb`;
+            const result = await conn.query(fallbackSql);
+            const duration = Math.round(performance.now() - start);
+            const rawColumns: string[] = result.schema.fields.map((f: any) => f.name);
+            const numRows = result.numRows;
+
+            // Extract rows
+            const rows: Record<string, unknown>[] = [];
+            for (let i = 0; i < numRows; i++) {
+              const row: Record<string, unknown> = {};
+              for (const col of rawColumns) {
+                const vec = result.getChild(col);
+                if (vec) row[col] = arrowToJs(vec.get(i));
+              }
+              rows.push(row);
+            }
+
+            // Extract WKB arrays from the first geometry column
+            let wkbArrays: Uint8Array[] | undefined;
+            const wkbColName = `${geomCols[0]}_wkb`;
+            const wkbVec = result.getChild(wkbColName);
+            if (wkbVec) {
+              const wkbs: Uint8Array[] = [];
+              for (let i = 0; i < numRows; i++) {
+                const val = wkbVec.get(i);
+                if (val instanceof Uint8Array) wkbs.push(val.slice());
+              }
+              if (wkbs.length > 0) wkbArrays = wkbs;
+            }
+
+            // Strip WKB helper columns from public view
+            const publicCols = rawColumns.filter((c) => !c.endsWith("_wkb"));
+            const publicRows = rows.map((r) => {
+              const out: Record<string, unknown> = {};
+              for (const c of publicCols) out[c] = r[c];
+              return out;
+            });
+
+            const columnArrays: Record<string, ArrayLike<any>> = {};
+            for (const col of publicCols) {
+              const vec = result.getChild(col);
+              if (vec) {
+                try {
+                  columnArrays[col] = vec.toArray();
+                } catch {
+                  /* ignore */
+                }
+              }
+            }
+
+            const queryId = storeQueryResult({
+              rows: publicRows,
+              columns: publicCols,
+              duration,
+              rowCount: numRows,
+              sql,
+              columnArrays,
+              wkbArrays,
+              geometryColumn: geomCols[0],
+            });
+
+            return {
+              queryId,
+              columns: publicCols,
+              rowCount: numRows,
+              duration,
+              sampleRows: publicRows.slice(0, 3),
+              geometryNote:
+                `Geometry column "${geomCols[0]}" was converted to WKB for rendering. ` +
+                `Use SELECT * for follow-up queries — lat/lng are synthetic.`,
+            };
+          }
+        }
+      } catch {
+        /* fallback failed — throw original error */
+      }
+    }
+    throw new Error(`DuckDB query error: ${msg}`);
   } finally {
     await conn.close();
   }

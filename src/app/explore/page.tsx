@@ -1,20 +1,7 @@
 import { TamboProvider, useTambo, useTamboThreadList } from "@tambo-ai/react";
-import {
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  Clock,
-  Link2,
-  Link2Off,
-  MessageSquare,
-  Monitor,
-  Moon,
-  Plus,
-  Share2,
-  Sparkles,
-  Sun,
-} from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, Clock, MessageSquare, Plus, Share2, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { SettingsButton } from "@/components/settings-popover";
 import { DashboardCanvas } from "@/components/tambo/dashboard-canvas";
 import {
   MessageInput,
@@ -41,7 +28,6 @@ import { useAnonymousUserKey } from "@/lib/use-anonymous-user-key";
 import { type GeoIP, useGeoIP } from "@/lib/use-geo-ip";
 import { basePath, cn } from "@/lib/utils";
 import { preloadDuckDB } from "@/services/duckdb-wasm";
-import { useCrossFilterEnabled } from "@/services/query-store";
 
 /* ── Helper: extract thread preview name ──────────────────────────── */
 
@@ -145,84 +131,6 @@ function SessionHistory({ onClose }: { onClose: () => void }) {
 }
 
 /* ── Explorer Layout ───────────────────────────────────────────────── */
-
-function CrossFilterToggle() {
-  const [enabled, setEnabled] = useCrossFilterEnabled();
-  return (
-    <button
-      onClick={() => setEnabled(!enabled)}
-      className={`p-1.5 rounded-lg transition-all ${
-        enabled ? "bg-earth-blue/15 text-earth-cyan" : "text-muted-foreground hover:bg-muted/50"
-      }`}
-      title={enabled ? "Cross-filter ON — click to disable" : "Cross-filter OFF — click to enable"}
-    >
-      {enabled ? <Link2 className="w-3.5 h-3.5" /> : <Link2Off className="w-3.5 h-3.5" />}
-    </button>
-  );
-}
-
-type Theme = "light" | "dark" | "system";
-
-function ThemeSwitcher() {
-  // Lazy initializer reads localStorage synchronously to avoid flash
-  const [theme, setTheme] = useState<Theme>(() => {
-    const s = localStorage.getItem("theme") as Theme | null;
-    if (s && ["dark", "light", "system"].includes(s)) return s;
-    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-  });
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    const stored = localStorage.getItem("theme") as Theme | null;
-    if (stored && ["dark", "light", "system"].includes(stored)) {
-      setTheme(stored);
-    } else {
-      // No stored theme — detect system preference
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      setTheme(prefersDark ? "dark" : "light");
-    }
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!mounted) return;
-    const root = document.documentElement;
-    if (theme === "system") {
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      root.classList.toggle("dark", prefersDark);
-    } else {
-      root.classList.toggle("dark", theme === "dark");
-    }
-    localStorage.setItem("theme", theme);
-
-    if (theme === "system") {
-      const mq = window.matchMedia("(prefers-color-scheme: dark)");
-      const handler = () => {
-        root.classList.toggle("dark", mq.matches);
-      };
-      mq.addEventListener("change", handler);
-      return () => mq.removeEventListener("change", handler);
-    }
-  }, [theme, mounted]);
-
-  const cycle = () => {
-    const order: Theme[] = ["dark", "light", "system"];
-    setTheme(order[(order.indexOf(theme) + 1) % order.length]);
-  };
-
-  const Icon = theme === "dark" ? Moon : theme === "light" ? Sun : Monitor;
-  const label = theme === "dark" ? "Dark mode" : theme === "light" ? "Light mode" : "System theme";
-
-  return (
-    <button
-      onClick={cycle}
-      className="p-1.5 rounded-lg transition-all text-muted-foreground hover:bg-muted/50"
-      title={label}
-    >
-      <Icon className="w-3.5 h-3.5" />
-    </button>
-  );
-}
 
 /** Mobile bottom sheet with swipe-to-expand/collapse via drag handle. */
 function MobileBottomSheet({
@@ -374,8 +282,7 @@ function ExplorerLayout({ geo }: { geo: GeoIP | null }) {
                 <h1 className="text-sm font-bold text-foreground leading-none">walkthru.earth</h1>
                 <Sparkles className="w-3.5 h-3.5 text-earth-cyan" />
               </div>
-              <CrossFilterToggle />
-              <ThemeSwitcher />
+              <SettingsButton />
               <button
                 onClick={() => setShowHistory(!showHistory)}
                 className={`p-1.5 rounded-lg transition-all ${
@@ -441,8 +348,7 @@ function ExplorerLayout({ geo }: { geo: GeoIP | null }) {
       <DashboardCanvas className="bg-muted/30">
         {mobileChat === "collapsed" && (
           <div className="sm:hidden fixed top-2 right-2 z-20 flex items-center gap-1 rounded-lg glass-panel-subtle px-1.5 py-1">
-            <CrossFilterToggle />
-            <ThemeSwitcher />
+            <SettingsButton />
           </div>
         )}
       </DashboardCanvas>
@@ -469,8 +375,7 @@ function ExplorerLayout({ geo }: { geo: GeoIP | null }) {
             >
               <Clock className="w-3.5 h-3.5" />
             </button>
-            <CrossFilterToggle />
-            <ThemeSwitcher />
+            <SettingsButton />
             <button
               onClick={() => setMobileChat("collapsed")}
               className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted/50"

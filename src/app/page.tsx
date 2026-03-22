@@ -7,18 +7,16 @@ import {
   Map,
   MapPin,
   MessageSquare,
-  Monitor,
-  Moon,
   Mountain,
   Sparkles,
-  Sun,
   TreePine,
   Users,
   Zap,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ApiKeyCheck } from "@/components/ApiKeyCheck";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 import { WalkthruLogo } from "@/components/walkthru-logo";
 
 const DATASETS = [
@@ -100,62 +98,6 @@ const ANALYSES = [
   "Heat Vulnerability",
   "Water Security",
 ];
-
-type Theme = "light" | "dark" | "system";
-
-function ThemeSwitcher() {
-  const [theme, setTheme] = useState<Theme>("dark");
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    const stored = localStorage.getItem("theme") as Theme | null;
-    if (stored && ["dark", "light", "system"].includes(stored)) {
-      setTheme(stored);
-    } else {
-      // No stored theme — detect system preference
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      setTheme(prefersDark ? "dark" : "light");
-    }
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!mounted) return;
-    const root = document.documentElement;
-    if (theme === "system") {
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-      root.classList.toggle("dark", prefersDark);
-    } else {
-      root.classList.toggle("dark", theme === "dark");
-    }
-    localStorage.setItem("theme", theme);
-
-    if (theme === "system") {
-      const mq = window.matchMedia("(prefers-color-scheme: dark)");
-      const handler = () => root.classList.toggle("dark", mq.matches);
-      mq.addEventListener("change", handler);
-      return () => mq.removeEventListener("change", handler);
-    }
-  }, [theme, mounted]);
-
-  const cycle = () => {
-    const order: Theme[] = ["dark", "light", "system"];
-    setTheme(order[(order.indexOf(theme) + 1) % order.length]);
-  };
-
-  const Icon = theme === "dark" ? Moon : theme === "light" ? Sun : Monitor;
-  const label = theme === "dark" ? "Dark mode" : theme === "light" ? "Light mode" : "System theme";
-
-  return (
-    <button
-      onClick={cycle}
-      className="p-2 rounded-lg transition-all text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-      title={label}
-    >
-      <Icon className="w-4 h-4" />
-    </button>
-  );
-}
 
 export default function Home() {
   return (

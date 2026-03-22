@@ -10,20 +10,22 @@ import { runQuery } from "@/services/duckdb-wasm";
 export const runSQLTool: TamboTool = {
   name: "runSQL",
   description:
-    "Execute DuckDB SQL (v1.5 WASM) against remote Parquet files. " +
+    "Execute DuckDB SQL (v1.5 WASM) against remote Parquet files, GeoJSON, or WFS endpoints. " +
     "Returns queryId for GeoMap/Graph/DataTable components (zero token cost). " +
     "CRITICAL: queryId (qr_N) is a CLIENT-SIDE store reference — NOT a DuckDB table. " +
     "FROM qr_1 WILL FAIL. To compute stats from previous results, re-query the Parquet URL. " +
+    "GeoJSON/WFS: Use read_json_auto('url') + unnest(features) + ST_GeomFromGeoJSON for FeatureCollections (URL must be CORS-enabled). " +
     "See context for DuckDB rules, dataset URLs, and query patterns.",
   tool: runQuery,
   inputSchema: z.object({
     sql: z
       .string()
       .describe(
-        "DuckDB SQL. HTTPS Parquet URLs in FROM. LIMIT 500. ONE statement. " +
-          "NEVER use queryId (qr_N) in FROM — it is NOT a table. Re-query the Parquet URL instead. " +
+        "DuckDB SQL. HTTPS URLs in FROM. Use LIMIT from queryLimit in context. ONE statement. " +
+          "NEVER use queryId (qr_N) in FROM — re-query the URL instead. " +
           "H3 maps: h3_h3_to_string(h3_index) AS hex, <metric> AS value. " +
-          "Geometry files: SELECT * (lat/lng auto-generated). " +
+          "Geometry: SELECT * (auto-detected, lat/lng auto-generated). " +
+          "GeoJSON/WFS: see Pattern A / Pattern B in DuckDB notes. " +
           "OOM: push WHERE h3_index=X into Parquet scan. See context for full rules.",
       ),
   }),

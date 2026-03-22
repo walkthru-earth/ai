@@ -3,11 +3,12 @@
  * This file wires the pieces together. Edit individual files for specific concerns.
  */
 
+import { getSettings } from "@/lib/settings-store";
 import type { GeoIP } from "@/lib/use-geo-ip";
 import { behaviorRules } from "./behavior";
-import { componentTips } from "./component-tips";
+import { buildComponentTips } from "./component-tips";
 import { datasetPaths, S3_BASE } from "./dataset-paths";
-import { duckdbWasmNotes } from "./duckdb-notes";
+import { buildDuckdbWasmNotes } from "./duckdb-notes";
 
 /** Returns the current UI theme: "dark" or "light". */
 function getCurrentTheme(): "dark" | "light" {
@@ -87,14 +88,19 @@ function buildLocationContext(geo: GeoIP, timezone: string, currentDate: string)
  */
 export function buildContextHelpers(geo: GeoIP | null) {
   return {
-    walkthruContext: () => ({
-      platform: "walkthru.earth",
-      userEnvironment: buildUserEnvironment(geo),
-      behavior: behaviorRules,
-      duckdbWasmNotes,
-      s3Base: S3_BASE,
-      datasets: datasetPaths,
-      componentTips,
-    }),
+    walkthruContext: () => {
+      const { queryLimit } = getSettings();
+      return {
+        platform: "walkthru.earth",
+        userEnvironment: buildUserEnvironment(geo),
+        behavior: behaviorRules,
+        duckdbWasmNotes: buildDuckdbWasmNotes(queryLimit),
+        queryLimit,
+        queryLimitNote: `User configured query LIMIT to ${queryLimit}. ALWAYS use LIMIT ${queryLimit} in all SQL queries.`,
+        s3Base: S3_BASE,
+        datasets: datasetPaths,
+        componentTips: buildComponentTips(queryLimit),
+      };
+    },
   };
 }

@@ -1,6 +1,6 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { type ThreadListResponse, useTambo, useTamboThreadList } from "@tambo-ai/react";
-import { ArrowLeftToLine, ArrowRightToLine, MoreHorizontal, Pencil, PlusIcon, SearchIcon } from "lucide-react";
+import { type ThreadListResponse, useTambo, useTamboClient, useTamboThreadList } from "@tambo-ai/react";
+import { ArrowLeftToLine, ArrowRightToLine, MoreHorizontal, Pencil, PlusIcon, SearchIcon, Trash2 } from "lucide-react";
 import React, { useMemo } from "react";
 import { cn } from "@/lib/utils";
 
@@ -293,11 +293,23 @@ ThreadHistorySearch.displayName = "ThreadHistory.Search";
  */
 const ThreadHistoryList = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
   ({ className, ...props }, ref) => {
-    const { threads, isLoading, error, isCollapsed, searchQuery, currentThreadId, switchThread, onThreadChange } =
-      useThreadHistoryContext();
+    const {
+      threads,
+      isLoading,
+      error,
+      isCollapsed,
+      searchQuery,
+      currentThreadId,
+      switchThread,
+      startNewThread,
+      refetch,
+      onThreadChange,
+    } = useThreadHistoryContext();
 
+    const client = useTamboClient();
     const [editingThread, setEditingThread] = React.useState<ThreadListItem | null>(null);
     const [newName, setNewName] = React.useState("");
+    const [deletingThreadId, setDeletingThreadId] = React.useState<string | null>(null);
     const inputRef = React.useRef<HTMLInputElement>(null);
 
     // Handle click outside name editing input
@@ -358,6 +370,27 @@ const ThreadHistoryList = React.forwardRef<HTMLDivElement, React.HTMLAttributes<
     const handleRename = (thread: ThreadListItem) => {
       setEditingThread(thread);
       setNewName(`Thread ${thread.id.substring(0, 8)}`);
+    };
+
+    const handleDeleteRequest = (thread: ThreadListItem) => {
+      setDeletingThreadId(thread.id);
+    };
+
+    const handleDeleteConfirm = async () => {
+      if (!deletingThreadId) return;
+      try {
+        const userKey = localStorage.getItem("walkthru-user-key") ?? undefined;
+        await client.threads.delete(deletingThreadId, { userKey });
+        if (currentThreadId === deletingThreadId) {
+          startNewThread();
+        }
+        await refetch();
+        onThreadChange?.();
+      } catch (err) {
+        console.error("Failed to delete thread:", err);
+      } finally {
+        setDeletingThreadId(null);
+      }
     };
 
     const handleNameSubmit = async (e: React.FormEvent) => {
@@ -451,7 +484,26 @@ const ThreadHistoryList = React.forwardRef<HTMLDivElement, React.HTMLAttributes<
                   </>
                 )}
               </div>
-              <ThreadOptionsDropdown thread={thread} onRename={handleRename} />
+              {deletingThreadId === thread.id ? (
+                <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    type="button"
+                    onClick={handleDeleteConfirm}
+                    className="px-1.5 py-0.5 text-[10px] font-medium rounded bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors cursor-pointer"
+                  >
+                    Delete
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeletingThreadId(null)}
+                    className="px-1.5 py-0.5 text-[10px] font-medium rounded text-muted-foreground hover:bg-muted transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <ThreadOptionsDropdown thread={thread} onRename={handleRename} onDelete={handleDeleteRequest} />
+              )}
             </div>
           ))}
         </div>
@@ -483,9 +535,11 @@ ThreadHistoryList.displayName = "ThreadHistory.List";
 const ThreadOptionsDropdown = ({
   thread,
   onRename,
+  onDelete,
 }: {
   thread: ThreadListItem;
   onRename: (thread: ThreadListItem) => void;
+  onDelete: (thread: ThreadListItem) => void;
 }) => {
   return (
     <DropdownMenu.Root>
@@ -512,6 +566,16 @@ const ThreadOptionsDropdown = ({
           >
             <Pencil className="h-3 w-3" />
             Rename
+          </DropdownMenu.Item>
+          <DropdownMenu.Item
+            className="flex items-center gap-2 px-2 py-1.5 text-destructive hover:bg-destructive/10 rounded-sm cursor-pointer outline-none transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(thread);
+            }}
+          >
+            <Trash2 className="h-3 w-3" />
+            Delete
           </DropdownMenu.Item>
         </DropdownMenu.Content>
       </DropdownMenu.Portal>

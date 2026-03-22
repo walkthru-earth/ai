@@ -1,6 +1,7 @@
 import { TamboProvider, useTambo } from "@tambo-ai/react";
 import { Sparkles } from "lucide-react";
 import { useEffect, useMemo } from "react";
+import { SettingsButton } from "@/components/settings-popover";
 import { useMcpServers } from "@/components/tambo/mcp-config-modal";
 import { MessageThreadFull } from "@/components/tambo/message-thread-full";
 import { WalkthruLogo } from "@/components/walkthru-logo";
@@ -29,6 +30,8 @@ function ChatInner({ geo }: { geo: GeoIP | null }) {
         <h1 className="font-bold text-sm text-foreground">walkthru.earth</h1>
         <Sparkles className="w-3.5 h-3.5 text-earth-cyan" />
         <span className="text-xs text-muted-foreground hidden sm:inline">AI-powered urban intelligence</span>
+        <span className="flex-1" />
+        <SettingsButton />
       </header>
       <div className="flex-1 min-h-0">
         <MessageThreadFull className="max-w-4xl mx-auto h-full" initialSuggestions={suggestions} />

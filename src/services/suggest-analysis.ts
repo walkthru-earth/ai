@@ -2,6 +2,7 @@
  * Natural language → dataset/cross-index routing via keyword matching.
  */
 
+import { getSettings } from "@/lib/settings-store";
 import { CROSS_INDEX_IDS, getCrossIndex } from "./cross-indices";
 import { DATASETS } from "./datasets";
 
@@ -185,8 +186,7 @@ export async function suggestAnalysis(input: SuggestAnalysisInput): Promise<Anal
       columns: ds.columns,
       explanation:
         "Overture Places Index — 72M POIs across 13 categories. Includes restaurants, gyms, shops, hospitals, schools, parks, and more.",
-      sampleSQL:
-        "SELECT h3_index, h3_h3_to_string(h3_index) AS hex,\n  place_count, n_food_and_drink, n_shopping, n_health_care, n_lifestyle_services AS value\nFROM places\nLIMIT 500",
+      sampleSQL: `SELECT h3_index, h3_h3_to_string(h3_index) AS hex,\n  place_count, n_food_and_drink, n_shopping, n_health_care, n_lifestyle_services AS value\nFROM places\nLIMIT ${getSettings().queryLimit}`,
       focusRegion: null,
     };
   }
@@ -207,8 +207,7 @@ export async function suggestAnalysis(input: SuggestAnalysisInput): Promise<Anal
       suggestedCrossIndex: null,
       columns: ds.columns,
       explanation: "Overture Transportation Index — 343M road, rail, and water segments with detailed type breakdown.",
-      sampleSQL:
-        "SELECT h3_index, h3_h3_to_string(h3_index) AS hex,\n  segment_count AS value, n_road, n_rail, n_paved, n_unpaved\nFROM transportation\nLIMIT 500",
+      sampleSQL: `SELECT h3_index, h3_h3_to_string(h3_index) AS hex,\n  segment_count AS value, n_road, n_rail, n_paved, n_unpaved\nFROM transportation\nLIMIT ${getSettings().queryLimit}`,
       focusRegion: null,
     };
   }
@@ -228,8 +227,7 @@ export async function suggestAnalysis(input: SuggestAnalysisInput): Promise<Anal
       suggestedCrossIndex: null,
       columns: ds.columns,
       explanation: "Overture Base Environment Index — land use, water bodies, and infrastructure types.",
-      sampleSQL:
-        "SELECT h3_index, h3_h3_to_string(h3_index) AS hex,\n  infra_count AS value, water_count, n_lu_park, n_lu_residential\nFROM base\nLIMIT 500",
+      sampleSQL: `SELECT h3_index, h3_h3_to_string(h3_index) AS hex,\n  infra_count AS value, water_count, n_lu_park, n_lu_residential\nFROM base\nLIMIT ${getSettings().queryLimit}`,
       focusRegion: null,
     };
   }
@@ -294,8 +292,7 @@ export async function suggestAnalysis(input: SuggestAnalysisInput): Promise<Anal
       explanation:
         "Overture Buildings Index — building classification by use (residential, commercial, industrial, civic, education, medical, religious) " +
         "and subtype (house, apartments, retail, office, school, mosque, church, hospital, factory, etc.).",
-      sampleSQL:
-        "SELECT h3_index, h3_h3_to_string(h3_index) AS hex,\n  building_count AS value, n_residential, n_commercial, n_apartments, n_mosque, n_church\nFROM buildings_overture\nLIMIT 500",
+      sampleSQL: `SELECT h3_index, h3_h3_to_string(h3_index) AS hex,\n  building_count AS value, n_residential, n_commercial, n_apartments, n_mosque, n_church\nFROM buildings_overture\nLIMIT ${getSettings().queryLimit}`,
       focusRegion: null,
     };
   }

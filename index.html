@@ -10,10 +10,13 @@
     />
     <link rel="icon" href="/favicon.png" />
     <script>
-      // Theme detection — prevent FOUC
+      // Theme detection — prevent FOUC (reads from walkthru-settings or legacy "theme" key)
       (function () {
         try {
-          var t = localStorage.getItem("theme");
+          var t;
+          var raw = localStorage.getItem("walkthru-settings");
+          if (raw) { t = JSON.parse(raw).theme; }
+          if (!t) { t = localStorage.getItem("theme"); }
           var prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
           if (t === "light") document.documentElement.classList.remove("dark");
           else if (t === "system" && !prefersDark) document.documentElement.classList.remove("dark");

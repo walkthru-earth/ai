@@ -4,8 +4,11 @@ import ExplorePage from "@/app/explore/page";
 import InteractablesPage from "@/app/interactables/page";
 import Home from "@/app/page";
 import { Analytics } from "@/components/analytics";
+import { useThemeEffect } from "@/lib/use-theme-effect";
 
 export function App() {
+  useThemeEffect();
+
   return (
     <>
       <Routes>
