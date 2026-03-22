@@ -9,6 +9,8 @@ export const behaviorRules = [
   "Always run the SQL query AND render components in ONE response. Never say 'try refreshing' — just retry the query.",
   "If a query fails, retry once with a simpler version. Never give up and show raw SQL without also trying to execute it.",
   "Render MULTIPLE components per response: a map + a chart + a table for rich analysis. " +
+    "ALWAYS render the GeoMap FIRST — maps auto-float to the top of the dashboard and get full-width. " +
+    "Then render Graph, DataTable, and other components. " +
     "ALWAYS include a Graph (line/bar/area) when data has a time dimension or ranking — never require the user to ask for a chart separately.",
   "UPDATE vs CREATE NEW components: " +
     "UPDATE an existing component (update_component_props) ONLY for appearance changes on the SAME data — e.g. 'zoom in', 'change colors', 'tilt the map', 'switch to bar chart', 'hide column'. " +

@@ -28,7 +28,7 @@ interface DashboardCanvasProps {
 }
 
 /** Panel height in grid rows (×80px). Module-scoped pure function — no closures. */
-function panelHeight(name: string, isFirst: boolean): number {
+function panelHeight(name: string): number {
   const n = name.toLowerCase();
   if (n.includes("h3map") || n.includes("map")) return 8;
   if (n.includes("graph")) return 5;
@@ -37,7 +37,13 @@ function panelHeight(name: string, isFirst: boolean): number {
   if (n.includes("insightcard") || n.includes("insight")) return 3;
   if (n.includes("datasetcard") || n.includes("dataset")) return 3;
   if (n.includes("statsgrid") || n.includes("statscard") || n.includes("stat")) return 2;
-  return isFirst ? 8 : 4;
+  return 4;
+}
+
+/** Whether a component should always render full-width. */
+function isFullWidthComponent(name: string): boolean {
+  const n = name.toLowerCase();
+  return n.includes("map") || n.includes("h3map");
 }
 
 /** Whether a component is compact (should never be full-width first panel). */
@@ -248,17 +254,24 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
     return result;
   }, [messages, dismissedIds]);
 
-  // Keep panelOrder in sync
+  // Keep panelOrder in sync — maps always float to top among new panels
   const panelIds = useMemo(() => panels.map((p) => p.id), [panels]);
+  const panelNameById = useMemo(() => new globalThis.Map(panels.map((p) => [p.id, p.componentName || ""])), [panels]);
   useEffect(() => {
     setPanelOrder((prev) => {
       const existing = prev.filter((id) => panelIds.includes(id));
       const newIds = panelIds.filter((id) => !prev.includes(id));
-      const next = [...existing, ...newIds];
+      // Sort new panels: maps first, then others in original order
+      const newMaps = newIds.filter((id) => isFullWidthComponent(panelNameById.get(id) || ""));
+      const newOthers = newIds.filter((id) => !isFullWidthComponent(panelNameById.get(id) || ""));
+      // Insert map panels before other existing panels (but after existing maps)
+      const existingMaps = existing.filter((id) => isFullWidthComponent(panelNameById.get(id) || ""));
+      const existingOthers = existing.filter((id) => !isFullWidthComponent(panelNameById.get(id) || ""));
+      const next = [...existingMaps, ...newMaps, ...existingOthers, ...newOthers];
       if (next.length === prev.length && next.every((id, i) => id === prev[i])) return prev;
       return next;
     });
-  }, [panelIds]);
+  }, [panelIds, panelNameById]);
 
   const orderedPanels = useMemo(() => {
     const map = new Map(panels.map((p) => [p.id, p]));
@@ -361,14 +374,14 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
     let yOffset = 0;
     let pendingLeftH = 0;
     let nonFullCount = 0;
-    const lg: any[] = panels.map((panel, i) => {
+    const lg: any[] = orderedPanels.map((panel, i) => {
       const existing = savedLayouts.lg?.find((l) => l.i === panel.id);
       if (existing) return existing;
       const name = panel.componentName || "";
-      const h = panelHeight(name, i === 0);
-      const isMap = name.toLowerCase().includes("map") || name.toLowerCase().includes("h3map");
-      // Full-width: maps always, first panel always
-      if (i === 0 || isMap) {
+      const h = panelHeight(name);
+      const fullWidth = isFullWidthComponent(name);
+      // Full-width: maps always get w:12
+      if (fullWidth) {
         if (pendingLeftH > 0) {
           yOffset += pendingLeftH;
           pendingLeftH = 0;
@@ -392,8 +405,8 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
     if (pendingLeftH > 0) yOffset += pendingLeftH;
 
     let smY = 0;
-    const sm: any[] = panels.map((panel, i) => {
-      const h = panelHeight(panel.componentName || "", i === 0);
+    const sm: any[] = orderedPanels.map((panel) => {
+      const h = panelHeight(panel.componentName || "");
       const item = { i: panel.id, x: 0, y: smY, w: 4, h, minW: 4, minH: 2 };
       smY += h;
       return item;
@@ -402,11 +415,11 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
     let mdY = 0;
     let mdPendingLeftH = 0;
     let mdNonFullCount = 0;
-    const md: any[] = panels.map((panel, i) => {
+    const md: any[] = orderedPanels.map((panel) => {
       const name = panel.componentName || "";
-      const h = panelHeight(name, i === 0);
-      const isMap = name.toLowerCase().includes("map") || name.toLowerCase().includes("h3map");
-      if (i === 0 || isMap) {
+      const h = panelHeight(name);
+      const fullWidth = isFullWidthComponent(name);
+      if (fullWidth) {
         if (mdPendingLeftH > 0) {
           mdY += mdPendingLeftH;
           mdPendingLeftH = 0;
@@ -430,7 +443,7 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
     if (mdPendingLeftH > 0) mdY += mdPendingLeftH;
 
     return { lg, md, sm };
-  }, [panels, savedLayouts]);
+  }, [orderedPanels, savedLayouts]);
 
   const handleLayoutChange = useCallback(
     (...args: any[]) => {
@@ -567,7 +580,7 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
             useCSSTransforms: true,
           } as any)}
         >
-          {panels.map((panel) => (
+          {orderedPanels.map((panel) => (
             <div
               key={panel.id}
               className="rounded-xl border border-border bg-card overflow-hidden flex flex-col shadow-sm hover:shadow-md transition-shadow"
