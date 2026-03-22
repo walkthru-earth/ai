@@ -1,5 +1,5 @@
 import { withTamboInteractable } from "@tambo-ai/react";
-import { ChevronDown, ChevronUp, Eye, EyeOff, Layers, Map } from "lucide-react";
+import { ChevronDown, ChevronUp, Eye, EyeOff, Layers, Map as MapIcon } from "lucide-react";
 import * as React from "react";
 import { lazy, Suspense, useMemo } from "react";
 import { z } from "zod";
@@ -942,7 +942,7 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
       {/* Header — hidden when inside dashboard panel */}
       {title && !inPanel && (
         <div className="px-3 py-1.5 border-b bg-muted/30 flex items-center gap-2 flex-shrink-0">
-          <Map className="w-3.5 h-3.5 text-muted-foreground" />
+          <MapIcon className="w-3.5 h-3.5 text-muted-foreground" />
           <span className="text-sm font-semibold text-foreground truncate">{title}</span>
           {colorMetric && !isMultiLayer && (
             <span className="text-xs text-muted-foreground ml-auto font-mono">{colorMetric}</span>
