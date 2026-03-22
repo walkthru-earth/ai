@@ -26,7 +26,7 @@ paths:
 - `useQueryResult(queryId)` — `useSyncExternalStore` reactive hook. Components MUST use this, not `getQueryResult()`
 - Cross-filter: `setCrossFilter()` / `useCrossFilter()`. Types: `value` (click), `bbox` (viewport). Toggle via `setCrossFilterEnabled()`
 - Fly-To Bus: `requestFlyTo({ latitude, longitude, zoom? })` → `useFlyToVersion()` triggers re-render → `consumeFlyTo()` returns target once. Used by DataTable "Zoom to record" → DeckGLMap `flyTo()` (sets `programmaticMoveRef` to suppress viewport save). Lightweight version-based pub/sub (same pattern as cross-filter).
-- Panel Dismiss Bus: `requestDismissPanel(target)` → `useDismissVersion()` triggers re-render → `consumeDismissRequest()` returns `{ target }` once. target: `"all"` clears everything, or component type name (e.g. `"GeoMap"`, `"Graph"`) for selective dismiss. Used by `dismissPanels` AI tool → DashboardCanvas matches target against `componentName` (case-insensitive) or exact `panelId`. Same version-based pub/sub pattern as fly-to.
+- Panel Dismiss Bus: `requestDismissPanel(target)` → `useDismissVersion()` triggers re-render → `consumeDismissRequest()` returns `{ target }` once. target: `"all"` clears everything, or component type name (e.g. `"GeoMap"`, `"Graph"`) for selective dismiss. Used by `dismissPanels` AI tool → DashboardCanvas matches target against `panel.componentName` (sourced from Tambo `content.name`, case-insensitive) or exact `panelId`. Same version-based pub/sub pattern as fly-to.
 
 ## Data Layer (modular registry)
 

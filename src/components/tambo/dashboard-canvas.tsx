@@ -243,7 +243,7 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
           usedIds.add(panelId);
           compIdx++;
           if (!dismissedIds.has(panelId)) {
-            const name = (content as any).componentName ?? "";
+            const name = (content as any).componentName ?? (content as any).name ?? "";
             const propsTitle = (content as any).props?.title;
             const title = typeof propsTitle === "string" && propsTitle.trim() ? propsTitle : formatComponentName(name);
             result.push({ id: panelId, component: content.renderedComponent, componentName: name, title });
@@ -374,11 +374,18 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
   const layouts = useMemo(() => {
     let lgY = 0;
     const lg: any[] = orderedPanels.map((panel) => {
+      const defaultH = panelHeight(panel.componentName || "");
       const existing = savedLayouts.lg?.find((l) => l.i === panel.id);
-      if (existing) return existing;
-      const h = panelHeight(panel.componentName || "");
-      const item = { i: panel.id, x: 0, y: lgY, w: 12, h, minW: 4, minH: 2 };
-      lgY += h;
+      if (existing) {
+        // Force maps to their designated height even when a saved layout exists
+        const isMap = isMapComponent(panel.componentName || "");
+        if (isMap && existing.h < defaultH) {
+          return { ...existing, h: defaultH };
+        }
+        return existing;
+      }
+      const item = { i: panel.id, x: 0, y: lgY, w: 12, h: defaultH, minW: 4, minH: 2 };
+      lgY += defaultH;
       return item;
     });
 

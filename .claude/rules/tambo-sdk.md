@@ -124,6 +124,20 @@ Components receive `_tambo_componentId`, `_tambo_*` hidden props — **never spr
 - **Thread delete**: `useTamboClient()` → `client.threads.delete(threadId, { userKey })`. Requires `userKey` in params (V1 API). Available in `ThreadOptionsDropdown` with inline confirmation UI.
 - **Thread rename**: `client.threads.update(threadId, { userKey, name })` — PATCH endpoint.
 
+## Message Content Types (SDK)
+
+Tambo messages contain `content` blocks. The `ComponentContent` type (from `@tambo-ai/typescript-sdk`) uses these fields:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | `string` | Unique component instance ID |
+| `name` | `string` | Registered component name (e.g. `"GeoMap"`, `"Graph"`, `"DataTable"`) |
+| `props` | `unknown` | Props to pass to the component |
+| `type` | `"component"` | Content block type identifier |
+| `renderedComponent` | `ReactElement` | React-specific: the rendered element (added by `@tambo-ai/react`) |
+
+**CRITICAL**: The component name is `content.name`, NOT `content.componentName`. The `componentName` field exists only on `withTamboInteractable` config and `TamboCurrentComponent` hook — never on raw message content blocks. DashboardCanvas reads `content.name` to determine panel type for sizing and classification.
+
 ## UPDATE vs CREATE NEW
 
 - `update_component_props`: appearance changes ONLY (zoom, colors, chart type) — same data

@@ -587,7 +587,7 @@ flowchart TB
         D_Grid["ResponsiveGridLayout<br/>rowHeight: 80px"]
         D_Break["Breakpoints:<br/>lg: 900px (12 cols)<br/>md: 600px (8 cols)<br/>sm: 0px (4 cols)"]
         D_Full["All panels: full-width"]
-        D_Heights["Heights (grid rows):<br/>Maps: 8 (640px)<br/>Graphs: 5 (400px)<br/>Tables: 5 (400px)<br/>Insight/Dataset/Query: 3<br/>Stats: 2"]
+        D_Heights["Heights (grid rows):<br/>Maps: 10 (800px, 2×)<br/>Graphs: 5 (400px)<br/>Tables: 5 (400px)<br/>Insight/Dataset/Query: 3<br/>Stats: 2"]
         D_Resize["User can resize + drag"]
     end
 ```
