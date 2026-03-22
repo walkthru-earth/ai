@@ -7,6 +7,7 @@
  */
 
 import { useSyncExternalStore } from "react";
+import { readStorage, removeStorage, writeStorage } from "@/lib/storage";
 
 /* ── Types ────────────────────────────────────────────────────── */
 
@@ -41,18 +42,17 @@ const DEFAULTS: Settings = {
 const listeners = new Set<() => void>();
 
 function loadFromStorage(): Settings {
+  const stored = readStorage<Partial<Settings> | null>(STORAGE_KEY, null);
+  if (stored) {
+    return { ...DEFAULTS, ...stored };
+  }
+  // Migrate from old "theme" key (stored as raw string, not JSON)
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      return { ...DEFAULTS, ...parsed };
-    }
-    // Migrate from old "theme" key
     const oldTheme = localStorage.getItem(OLD_THEME_KEY);
     if (oldTheme && (oldTheme === "dark" || oldTheme === "light" || oldTheme === "system")) {
       const migrated = { ...DEFAULTS, theme: oldTheme as Theme };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
-      localStorage.removeItem(OLD_THEME_KEY);
+      writeStorage(STORAGE_KEY, migrated);
+      removeStorage(OLD_THEME_KEY);
       return migrated;
     }
   } catch {
@@ -77,9 +77,9 @@ export function getSettings(): Settings {
 /** Update one or more settings fields. Persists to localStorage and notifies subscribers. */
 export function updateSettings(partial: Partial<Settings>): void {
   settings = { ...settings, ...partial };
+  writeStorage(STORAGE_KEY, settings);
+  // Keep old "theme" key in sync for index.html FOUC script
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-    // Keep old "theme" key in sync for index.html FOUC script
     localStorage.setItem(OLD_THEME_KEY, settings.theme);
   } catch {
     /* quota exceeded */

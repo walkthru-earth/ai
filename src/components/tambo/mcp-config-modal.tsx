@@ -11,6 +11,7 @@ import React from "react";
 import { createPortal } from "react-dom";
 import { Streamdown } from "streamdown";
 import { createMarkdownComponents } from "@/components/tambo/markdown-components";
+import { readStorage, writeStorage } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 
 /**
@@ -36,12 +37,7 @@ export const McpConfigModal = ({
 }) => {
   // Initialize from localStorage directly to avoid conflicts
   const [mcpServers, setMcpServers] = React.useState<McpServerInfo[]>(() => {
-    if (typeof window === "undefined") return [];
-    try {
-      return JSON.parse(localStorage.getItem("mcp-servers") ?? "[]");
-    } catch {
-      return [];
-    }
+    return readStorage<McpServerInfo[]>("mcp-servers", []);
   });
   const [serverUrl, setServerUrl] = React.useState("");
   const [serverName, setServerName] = React.useState("");
@@ -68,21 +64,19 @@ export const McpConfigModal = ({
 
   // Save servers to localStorage when updated and emit events
   React.useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("mcp-servers", JSON.stringify(mcpServers));
+    writeStorage("mcp-servers", mcpServers);
 
-      // Emit custom event to notify other components in the same tab
-      window.dispatchEvent(
-        new CustomEvent("mcp-servers-updated", {
-          detail: mcpServers,
-        }),
-      );
+    // Emit custom event to notify other components in the same tab
+    window.dispatchEvent(
+      new CustomEvent("mcp-servers-updated", {
+        detail: mcpServers,
+      }),
+    );
 
-      if (mcpServers.length > 0) {
-        setSavedSuccess(true);
-        const timer = setTimeout(() => setSavedSuccess(false), 2000);
-        return () => clearTimeout(timer);
-      }
+    if (mcpServers.length > 0) {
+      setSavedSuccess(true);
+      const timer = setTimeout(() => setSavedSuccess(false), 2000);
+      return () => clearTimeout(timer);
     }
   }, [mcpServers]);
 
@@ -409,7 +403,7 @@ function MyApp() {
   );
 
   // Use portal to render outside current DOM tree to avoid nested forms
-  return typeof window !== "undefined" ? createPortal(modalContent, document.body) : null;
+  return createPortal(modalContent, document.body);
 };
 
 /**
@@ -442,52 +436,30 @@ export type McpServer = string | { url: string };
  */
 export function useMcpServers(): McpServer[] {
   const [servers, setServers] = React.useState<McpServer[]>(() => {
-    if (typeof window === "undefined") return [];
+    const parsed = readStorage<McpServer[]>("mcp-servers", []);
+    if (parsed.length === 0) return [];
+    // Deduplicate servers by URL to prevent multiple tool registrations
+    const uniqueUrls = new Set();
+    return parsed.filter((server: McpServer) => {
+      const url = typeof server === "string" ? server : server.url;
+      if (uniqueUrls.has(url)) return false;
+      uniqueUrls.add(url);
+      return true;
+    });
+  });
 
-    const savedServersData = localStorage.getItem("mcp-servers");
-    if (!savedServersData) return [];
-
-    try {
-      const servers = JSON.parse(savedServersData);
-      // Deduplicate servers by URL to prevent multiple tool registrations
+  React.useEffect(() => {
+    const updateServers = () => {
+      const parsed = readStorage<McpServer[]>("mcp-servers", []);
+      // Deduplicate servers by URL
       const uniqueUrls = new Set();
-      return servers.filter((server: McpServer) => {
+      const deduped = parsed.filter((server: McpServer) => {
         const url = typeof server === "string" ? server : server.url;
         if (uniqueUrls.has(url)) return false;
         uniqueUrls.add(url);
         return true;
       });
-    } catch (e) {
-      console.error("Failed to parse saved MCP servers", e);
-      return [];
-    }
-  });
-
-  React.useEffect(() => {
-    const updateServers = () => {
-      if (typeof window === "undefined") return;
-
-      const savedServersData = localStorage.getItem("mcp-servers");
-      if (!savedServersData) {
-        setServers([]);
-        return;
-      }
-
-      try {
-        const newServers = JSON.parse(savedServersData);
-        // Deduplicate servers by URL
-        const uniqueUrls = new Set();
-        const deduped = newServers.filter((server: McpServer) => {
-          const url = typeof server === "string" ? server : server.url;
-          if (uniqueUrls.has(url)) return false;
-          uniqueUrls.add(url);
-          return true;
-        });
-        setServers(deduped);
-      } catch (e) {
-        console.error("Failed to parse saved MCP servers", e);
-        setServers([]);
-      }
+      setServers(deduped);
     };
 
     // Listen for custom events (same tab updates)

@@ -13,6 +13,7 @@ import { useTambo } from "@tambo-ai/react";
 import type * as React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ResponsiveGridLayout, useContainerWidth } from "react-grid-layout";
+import { readStorage, writeStorage } from "@/lib/storage";
 import { basePath, cn } from "@/lib/utils";
 import { consumeDismissRequest, useDismissVersion } from "@/services/query-store";
 import "react-grid-layout/css/styles.css";
@@ -165,37 +166,23 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
 
   // Dismissed panels — persisted to localStorage per thread
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => {
-    if (typeof window === "undefined" || !dismissedKey) return new Set();
-    try {
-      const stored = localStorage.getItem(dismissedKey);
-      return stored ? new Set(JSON.parse(stored)) : new Set();
-    } catch {
-      return new Set();
-    }
+    if (!dismissedKey) return new Set();
+    const arr = readStorage<string[]>(dismissedKey, []);
+    return arr.length > 0 ? new Set(arr) : new Set();
   });
 
   // Panel layouts — persisted to localStorage per thread (debounced)
   const [savedLayouts, setSavedLayouts] = useState<Record<string, any[]>>(() => {
-    if (typeof window === "undefined" || !layoutKey) return {};
-    try {
-      const stored = localStorage.getItem(layoutKey);
-      return stored ? JSON.parse(stored) : {};
-    } catch {
-      return {};
-    }
+    if (!layoutKey) return {};
+    return readStorage<Record<string, any[]>>(layoutKey, {});
   });
   const layoutSaveTimer = useRef<ReturnType<typeof setTimeout>>();
   useEffect(() => {
     return () => clearTimeout(layoutSaveTimer.current);
   }, []);
   const [panelOrder, setPanelOrder] = useState<string[]>(() => {
-    if (typeof window === "undefined" || !orderKey) return [];
-    try {
-      const stored = localStorage.getItem(orderKey);
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
+    if (!orderKey) return [];
+    return readStorage<string[]>(orderKey, []);
   });
 
   // Persist order changes to localStorage
@@ -203,11 +190,7 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
   useEffect(() => {
     if (!orderKey || panelOrder === prevOrderRef.current) return;
     prevOrderRef.current = panelOrder;
-    try {
-      localStorage.setItem(orderKey, JSON.stringify(panelOrder));
-    } catch {
-      /* quota exceeded — ignore */
-    }
+    writeStorage(orderKey, panelOrder);
   }, [panelOrder, orderKey]);
 
   // Reset on thread change — must be in useEffect to avoid setState during render
@@ -218,37 +201,23 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
 
     // Load persisted panel order
     if (orderKey) {
-      try {
-        const stored = localStorage.getItem(orderKey);
-        const parsed = stored ? JSON.parse(stored) : [];
-        setPanelOrder(parsed.length > 0 ? parsed : []);
-      } catch {
-        setPanelOrder([]);
-      }
+      const parsed = readStorage<string[]>(orderKey, []);
+      setPanelOrder(parsed.length > 0 ? parsed : []);
     } else {
       setPanelOrder([]);
     }
 
     // Load persisted layouts
     if (layoutKey) {
-      try {
-        const stored = localStorage.getItem(layoutKey);
-        setSavedLayouts(stored ? JSON.parse(stored) : {});
-      } catch {
-        setSavedLayouts({});
-      }
+      setSavedLayouts(readStorage<Record<string, any[]>>(layoutKey, {}));
     } else {
       setSavedLayouts({});
     }
 
     // Load persisted dismissed panels
     if (dismissedKey) {
-      try {
-        const stored = localStorage.getItem(dismissedKey);
-        setDismissedIds(stored ? new Set(JSON.parse(stored)) : new Set());
-      } catch {
-        setDismissedIds(new Set());
-      }
+      const arr = readStorage<string[]>(dismissedKey, []);
+      setDismissedIds(arr.length > 0 ? new Set(arr) : new Set());
     } else {
       setDismissedIds(new Set());
     }
@@ -318,11 +287,7 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
         const next = new Set(prev);
         for (const id of idsToAdd) next.add(id);
         if (dismissedKey) {
-          try {
-            localStorage.setItem(dismissedKey, JSON.stringify([...next]));
-          } catch {
-            /* quota exceeded */
-          }
+          writeStorage(dismissedKey, [...next]);
         }
         return next;
       });
@@ -338,11 +303,7 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
         setDismissedIds((prev) => {
           const next = new Set(prev).add(id);
           if (dismissedKey) {
-            try {
-              localStorage.setItem(dismissedKey, JSON.stringify([...next]));
-            } catch {
-              /* quota exceeded */
-            }
+            writeStorage(dismissedKey, [...next]);
           }
           return next;
         });
@@ -478,11 +439,7 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
       if (layoutKey) {
         clearTimeout(layoutSaveTimer.current);
         layoutSaveTimer.current = setTimeout(() => {
-          try {
-            localStorage.setItem(layoutKey, JSON.stringify(layouts));
-          } catch {
-            /* quota exceeded */
-          }
+          writeStorage(layoutKey, layouts);
         }, 500);
       }
     },

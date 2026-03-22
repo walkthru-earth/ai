@@ -3,6 +3,7 @@ import { ChevronDown, ChevronUp, Eye, EyeOff, Layers, Map } from "lucide-react";
 import * as React from "react";
 import { lazy, Suspense, useMemo } from "react";
 import { z } from "zod";
+import { readStorage, writeStorage } from "@/lib/storage";
 import { setCrossFilter, useQueryResult } from "@/services/query-store";
 import type { Basemap, ColorScheme, LayerConfig, LayerType } from "./geo-map-deckgl";
 import { useInDashboardPanel } from "./panel-context";
@@ -519,13 +520,8 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
   const storageKey = isMultiLayer ? `geomap-layers:${layersProp?.map((l) => l.id).join(",")}` : undefined;
 
   const [layerOverrides, setLayerOverrides] = React.useState<z.infer<typeof layerEntrySchema>[] | null>(() => {
-    if (!storageKey || typeof window === "undefined") return null;
-    try {
-      const stored = localStorage.getItem(storageKey);
-      return stored ? JSON.parse(stored) : null;
-    } catch {
-      return null;
-    }
+    if (!storageKey) return null;
+    return readStorage<z.infer<typeof layerEntrySchema>[] | null>(storageKey, null);
   });
 
   // Effective layers = overrides (if same IDs) or original prop
@@ -545,11 +541,7 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
     (updated: z.infer<typeof layerEntrySchema>[]) => {
       setLayerOverrides(updated);
       if (storageKey) {
-        try {
-          localStorage.setItem(storageKey, JSON.stringify(updated));
-        } catch {
-          /* quota exceeded */
-        }
+        writeStorage(storageKey, updated);
       }
     },
     [storageKey],
@@ -569,24 +561,18 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
     pitch: number;
     bearing: number;
   } | null>(() => {
-    if (!viewportStorageKey || typeof window === "undefined") return null;
-    try {
-      const stored = localStorage.getItem(viewportStorageKey);
-      return stored ? JSON.parse(stored) : null;
-    } catch {
-      return null;
-    }
+    if (!viewportStorageKey) return null;
+    return readStorage<{ latitude: number; longitude: number; zoom: number; pitch: number; bearing: number } | null>(
+      viewportStorageKey,
+      null,
+    );
   });
 
   const handleViewStateChange = React.useCallback(
     (view: { latitude: number; longitude: number; zoom: number; pitch: number; bearing: number }) => {
       setSavedViewport(view);
       if (viewportStorageKey) {
-        try {
-          localStorage.setItem(viewportStorageKey, JSON.stringify(view));
-        } catch {
-          /* quota exceeded */
-        }
+        writeStorage(viewportStorageKey, view);
       }
     },
     [viewportStorageKey],
@@ -609,7 +595,17 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
   const queryResults = [qr0, qr1, qr2, qr3, qr4];
 
   // Transform data: multi-layer or single-layer
-  const { layerConfigs, legendEntries, center, bounds, allValues, totalFeatureCount, primaryType } = useMemo(() => {
+  const {
+    layerConfigs,
+    legendEntries,
+    center,
+    bounds,
+    allValues,
+    globalMinVal,
+    globalMaxVal,
+    totalFeatureCount,
+    primaryType,
+  } = useMemo(() => {
     const boundsAcc = createBoundsAccumulator();
     const configs: LayerConfig[] = [];
     const legends: { colorScheme: ColorScheme; colorMetric?: string; min: number; max: number; count: number }[] = [];
@@ -699,12 +695,25 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
 
     const { center: c, bounds: b } = finalizeBounds(boundsAcc);
 
+    // Derive global min/max from per-layer configs (already computed by transformQueryToLayer)
+    // instead of re-sorting allValues with computePercentileRange
+    let globalMin = Number.POSITIVE_INFINITY;
+    let globalMax = Number.NEGATIVE_INFINITY;
+    for (const cfg of configs) {
+      if (cfg.minVal != null && cfg.minVal < globalMin) globalMin = cfg.minVal;
+      if (cfg.maxVal != null && cfg.maxVal > globalMax) globalMax = cfg.maxVal;
+    }
+    if (!Number.isFinite(globalMin)) globalMin = 0;
+    if (!Number.isFinite(globalMax)) globalMax = 1;
+
     return {
       layerConfigs: configs,
       legendEntries: legends,
       center: c,
       bounds: b,
       allValues: allVals,
+      globalMinVal: globalMin,
+      globalMaxVal: globalMax,
       totalFeatureCount: totalCount,
       primaryType: firstType,
     };
@@ -728,17 +737,14 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
     colorScheme,
   ]);
 
-  // For H3, compute bounds async via h3-js (hex strings don't have direct lat/lng)
-  const [h3Bounds, setH3Bounds] = React.useState<[[number, number], [number, number]] | null>(null);
+  // Precompute H3 centroids once when data loads — used for both bounds and bbox cross-filter
   const hasH3Layer = layerConfigs.some((c) => c.type === "h3");
+  const [h3Centroids, setH3Centroids] = React.useState<Map<string, [number, number]>>(new Map());
+  const [h3Bounds, setH3Bounds] = React.useState<[[number, number], [number, number]] | null>(null);
   React.useEffect(() => {
     if (!hasH3Layer || layerConfigs.length === 0) {
       setH3Bounds(null);
-      return;
-    }
-    // If we already computed bounds from lat/lng columns, skip h3-js
-    if (bounds) {
-      setH3Bounds(null);
+      setH3Centroids(new Map());
       return;
     }
     // Gather all H3 hex data across layers
@@ -747,6 +753,7 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
 
     import("h3-js")
       .then((h3) => {
+        const centroids = new Map<string, [number, number]>();
         let minLat = 90;
         let maxLat = -90;
         let minLng = 180;
@@ -755,19 +762,26 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
           if (!d.hex) continue;
           try {
             const [lat, lng] = h3.cellToLatLng(d.hex);
-            if (lat < minLat) minLat = lat;
-            if (lat > maxLat) maxLat = lat;
-            if (lng < minLng) minLng = lng;
-            if (lng > maxLng) maxLng = lng;
+            centroids.set(d.hex, [lat, lng]);
+            // Only compute bounds if no lat/lng-based bounds available
+            if (!bounds) {
+              if (lat < minLat) minLat = lat;
+              if (lat > maxLat) maxLat = lat;
+              if (lng < minLng) minLng = lng;
+              if (lng > maxLng) maxLng = lng;
+            }
           } catch {
             /* invalid hex */
           }
         }
-        if (minLat <= maxLat) {
+        setH3Centroids(centroids);
+        if (!bounds && minLat <= maxLat) {
           setH3Bounds([
             [minLng, minLat],
             [maxLng, maxLat],
           ]);
+        } else {
+          setH3Bounds(null);
         }
       })
       .catch(() => {});
@@ -776,7 +790,8 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
   const finalBounds = bounds ?? h3Bounds;
 
   const hasData = totalFeatureCount > 0;
-  const { min: minVal, max: maxVal } = computePercentileRange(allValues);
+  const minVal = globalMinVal;
+  const maxVal = globalMaxVal;
 
   const centerLat = latitude ?? center?.lat ?? 0;
   const centerLng = longitude ?? center?.lng ?? 0;
@@ -820,7 +835,7 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
 
   // Cross-filter: bbox — applies to all layers
   const handleBoundsChange = React.useCallback(
-    async (bbox: [number, number, number, number]) => {
+    (bbox: [number, number, number, number]) => {
       const [west, south, east, north] = bbox;
       if (!primaryQueryId || !hasData) return;
 
@@ -833,37 +848,35 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
         if (!config) continue;
 
         if (config.type === "h3") {
-          try {
-            const h3 = await import("h3-js");
-            const hexData = config.data ?? [];
-            const hCol = isMultiLayer ? (visibleLayers[i]?.hexColumn ?? "hex") : hexColumn;
-            const visibleHexes = hexData
-              .filter((h: any) => {
-                const [lat, lng] = h3.cellToLatLng(h.hex);
-                return lat >= south && lat <= north && lng >= west && lng <= east;
-              })
-              .map((h: any) => h.hex);
-            if (visibleHexes.length > 0 && visibleHexes.length < hexData.length) {
-              setCrossFilter({
-                sourceQueryId: lqid,
-                sourceComponent: "GeoMap",
-                filterType: "bbox",
-                column: hCol,
-                values: visibleHexes,
-                bbox,
-              });
-            } else if (visibleHexes.length === hexData.length) {
-              setCrossFilter({
-                sourceQueryId: lqid,
-                sourceComponent: "GeoMap",
-                filterType: "bbox",
-                column: hCol,
-                values: [],
-                bbox,
-              });
-            }
-          } catch {
-            /* h3-js not available */
+          const hexData = config.data ?? [];
+          const hCol = isMultiLayer ? (visibleLayers[i]?.hexColumn ?? "hex") : hexColumn;
+          // Use precomputed centroids — no dynamic h3-js import needed on every viewport change
+          const visibleHexes = hexData
+            .filter((h: any) => {
+              const centroid = h3Centroids.get(h.hex);
+              if (!centroid) return false;
+              const [lat, lng] = centroid;
+              return lat >= south && lat <= north && lng >= west && lng <= east;
+            })
+            .map((h: any) => h.hex);
+          if (visibleHexes.length > 0 && visibleHexes.length < hexData.length) {
+            setCrossFilter({
+              sourceQueryId: lqid,
+              sourceComponent: "GeoMap",
+              filterType: "bbox",
+              column: hCol,
+              values: visibleHexes,
+              bbox,
+            });
+          } else if (visibleHexes.length === hexData.length) {
+            setCrossFilter({
+              sourceQueryId: lqid,
+              sourceComponent: "GeoMap",
+              filterType: "bbox",
+              column: hCol,
+              values: [],
+              bbox,
+            });
           }
         } else if (config.type === "scatterplot") {
           const pointData = config.data ?? [];
@@ -882,7 +895,7 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
         }
       }
     },
-    [primaryQueryId, isMultiLayer, visibleLayers, queryId, layerConfigs, hexColumn, latColumn, hasData],
+    [primaryQueryId, isMultiLayer, visibleLayers, queryId, layerConfigs, hexColumn, latColumn, hasData, h3Centroids],
   );
 
   // Feature count label

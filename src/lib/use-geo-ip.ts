@@ -1,5 +1,6 @@
 import { latLngToCell } from "h3-js";
 import { useEffect, useState } from "react";
+import { readStorage, writeStorage } from "@/lib/storage";
 
 /** H3 resolutions covering all datasets: weather(1-5), terrain(1-10), population(1-8), building(3-8) */
 const H3_RESOLUTIONS = [1, 2, 3, 4, 5, 6, 7, 8] as const;
@@ -25,17 +26,10 @@ export function useGeoIP(): GeoIP | null {
 
   useEffect(() => {
     // Check cache first
-    try {
-      const cached = localStorage.getItem(CACHE_KEY);
-      if (cached) {
-        const { data, ts } = JSON.parse(cached);
-        if (Date.now() - ts < CACHE_TTL) {
-          setGeo(data);
-          return;
-        }
-      }
-    } catch {
-      /* ignore */
+    const cached = readStorage<{ data: GeoIP; ts: number } | null>(CACHE_KEY, null);
+    if (cached && Date.now() - cached.ts < CACHE_TTL) {
+      setGeo(cached.data);
+      return;
     }
 
     // Fetch fresh
@@ -65,11 +59,7 @@ export function useGeoIP(): GeoIP | null {
           h3Cells: Object.keys(h3Cells).length > 0 ? h3Cells : undefined,
         };
         setGeo(parsed);
-        try {
-          localStorage.setItem(CACHE_KEY, JSON.stringify({ data: parsed, ts: Date.now() }));
-        } catch {
-          /* quota exceeded */
-        }
+        writeStorage(CACHE_KEY, { data: parsed, ts: Date.now() });
       })
       .catch(() => {
         /* geo-ip fetch failed — non-critical */
