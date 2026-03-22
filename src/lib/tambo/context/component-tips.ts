@@ -11,20 +11,9 @@ export function buildComponentTips(queryLimit: number): string[] {
 
     // ── Map layers ──
     "H3Map: queryId + hexColumn='hex' + valueColumn='value' + lat/lng/zoom + colorMetric. deck.gl renders from hex strings.",
-    "A5 rendering: deck.gl A5Layer renders pentagons from cell ID (same pattern as H3). " +
-      "SQL: SELECT printf('%x', a5_lonlat_to_cell(lng, lat, res)) AS pentagon, <metric> AS value, " +
-      "list_extract(a5_cell_to_lonlat(a5_lonlat_to_cell(lng, lat, res)), 1) AS lng, " +
-      "list_extract(a5_cell_to_lonlat(a5_lonlat_to_cell(lng, lat, res)), 2) AS lat " +
-      "— include lat/lng for map bounds. Column 'pentagon' auto-detects layerType=a5. Do NOT convert A5 to H3.",
+    "A5: column 'pentagon' auto-detects layerType=a5. See DuckDB notes for A5 SQL patterns.",
 
-    // ── Spatial analysis (auto-rendering) ──
-    "SPATIAL ANALYSIS → AUTO-RENDERING: Spatial query results with GEOMETRY columns auto-render on the map — " +
-      "the system extracts WKB and routes to the right GeoArrow layer (polygon/line/point) automatically. " +
-      "ST_Buffer() → polygon layer. Point-in-polygon → preserves source geometry. " +
-      "Spatial joins (ST_Intersects, ST_Contains, ST_DWithin) → result geometry auto-renders. " +
-      "For spatial analysis: just SELECT * — no ST_AsGeoJSON, no layerType, no manual geometry handling.",
-    "GeoJSON/WFS → AUTO-RENDERING: ST_GeomFromGeoJSON produces native GEOMETRY → auto-renders on map (lines, polygons, points). " +
-      "See GeoJSON/WFS patterns in DuckDB notes. Use Pattern A for map+table, Pattern B for charts/aggregation.",
+    // ── Spatial SQL patterns (auto-rendering handled by DuckDB notes) ──
     "SPATIAL SQL PATTERNS: " +
       "(1) Buffer: SELECT * REPLACE (ST_Buffer(geom, 1000) AS geom) FROM ... (1km buffer, auto-renders as polygons). " +
       "(2) Point-in-polygon: SELECT * FROM points p, polygons z WHERE ST_Contains(z.geom, p.geom). " +
@@ -50,9 +39,6 @@ export function buildComponentTips(queryLimit: number): string[] {
     // ── DataTable ──
     "DataTable: queryId only (auto-derives columns/rows). Optional: visibleColumns to limit columns shown.",
 
-    // ── Color schemes ──
-    "H3Map colorScheme: 'blue-red', 'viridis', 'plasma', 'warm', 'cool', 'spectral'.",
-
     // ── Cross-filtering ──
     "Cross-filtering: zooming/panning the map filters Graph and DataTable to only show visible hexes.",
     "IMPORTANT: Reuse the SAME queryId across H3Map + Graph + DataTable for linked cross-filtering. " +
@@ -62,7 +48,7 @@ export function buildComponentTips(queryLimit: number): string[] {
       "If no meaningful label column exists, add one in SQL: ROW_NUMBER() OVER (ORDER BY value DESC) as rank, then use xColumn='rank'.",
 
     // ── Cross-dataset analysis patterns ──
-    "CROSS-DATASET ANALYSIS PATTERNS (all joined via h3_index — resolutions MUST match across files): " +
+    "CROSS-DATASET ANALYSIS PATTERNS (join rules in DuckDB notes): " +
       "Urban density: building JOIN population → bldg_per_person, coverage_ratio vs pop_density. " +
       "Housing pressure: population growth (pop_2100/pop_2025) vs building count → where is housing falling behind? " +
       "Terrain risk: terrain (slope, tri) JOIN building → buildings on steep ground. " +
@@ -71,17 +57,12 @@ export function buildComponentTips(queryLimit: number): string[] {
       "All use same pattern: WITH cells AS (h3_grid_disk neighborhood) → JOIN all files USING (h3_index).",
 
     // ── Overture cross-indices ──
-    "OVERTURE CROSS-INDICES (use getCrossIndex for SQL patterns and weights): " +
-      "Walkability (5 signals): transportation(road types) + base(pedestrian infra, barriers) + terrain(slope) + places(destinations). " +
-      "15-min city (7 signals): places(diversity, essentials) + transportation(walk, cycle) + base(transit, green space) + terrain(slope). " +
-      "Biophilic: base(nature+water) / population → nature per capita. " +
-      "Heat vulnerability (6 signals): building(volume, coverage) + transportation(paved) + base(nature deficit) + weather(temp, wind). " +
-      "Water security (6 signals): base(water) + population(growth) + weather(precip) + building(permeability) + terrain(retention). " +
-      "Overture datasets res 1-10. Shared range with ALL datasets: res 3-5.",
+    "OVERTURE CROSS-INDICES: call getCrossIndex(analysis) for signal breakdowns, weights, and SQL templates. " +
+      "Available: walkability, fifteen-min-city, biophilic, heat-vulnerability, water-security, plus 6 more.",
 
     // ── Weather forecast pattern ──
     "WEATHER FORECAST (MANDATORY pattern — do NOT skip the chart): " +
-      "STEP 0: Call buildParquetUrl('weather') to get the URL — NEVER guess the date. " +
+      "STEP 0: Call buildParquetUrl('weather') to get the URL. " +
       "Each file has 21 timestamps (5-day, 6-hourly). For ANY weather query: " +
       "(1) Run a TIMELINE query: all 21 timestamps for user's cell with strftime(CAST(timestamp AS TIMESTAMP), '%b %d %H:%M') AS time_label, " +
       "temperature_2m_C AS temp_c, GREATEST(precipitation_mm_6hr, 0) AS precip_mm, wind_speed_10m_ms AS wind_ms. " +

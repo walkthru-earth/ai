@@ -66,16 +66,14 @@ function buildLocationContext(geo: GeoIP, timezone: string, currentDate: string)
       ". Local date: " +
       currentDate +
       ". " +
-      "Remember: h3_latlng_to_cell(latitude, longitude, res) — lat FIRST. a5_lonlat_to_cell(longitude, latitude, res) — lng FIRST. ST_Point(longitude, latitude) — lng FIRST. " +
+      "Coordinate order: see DuckDB notes. " +
       (geo.h3Cells
         ? "USER H3 CELLS (use these — NEVER hardcode or compute H3 for 'my location' queries): " +
           Object.entries(geo.h3Cells)
             .map(([res, hex]) => `res${res}='${hex}'`)
             .join(", ") +
           ". SQL PATTERNS — Single cell: WHERE h3_index = h3_string_to_h3('<cell>')::BIGINT. " +
-          "Area: WITH c AS (SELECT unnest(h3_grid_disk(h3_string_to_h3('<cell>')::BIGINT, 4))::BIGINT AS h3_index) SELECT ... FROM file JOIN c USING (h3_index). " +
-          "For cross-dataset joins, ALL files MUST use the SAME resolution. Shared range: res 3-5 (covers weather∩building∩population∩terrain). " +
-          "Use res 5 for neighborhood detail, res 3 for city overview. "
+          "Area: WITH c AS (SELECT unnest(h3_grid_disk(h3_string_to_h3('<cell>')::BIGINT, 4))::BIGINT AS h3_index) SELECT ... FROM file JOIN c USING (h3_index). "
         : "") +
       "Use this to personalize initial suggestions (e.g., show data for their city/region first). " +
       "Do NOT mention that you know their location unless they ask about their area.",
@@ -96,7 +94,6 @@ export function buildContextHelpers(geo: GeoIP | null) {
         behavior: behaviorRules,
         duckdbWasmNotes: buildDuckdbWasmNotes(queryLimit),
         queryLimit,
-        queryLimitNote: `User configured query LIMIT to ${queryLimit}. ALWAYS use LIMIT ${queryLimit} in all SQL queries.`,
         s3Base: S3_BASE,
         datasets: datasetPaths,
         componentTips: buildComponentTips(queryLimit),

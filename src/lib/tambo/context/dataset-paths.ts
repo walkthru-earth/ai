@@ -11,7 +11,7 @@ export const datasetPaths: Record<string, string> = {
   population: "indices/population/v2/scenario=SSP2/h3_res={1-8}/data.parquet",
   weather:
     "indices/weather/model=GraphCast_GFS/date=YYYY-MM-DD/hour={0,12}/h3_res={1-5}/data.parquet — " +
-    "Each file = 5-day forecast (21 steps, 6-hourly). Use buildParquetUrl to resolve latest date. Never build future-date URLs.",
+    "Each file = 5-day forecast (21 steps, 6-hourly). Use buildParquetUrl to resolve latest date.",
   places:
     "indices/places-index/v1/release={ver}/h3/h3_res={1-10}/data.parquet — " +
     "72M POIs, 13 categories (food, shopping, health, education, sports, etc.) + landmarks (restaurant, hospital, school, park). Use buildParquetUrl('places').",
