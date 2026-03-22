@@ -90,9 +90,8 @@ All viz components use `useInDashboardPanel()` to detect context:
 
 ## UPDATE vs CREATE NEW
 
-- **Update existing** (`update_component_props`): same data, change appearance only (zoom, pitch, bearing, colors, chart type, hide columns).
-- **NEVER change queryId** via update_component_props — it won't re-render. Always create a new component for new data.
-- **Create new**: different data, filter, metric, or dataset ("filter to my cell", "show wind" when chart shows temp). Previous visualizations stay visible for comparison.
+- **Update existing** (`update_component_props`): appearance changes OR data swap — zoom, pitch, bearing, colors, chart type, hide columns, or new `queryId`. Changing `queryId` works — `useQueryResult` reactively picks up new data. Use when user says "show X instead" or "change this to Y".
+- **Create new**: when user wants both old and new visible for comparison ("also show X", "compare with Y").
 
 ## Chat
 

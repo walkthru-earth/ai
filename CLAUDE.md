@@ -248,7 +248,7 @@ StatsCard, StatsGrid, InsightCard, DatasetCard, QueryDisplay, DataCard — AI pr
 
 ### UPDATE vs CREATE NEW Components
 
-**Update existing** (`update_component_props`) ONLY for appearance changes on the SAME data — zoom, pitch, bearing, colors, chart type, hide columns. **NEVER change queryId via update_component_props** — it won't re-render the data. **Create new** component when user asks for DIFFERENT data, a filter, or a new metric. When in doubt, create new — users expect previous visualizations to remain visible for comparison.
+**Update existing** (`update_component_props`) for appearance changes OR data replacement on the same panel — zoom, pitch, bearing, colors, chart type, hide columns, or a new `queryId` to swap data in place. Changing `queryId` via `update_component_props` works — `useQueryResult` reactively picks up the new data. Use update when the user says "show me X instead" or "change this to Y". **Create new** component when the user wants to see both old and new data side by side for comparison ("also show X", "compare with Y").
 
 ### Multi-Layer GeoMap
 
