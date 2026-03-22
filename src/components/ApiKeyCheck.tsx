@@ -1,26 +1,20 @@
 import { AlertTriangle, Check, Copy } from "lucide-react";
-import { useState } from "react";
+import { useCopyToClipboard } from "@/lib/use-copy-to-clipboard";
 
 interface ApiKeyCheckProps {
   children: React.ReactNode;
 }
 
 const CopyButton = ({ text }: { text: string }) => {
-  const [showCopied, setShowCopied] = useState(false);
-
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(text).catch(() => {});
-    setShowCopied(true);
-    setTimeout(() => setShowCopied(false), 2000);
-  };
+  const [copied, copy] = useCopyToClipboard();
 
   return (
     <button
-      onClick={copyToClipboard}
+      onClick={() => copy(text)}
       className="p-2 text-muted-foreground hover:text-foreground bg-muted rounded transition-colors"
       title="Copy to clipboard"
     >
-      {showCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+      {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
     </button>
   );
 };

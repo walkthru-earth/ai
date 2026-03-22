@@ -13,6 +13,7 @@ import { Field, FixedSizeList, Float64, makeData, makeVector, Table, vectorFromA
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import React, { useEffect, useMemo, useRef } from "react";
+import { useCopyToClipboard } from "@/lib/use-copy-to-clipboard";
 import { consumeFlyTo, useFlyToVersion } from "@/services/query-store";
 
 /* ── Types ──────────────────────────────────────────────────────── */
@@ -899,7 +900,7 @@ export default function DeckGLMap({
   const [contextMenu, setContextMenu] = React.useState<{ x: number; y: number; data: Record<string, unknown> } | null>(
     null,
   );
-  const [ctxCopied, setCtxCopied] = React.useState(false);
+  const [ctxCopied, ctxCopy] = useCopyToClipboard(1000);
   const [isTouch, setIsTouch] = React.useState(false);
   useEffect(() => {
     setIsTouch("ontouchstart" in window || navigator.maxTouchPoints > 0);
@@ -1108,14 +1109,9 @@ export default function DeckGLMap({
 
   const handleCopyFromContextMenu = React.useCallback(() => {
     if (!contextMenu) return;
-    navigator.clipboard.writeText(JSON.stringify(contextMenu.data, null, 2)).then(() => {
-      setCtxCopied(true);
-      setTimeout(() => {
-        setCtxCopied(false);
-        setContextMenu(null);
-      }, 1000);
-    });
-  }, [contextMenu]);
+    ctxCopy(JSON.stringify(contextMenu.data, null, 2));
+    setTimeout(() => setContextMenu(null), 1000);
+  }, [contextMenu, ctxCopy]);
 
   // Dismiss context menu on click anywhere
   useEffect(() => {
@@ -1126,8 +1122,8 @@ export default function DeckGLMap({
   }, [contextMenu]);
 
   return (
-    <div style={{ width: "100%", height: "100%", position: "absolute", inset: 0 }} onContextMenu={handleContextMenu}>
-      <div ref={containerRef} style={{ width: "100%", height: "100%", position: "absolute", inset: 0 }} />
+    <div className="w-full h-full absolute inset-0" onContextMenu={handleContextMenu}>
+      <div ref={containerRef} className="w-full h-full absolute inset-0" />
       {hoverInfo && !contextMenu && <MapTooltip hover={hoverInfo} containerRect={containerRectRef.current} />}
       {contextMenu && (
         <div

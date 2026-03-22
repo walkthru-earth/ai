@@ -2,8 +2,9 @@ import DOMPurify from "dompurify";
 import hljs from "highlight.js";
 import { cn } from "@/lib/utils";
 import "highlight.js/styles/github.css";
-import { Check, Copy, ExternalLink, X } from "lucide-react";
+import { Check, Copy, ExternalLink } from "lucide-react";
 import * as React from "react";
+import { useCopyToClipboard } from "@/lib/use-copy-to-clipboard";
 
 /**
  * Markdown Components for Streamdown
@@ -65,49 +66,17 @@ function ResourceMention({ name, uri }: { name: string; uri: string }) {
  * Header component for code blocks with language display and copy functionality
  */
 const CodeHeader = ({ language, code }: { language?: string; code?: string }) => {
-  const [copied, setCopied] = React.useState(false);
-  const [error, setError] = React.useState(false);
-  const timeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const copyToClipboard = async () => {
-    if (!code) return;
-
-    // Clear any existing timeout to prevent race conditions
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-
-    try {
-      await navigator.clipboard.writeText(code);
-      setCopied(true);
-      setError(false);
-    } catch (err) {
-      console.error("Failed to copy code to clipboard:", err);
-      setError(true);
-    }
-    timeoutRef.current = setTimeout(() => setError(false), 2000);
-  };
-
-  const Icon = React.useMemo(() => {
-    if (error) {
-      return <X className="size-4 text-red-500" />;
-    }
-    if (copied) {
-      return <Check className="size-4 text-green-500" />;
-    }
-    return <Copy className="size-4" />;
-  }, [copied, error]);
+  const [copied, copy] = useCopyToClipboard();
 
   return (
     <div className="flex items-center justify-between gap-4 rounded-t-md bg-container px-4 py-2 text-sm font-semibold text-foreground">
       <span className="lowercase text-muted-foreground">{language}</span>
       <button
-        onClick={copyToClipboard}
+        onClick={() => code && copy(code)}
         className="p-1 rounded-md hover:bg-backdrop transition-colors cursor-pointer"
-        title={error ? "Failed to copy" : "Copy code"}
+        title="Copy code"
       >
-        {Icon}
+        {copied ? <Check className="size-4 text-green-500" /> : <Copy className="size-4" />}
       </button>
     </div>
   );

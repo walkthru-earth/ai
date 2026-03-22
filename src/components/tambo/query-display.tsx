@@ -1,5 +1,7 @@
 import * as React from "react";
 import { z } from "zod";
+import { CardSkeleton } from "@/components/ui/card-skeleton";
+import { useCopyToClipboard } from "@/lib/use-copy-to-clipboard";
 
 export const queryDisplaySchema = z.object({
   sql: z.string().describe("SQL query string to display with syntax highlighting"),
@@ -97,17 +99,11 @@ function highlightSQL(sql: string): React.ReactNode[] {
 
 export const QueryDisplay = React.forwardRef<HTMLDivElement, QueryDisplayProps>(
   ({ sql, title, dataset, parquetUrl, rowCount, duration }, ref) => {
-    const [copied, setCopied] = React.useState(false);
+    const [copied, copy] = useCopyToClipboard();
 
     if (!sql) {
-      return <div ref={ref} className="rounded-xl border p-4 animate-pulse bg-muted/30 h-32" />;
+      return <CardSkeleton ref={ref} className="h-32" />;
     }
-
-    const handleCopy = () => {
-      navigator.clipboard.writeText(sql);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    };
 
     return (
       <div ref={ref} className="rounded-xl border overflow-hidden bg-card">
@@ -122,7 +118,7 @@ export const QueryDisplay = React.forwardRef<HTMLDivElement, QueryDisplayProps>(
             )}
           </div>
           <button
-            onClick={handleCopy}
+            onClick={() => copy(sql)}
             className="text-xs text-muted-foreground hover:text-foreground transition-colors flex-shrink-0 ml-2"
           >
             {copied ? "Copied!" : "Copy"}
