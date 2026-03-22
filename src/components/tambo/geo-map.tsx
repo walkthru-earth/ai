@@ -921,8 +921,9 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
     }
   }, [primaryType, totalFeatureCount, isMultiLayer, layerConfigs.length]);
 
-  // Loading state
-  const hasAnyQueryId = isMultiLayer ? visibleLayers.length > 0 : !!queryId;
+  // Loading state — multi-layer with all hidden still shows the map shell + layer control
+  const allLayersHidden = isMultiLayer && effectiveLayers && effectiveLayers.length > 0 && visibleLayers.length === 0;
+  const hasAnyQueryId = isMultiLayer ? visibleLayers.length > 0 || allLayersHidden : !!queryId;
   if (!hasAnyQueryId) {
     return (
       <div
@@ -991,7 +992,7 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
           </Suspense>
         ) : (
           <div className="h-full flex items-center justify-center bg-muted/30 text-muted-foreground">
-            <p className="text-base">Loading...</p>
+            <p className="text-base">{allLayersHidden ? "All layers hidden" : "Loading..."}</p>
           </div>
         )}
       </div>

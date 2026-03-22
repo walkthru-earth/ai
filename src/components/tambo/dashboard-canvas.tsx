@@ -30,7 +30,7 @@ interface DashboardCanvasProps {
 /** Panel height in grid rows (×80px). Maps get 2× default height. */
 function panelHeight(name: string): number {
   const n = name.toLowerCase();
-  if (n.includes("h3map") || n.includes("map")) return 8;
+  if (n.includes("h3map") || n.includes("map")) return 10;
   if (n.includes("graph")) return 5;
   if (n.includes("datatable") || n.includes("table")) return 5;
   if (n.includes("querydisplay") || n.includes("query")) return 3;
@@ -489,7 +489,7 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
                 const name = (panel.componentName || "").toLowerCase();
                 const isMap = name.includes("map") || name.includes("h3map");
                 const compact = isCompactComponent(panel.componentName || "");
-                const minH = isMap ? "h-[420px]" : compact ? "h-auto" : "h-[280px]";
+                const minH = isMap ? "h-[560px]" : compact ? "h-auto" : "h-[280px]";
                 return (
                   <SortablePanel
                     key={panel.id}
