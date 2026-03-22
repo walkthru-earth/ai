@@ -16,6 +16,10 @@ export type Theme = "dark" | "light" | "system";
 export interface Settings {
   theme: Theme;
   queryLimit: number;
+  /** Default H3 resolution for queries (1-10). null = let AI decide. */
+  defaultH3Res: number | null;
+  /** Default A5 resolution for queries (1-15). null = let AI decide. */
+  defaultA5Res: number | null;
 }
 
 /* ── Constants ────────────────────────────────────────────────── */
@@ -32,9 +36,31 @@ export const QUERY_LIMIT_PRESETS = [
   { value: 50000, label: "50K" },
 ] as const;
 
+export const H3_RES_OPTIONS = [
+  { value: null, label: "Auto" },
+  { value: 3, label: "3" },
+  { value: 4, label: "4" },
+  { value: 5, label: "5" },
+  { value: 6, label: "6" },
+  { value: 7, label: "7" },
+  { value: 8, label: "8" },
+] as const;
+
+export const A5_RES_OPTIONS = [
+  { value: null, label: "Auto" },
+  { value: 5, label: "5" },
+  { value: 6, label: "6" },
+  { value: 7, label: "7" },
+  { value: 8, label: "8" },
+  { value: 9, label: "9" },
+  { value: 10, label: "10" },
+] as const;
+
 const DEFAULTS: Settings = {
   theme: "system",
   queryLimit: DEFAULT_QUERY_LIMIT,
+  defaultH3Res: null,
+  defaultA5Res: null,
 };
 
 /* ── Module-level store ───────────────────────────────────────── */

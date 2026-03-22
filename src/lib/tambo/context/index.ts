@@ -87,13 +87,21 @@ function buildLocationContext(geo: GeoIP, timezone: string, currentDate: string)
 export function buildContextHelpers(geo: GeoIP | null) {
   return {
     walkthruContext: () => {
-      const { queryLimit } = getSettings();
+      const { queryLimit, defaultH3Res, defaultA5Res } = getSettings();
       return {
         platform: "walkthru.earth",
         userEnvironment: buildUserEnvironment(geo),
         behavior: behaviorRules,
         duckdbWasmNotes: buildDuckdbWasmNotes(queryLimit),
         queryLimit,
+        defaultH3Res: defaultH3Res ?? "auto (AI decides)",
+        defaultA5Res: defaultA5Res ?? "auto (AI decides)",
+        gridResolutionNote:
+          defaultH3Res || defaultA5Res
+            ? `User has set default grid resolution: ${defaultH3Res ? `H3 res ${defaultH3Res}` : ""}${defaultH3Res && defaultA5Res ? ", " : ""}${defaultA5Res ? `A5 res ${defaultA5Res}` : ""}. ` +
+              "ALWAYS use this resolution for queries unless the user explicitly asks for a different one. " +
+              "Pass this resolution to buildParquetUrl() and use it in SQL queries."
+            : undefined,
         s3Base: S3_BASE,
         datasets: datasetPaths,
         componentTips: buildComponentTips(queryLimit),

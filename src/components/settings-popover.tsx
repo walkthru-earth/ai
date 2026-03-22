@@ -6,7 +6,14 @@
 import { Link2, Link2Off, Monitor, Moon, Settings, Sun } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { QUERY_LIMIT_PRESETS, type Theme, updateSettings, useSettings } from "@/lib/settings-store";
+import {
+  A5_RES_OPTIONS,
+  H3_RES_OPTIONS,
+  QUERY_LIMIT_PRESETS,
+  type Theme,
+  updateSettings,
+  useSettings,
+} from "@/lib/settings-store";
 import { useCrossFilterEnabled } from "@/services/query-store";
 
 function ThemeButton({ mode, current }: { mode: Theme; current: Theme }) {
@@ -129,6 +136,59 @@ function QueryLimitControl() {
   );
 }
 
+function GridResolutionControl() {
+  const { defaultH3Res, defaultA5Res } = useSettings();
+
+  return (
+    <div>
+      <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+        Grid resolution
+      </div>
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-muted-foreground w-5 shrink-0 font-mono">H3</span>
+          <div className="flex gap-0.5 flex-1">
+            {H3_RES_OPTIONS.map((opt) => (
+              <button
+                key={String(opt.value)}
+                type="button"
+                onClick={() => updateSettings({ defaultH3Res: opt.value })}
+                className={`flex-1 px-1 py-1.5 rounded text-[10px] font-medium transition-colors ${
+                  defaultH3Res === opt.value
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-muted-foreground w-5 shrink-0 font-mono">A5</span>
+          <div className="flex gap-0.5 flex-1">
+            {A5_RES_OPTIONS.map((opt) => (
+              <button
+                key={String(opt.value)}
+                type="button"
+                onClick={() => updateSettings({ defaultA5Res: opt.value })}
+                className={`flex-1 px-1 py-1.5 rounded text-[10px] font-medium transition-colors ${
+                  defaultA5Res === opt.value
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+      <p className="text-[9px] text-muted-foreground/60 mt-1">Auto = AI picks the best resolution per query</p>
+    </div>
+  );
+}
+
 function SettingsPanel() {
   const { theme } = useSettings();
 
@@ -149,6 +209,9 @@ function SettingsPanel() {
 
       {/* Query Limit */}
       <QueryLimitControl />
+
+      {/* Grid Resolution */}
+      <GridResolutionControl />
     </div>
   );
 }
