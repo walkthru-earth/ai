@@ -276,3 +276,76 @@ function subscribeDismiss(cb: () => void): () => void {
 export function useDismissVersion(): number {
   return useSyncExternalStore(subscribeDismiss, getDismissVersion, () => 0);
 }
+
+/* ── Panel Restore Bus ────────────────────────────────────────────── */
+
+let restoreRequest: string | null = null;
+let restoreVersion = 0;
+const restoreListeners = new Set<() => void>();
+
+function emitRestore() {
+  for (const fn of restoreListeners) fn();
+}
+
+/** Request a dismissed panel to be restored — called from chat message "Restore to dashboard". */
+export function requestRestorePanel(panelId: string): void {
+  restoreRequest = panelId;
+  restoreVersion++;
+  emitRestore();
+}
+
+/** Single-consumer: first caller clears the request */
+export function consumeRestoreRequest(): string | null {
+  const r = restoreRequest;
+  restoreRequest = null;
+  return r;
+}
+
+function getRestoreVersion() {
+  return restoreVersion;
+}
+
+function subscribeRestore(cb: () => void): () => void {
+  restoreListeners.add(cb);
+  return () => restoreListeners.delete(cb);
+}
+
+/** Returns the latest restore version (triggers re-render when a new request is made) */
+export function useRestoreVersion(): number {
+  return useSyncExternalStore(subscribeRestore, getRestoreVersion, () => 0);
+}
+
+/* ── Dismissed Panel IDs (shared read for message.tsx) ────────────── */
+
+let dismissedPanelIds: Set<string> = new Set();
+let dismissedIdsVersion = 0;
+const dismissedIdsListeners = new Set<() => void>();
+
+function emitDismissedIds() {
+  for (const fn of dismissedIdsListeners) fn();
+}
+
+/** Called by DashboardCanvas whenever dismissedIds changes — syncs to shared store. */
+export function syncDismissedPanelIds(ids: Set<string>): void {
+  dismissedPanelIds = ids;
+  dismissedIdsVersion++;
+  emitDismissedIds();
+}
+
+export function isPanelDismissed(panelId: string): boolean {
+  return dismissedPanelIds.has(panelId);
+}
+
+function getDismissedIdsSnapshot(): Set<string> {
+  return dismissedPanelIds;
+}
+
+function subscribeDismissedIds(cb: () => void): () => void {
+  dismissedIdsListeners.add(cb);
+  return () => dismissedIdsListeners.delete(cb);
+}
+
+/** Reactive hook — re-renders when dismissed panel set changes. */
+export function useDismissedPanelIds(): Set<string> {
+  return useSyncExternalStore(subscribeDismissedIds, getDismissedIdsSnapshot, () => new Set());
+}

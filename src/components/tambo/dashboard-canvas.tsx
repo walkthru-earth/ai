@@ -15,7 +15,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ResponsiveGridLayout, useContainerWidth } from "react-grid-layout";
 import { readStorage, writeStorage } from "@/lib/storage";
 import { basePath, cn } from "@/lib/utils";
-import { consumeDismissRequest, useDismissVersion } from "@/services/query-store";
+import {
+  consumeDismissRequest,
+  consumeRestoreRequest,
+  syncDismissedPanelIds,
+  useDismissVersion,
+  useRestoreVersion,
+} from "@/services/query-store";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
 import { GripVertical, Maximize2, Minimize2, X } from "lucide-react";
@@ -325,6 +331,30 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
     },
     [dismissedKey],
   );
+
+  // Sync dismissedIds to shared store so message.tsx can read dismissed state
+  useEffect(() => {
+    syncDismissedPanelIds(dismissedIds);
+  }, [dismissedIds]);
+
+  // Listen for restore requests from chat message "Restore to dashboard"
+  const restoreVersion = useRestoreVersion();
+  useEffect(() => {
+    if (restoreVersion === 0) return;
+    const panelId = consumeRestoreRequest();
+    if (!panelId) return;
+    setTimeout(() => {
+      setDismissedIds((prev) => {
+        if (!prev.has(panelId)) return prev;
+        const next = new Set(prev);
+        next.delete(panelId);
+        if (dismissedKey) {
+          writeStorage(dismissedKey, [...next]);
+        }
+        return next;
+      });
+    }, 0);
+  }, [restoreVersion, dismissedKey]);
 
   const toggleMaximize = useCallback((id: string) => {
     // Defer to avoid "Cannot update component while rendering" when

@@ -2,12 +2,13 @@ import type { Content, TamboComponentContent, TamboThreadMessage, TamboToolUseCo
 import { useTambo } from "@tambo-ai/react";
 import { cva, type VariantProps } from "class-variance-authority";
 import stringify from "json-stringify-pretty-compact";
-import { Check, ChevronDown, ExternalLink, Loader2, X } from "lucide-react";
+import { Check, ChevronDown, ExternalLink, Loader2, RotateCcw, X } from "lucide-react";
 import * as React from "react";
 import { useState } from "react";
 import { Streamdown } from "streamdown";
 import { checkHasContent, getMessageImages, getSafeContent } from "@/lib/thread-hooks";
 import { cn } from "@/lib/utils";
+import { requestRestorePanel, useDismissedPanelIds } from "@/services/query-store";
 import { markdownComponents } from "./markdown-components";
 
 /**
@@ -798,25 +799,65 @@ const MessageRenderedComponentArea = React.forwardRef<HTMLDivElement, MessageRen
       };
     }, []);
 
-    // Get rendered component from component content blocks
-    const renderedComponent = React.useMemo(() => {
-      const componentBlocks = getComponentBlocks(message);
-      return componentBlocks.find((c) => c.renderedComponent)?.renderedComponent ?? null;
-    }, [message]);
+    const dismissedIds = useDismissedPanelIds();
+
+    // Get rendered component and derive panel IDs (same logic as dashboard-canvas)
+    const componentBlocks = React.useMemo(() => getComponentBlocks(message), [message]);
+    const renderedComponent = React.useMemo(
+      () => componentBlocks.find((c) => c.renderedComponent)?.renderedComponent ?? null,
+      [componentBlocks],
+    );
+
+    // Derive panel IDs matching dashboard-canvas logic
+    const panelEntries = React.useMemo(() => {
+      const entries: { panelId: string; content: TamboComponentContent; isDismissed: boolean }[] = [];
+      const usedIds = new Set<string>();
+      // We need to iterate all messages up to this one to get correct deduplication context.
+      // Simplified: derive IDs just from this message's component blocks (content.id is usually unique per message).
+      let compIdx = 0;
+      for (const content of componentBlocks) {
+        if (content.renderedComponent) {
+          let panelId = content.id || `${message.id}-comp-${compIdx}`;
+          if (usedIds.has(panelId)) panelId = `${panelId}-${compIdx}`;
+          usedIds.add(panelId);
+          compIdx++;
+          entries.push({ panelId, content, isDismissed: dismissedIds.has(panelId) });
+        }
+      }
+      return entries;
+    }, [componentBlocks, message.id, dismissedIds]);
 
     if (!renderedComponent || role !== "assistant" || lastRunCancelled) {
       return null;
     }
 
+    const hasDismissedPanels = panelEntries.some((e) => e.isDismissed);
+
     return (
       <div ref={ref} className={cn(className)} data-slot="message-rendered-component-area" {...props}>
         {children ??
           (canvasExists ? (
-            <div className="flex justify-start pl-2 py-1">
-              <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground/70">
-                <ExternalLink className="w-3 h-3" />
-                Rendered in dashboard
-              </span>
+            <div className="flex justify-start pl-2 py-1 gap-3">
+              {hasDismissedPanels ? (
+                panelEntries
+                  .filter((e) => e.isDismissed)
+                  .map((e) => (
+                    <button
+                      key={e.panelId}
+                      type="button"
+                      onClick={() => requestRestorePanel(e.panelId)}
+                      className="inline-flex items-center gap-1.5 text-xs text-primary/70 hover:text-primary transition-colors cursor-pointer"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      Restore to dashboard
+                    </button>
+                  ))
+              ) : (
+                <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground/70">
+                  <ExternalLink className="w-3 h-3" />
+                  Rendered in dashboard
+                </span>
+              )}
             </div>
           ) : (
             <div className="w-full pt-2 px-2">{renderedComponent}</div>
