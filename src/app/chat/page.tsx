@@ -17,7 +17,7 @@ function ChatInner({ suggestions }: { suggestions: Suggestion[] }) {
 
   return (
     <div className="h-screen flex flex-col">
-      <header className="border-b border-border bg-background/95 backdrop-blur-sm px-4 py-3 flex items-center gap-3 flex-shrink-0">
+      <header className="border-b border-border bg-background px-4 py-3 flex items-center gap-3 flex-shrink-0">
         <WalkthruLogo size={20} />
         <h1 className="font-bold text-sm text-foreground">walkthru.earth</h1>
         <Sparkles className="w-3.5 h-3.5 text-earth-cyan" />

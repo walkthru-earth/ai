@@ -256,7 +256,7 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
         )}
         <div className="overflow-auto flex-1 min-h-0">
           <table className="w-full text-sm">
-            <thead className="sticky top-0 z-10">
+            <thead className="sticky top-0 z-10 bg-muted">
               <tr className="border-b bg-muted">
                 {resolvedColumns.map((col) => (
                   <th

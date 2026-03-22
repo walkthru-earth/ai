@@ -105,10 +105,7 @@ export function CanvasSpace({ className }: CanvasSpaceProps) {
 
   return (
     <div
-      className={cn(
-        "h-screen flex-1 flex flex-col bg-background/50 backdrop-blur-sm overflow-hidden border-l border-border",
-        className,
-      )}
+      className={cn("h-screen flex-1 flex flex-col bg-background overflow-hidden border-l border-border", className)}
       data-canvas-space="true"
     >
       <div
