@@ -496,7 +496,7 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
                 const name = (panel.componentName || "").toLowerCase();
                 const isMap = name.includes("map") || name.includes("h3map");
                 const compact = isCompactComponent(panel.componentName || "");
-                const minH = isMap ? "h-[560px]" : compact ? "h-auto" : "h-[280px]";
+                const minH = compact ? "h-auto" : "h-[280px]";
                 return (
                   <SortablePanel
                     key={panel.id}

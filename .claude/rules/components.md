@@ -65,7 +65,7 @@ All viz components use `useInDashboardPanel()` to detect context:
 - Panel ID dedup: `Set<string>` with `compIdx` suffix for collisions.
 - Desktop: `react-grid-layout`, rowHeight 80px. `panelHeight()`: maps=10 (2× other panels), graphs=5, tables=5, QueryDisplay/InsightCard/DatasetCard=3, StatsGrid/StatsCard=2, default=4. All panels full-width (`w: 12`). Component name read from Tambo's `content.name` (SDK field), NOT `content.componentName`. Maps forced to minimum `panelHeight()` even with saved layouts.
 - **Compact components**: `isCompactComponent()` identifies StatsGrid, StatsCard, InsightCard, DatasetCard, QueryDisplay, DataCard — `h-auto` on touch. Note: panelHeight differs per type (see above), not all get 2 rows.
-- Touch: `@dnd-kit/sortable`, TouchSensor (1.2s delay). Grip-only drag. Maps `h-[560px]`, compact `h-auto`, others `h-[280px]`.
+- Touch: `@dnd-kit/sortable`, TouchSensor (1.2s delay). Grip-only drag. Maps same height as others (`h-[280px]`), compact `h-auto`.
 - Maximized panel: `fixed inset-0 z-40 bg-background` — covers all floating UI. Minimize via `queueMicrotask` to avoid setState-during-render.
 - Thread reset: `useEffect(currentThreadId)` loads order/layouts/dismissed from localStorage. NEVER in render body.
 - **Persisted state (all per-thread in localStorage)**:
