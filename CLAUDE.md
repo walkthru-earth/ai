@@ -145,7 +145,8 @@ src/lib/tambo/
 │   ├── run-sql.ts            # runSQL — SQL execution, queryId pattern
 │   ├── dataset-tools.ts      # listDatasets + buildParquetUrl + describeDataset
 │   ├── cross-index.ts        # getCrossIndex — 11 cross-dataset analyses
-│   └── suggest.ts            # suggestAnalysis — NL keyword routing
+│   ├── suggest.ts            # suggestAnalysis — NL keyword routing
+│   └── arcgis.ts             # describeArcGISLayer — FeatureServer metadata + pre-load
 ├── components/
 │   ├── index.ts              # Aggregates all components into TamboComponent[]
 │   ├── geo-map.ts            # GeoMap + H3Map (deck.gl map)
@@ -324,8 +325,10 @@ Packages: `@geoarrow/deck.gl-layers@0.3.1`, `@walkthru-earth/objex-utils@1.0.0`,
 ## Conventions
 
 - Never show "Tambo", "DuckDB", "H3", "Parquet", "deck.gl" in UI
-- Theme: system detection on first visit, ThemeSwitcher cycles Dark/Light/System
-- Map basemap: CARTO Dark Matter / Positron. Always forced to `auto` (follows user's theme via MutationObserver). AI basemap prop is ignored — theme is user-controlled via ThemeSwitcher.
+- **Settings**: Gear icon (`<SettingsButton />`) in both `/chat` and `/explore` — popover with theme toggle, cross-filter toggle, and query limit (presets + custom). Portal to `document.body` to avoid header backdrop-blur transparency. Settings stored in `settings-store.ts` (localStorage `walkthru-settings`).
+- Theme: system detection on first visit, settings popover cycles Dark/Light/System
+- Map basemap: CARTO Dark Matter / Positron. Always forced to `auto` (follows user's theme via MutationObserver). AI basemap prop is ignored — theme is user-controlled via settings.
+- **Thread delete**: Available in thread history dropdown (Trash icon + inline confirmation). Uses `client.threads.delete(threadId, { userKey })`. Switches to new thread if current was deleted.
 - Thread URLs: `?thread=threadId` only for real IDs (prefix `thr_`)
 - Plain `<textarea>` for all text input (no TipTap/rich-text)
 - AI must NEVER render checkboxes or selectable lists — users cannot submit selections. Use DatasetCard components + auto-submitting suggestion chips instead.

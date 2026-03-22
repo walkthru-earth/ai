@@ -14,11 +14,12 @@ paths:
 ```
 src/lib/tambo/
 ├── index.ts              # Aggregator: tamboProviderConfig + re-exports
-├── tools/                # 6 tool registrations (1 file per tool or related group)
+├── tools/                # 7 tool registrations (1 file per tool or related group)
 │   ├── run-sql.ts        # runSQL — most critical, queryId pattern
 │   ├── dataset-tools.ts  # listDatasets + buildParquetUrl + describeDataset
 │   ├── cross-index.ts    # getCrossIndex (11 analyses)
-│   └── suggest.ts        # suggestAnalysis
+│   ├── suggest.ts        # suggestAnalysis
+│   └── arcgis.ts         # describeArcGISLayer — ArcGIS FeatureServer metadata + pre-load
 ├── components/           # 11 component registrations
 │   ├── geo-map.ts        # GeoMap + H3Map (deck.gl)
 │   ├── graph.ts          # Graph (10 chart types)
@@ -56,6 +57,14 @@ src/lib/tambo/
 ## `use-geo-ip.ts`
 
 `useGeoIP()` — fetches from `get.geojs.io/v1/ip/geo.json`, caches 24h in localStorage (null on first render). Returns `GeoIP` with city, country, lat/lng, timezone, and `h3Cells` (pre-computed H3 hex strings at res 1-8 via `h3-js`). Gracefully returns `null` when blocked.
+
+## `settings-store.ts`
+
+Centralized settings store via `useSyncExternalStore` + localStorage (`walkthru-settings`). Manages theme (`dark`/`light`/`system`), queryLimit (default 10000). Exports: `getSettings()`, `updateSettings(partial)`, `useSettings()`, `DEFAULT_QUERY_LIMIT`, `QUERY_LIMIT_PRESETS`. Migrates from old `"theme"` localStorage key.
+
+## `use-theme-effect.ts`
+
+`useThemeEffect()` — reads theme from `useSettings()`, applies to `document.documentElement.classList`. Handles system media query listener for "system" mode. Called once in `App.tsx`.
 
 ## `use-anonymous-user-key.ts`
 

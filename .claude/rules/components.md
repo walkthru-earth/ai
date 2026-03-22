@@ -21,7 +21,7 @@ paths:
 - **Tap tooltip** (mobile): `makeClickHandler` wraps layer `onClick` — on touch devices, click also sets `hoverInfo` to show tooltip. Tooltip dismisses on `movestart` (pan/zoom).
 - **Right-click context menu**: `onContextMenu` on wrapper div → if hovering a feature, shows dropdown with "Copy record" (JSON to clipboard). Dismisses on click anywhere or map move.
 - **Fly-to consumer**: `useFlyToVersion()` + `consumeFlyTo()` — listens for external fly-to requests (e.g. DataTable "Zoom to record") and calls `mapRef.flyTo()`. Sets `programmaticMoveRef` to suppress viewport save.
-- `HoverInfo` type: `{ x, y, object, layerType }`. `extractHoverProps()` handles both GeoArrow (Arrow table schema at index) and standard (JS object) layers.
+- `HoverInfo` type: `{ x, y, object, layerType }`. `extractHoverProps()` handles GeoArrow (Arrow table `getChild` + `toJSON()` fallback for StructRow), and standard (JS object) layers. Skips `__geo_wkb`, `geom`, `geometry` from tooltip display.
 
 **Geometry auto-detection**: When `StoredQuery.wkbArrays` is present (auto-extracted by `runQuery()` from GEOMETRY columns), `transformQueryToLayer()` takes the WKB fast path — bypasses GeoJSON parsing, routes directly to `buildGeoArrowTables()` zero-copy rendering. Lat/lng from the auto-injected centroid columns provide bounds. Works with GeoParquet, native Parquet geometry (Format 2.11+), and DuckDB GEOMETRY columns.
 
@@ -105,4 +105,4 @@ All viz components use `useInDashboardPanel()` to detect context:
 
 - `MobileBottomSheet`: `fixed inset-x-0 bottom-0 z-30`. No hardcoded `max-h` when collapsed — sizes to content dynamically. `top-0` when expanded (full screen).
 - Suggestion chips above input bar, always visible in collapsed state.
-- Floating toolbar (`fixed top-2 right-2 z-20`): CrossFilterToggle + ThemeSwitcher. Hidden by maximized panels (`z-40`).
+- Floating toolbar removed — all settings (theme, cross-filter, query limit) consolidated into `<SettingsButton />` gear icon popover (portal to document.body to avoid header backdrop-blur transparency).

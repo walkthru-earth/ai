@@ -21,12 +21,14 @@ Tailwind v4 theme variables (light + dark). Brand colors: earth-blue, earth-cyan
 - SessionHistory: thread list with auto-names, new thread button
 - `useReplayQueries(messages)` re-runs runSQL tool calls from restored threads
 - Thread URLs: `?thread=threadId` (validates `thr_` prefix)
+- Settings (theme, cross-filter, query limit) via `<SettingsButton />` gear icon — all controls in popover
 
 ## `chat/page.tsx`
 
 - `ChatInner` inside TamboProvider — `useTambo()` for messages, `useReplayQueries()` for thread restore
 - Shared `buildContextHelpers(geo)` + `buildInitialSuggestions(geo)` for AI context and suggestions
 - `MessageThreadFull` with `initialSuggestions` prop for geo-personalized chips
+- `<SettingsButton />` in header for theme, cross-filter, query limit
 - GeoMap renders at `h-[420px]` inline (no dashboard panels)
 
 ## `page.tsx`

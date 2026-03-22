@@ -14,6 +14,7 @@ paths:
 - `detectGeometryColumns(conn, sql)`: runs `DESCRIBE (sql)`, checks column_type for GEOMETRY or WKB BLOB with well-known geo names. CTE queries wrapped as `DESCRIBE (SELECT * FROM (WITH...) __detect_geom LIMIT 0)` to enable detection for GeoJSON/WFS queries. Fast — reads Parquet metadata only.
 - `wrapSqlForGeometry(sql, geomCol, cols)`: wraps as `SELECT __src.* EXCLUDE ("geomCol"), ST_Y(ST_Centroid(geom)) AS lat, ST_X(ST_Centroid(geom)) AS lng, ST_AsWKB(geom) AS __geo_wkb FROM (sql) __src`. EXCLUDE prevents DuckDB-WASM "Unsupported type in Arrow Conversion: GEOMETRY" crash (#2187). Skips lat/lng if they already exist. **lat/lng are synthetic** — they do NOT exist in the raw file.
 - **GEOMETRY Arrow fallback**: If query execution fails with GEOMETRY Arrow error, runQuery retries with all GEOMETRY columns converted to WKB via `ST_AsWKB()` and excluded from `SELECT *`.
+- `registerRemoteJSON(url, name)`: fetches remote JSON via browser `fetch`, registers as virtual file in DuckDB-WASM via `registerFileBuffer`. Returns virtual path `/remote/{name}.geojson`. Used by ArcGIS tool to bypass httpfs truncation. Cached per URL — subsequent calls return same path.
 - `arrowToJs(val)`: BigInt→Number, Uint8Array→hex, Struct→recursive .toJSON() (converts nested BigInts), plain objects→recursive, Array→recursive
 - Column arrays extracted via `vec.toArray()` — zero-copy views for single-chunk results. Used by GeoArrow layers for map rendering.
 
