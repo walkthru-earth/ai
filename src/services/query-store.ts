@@ -94,6 +94,31 @@ export function useQueryResult(queryId: string | undefined): StoredQuery | null 
   );
 }
 
+/* ── Cross-Filter Utility ─────────────────────────────────────────── */
+
+/**
+ * Apply cross-filter to rows — filters to only rows matching the cross-filter values.
+ * Returns original rows if no applicable filter.
+ */
+export function applyCrossFilter(
+  rows: Record<string, unknown>[],
+  columns: string[],
+  crossFilter: CrossFilter | null,
+  selfComponent: string,
+): Record<string, unknown>[] {
+  if (
+    !crossFilter ||
+    crossFilter.sourceComponent === selfComponent ||
+    crossFilter.filterType !== "bbox" ||
+    crossFilter.values.length === 0
+  ) {
+    return rows;
+  }
+  const visibleSet = new Set(crossFilter.values);
+  const matchCol = columns.includes(crossFilter.column) ? crossFilter.column : null;
+  return matchCol ? rows.filter((r) => visibleSet.has(r[matchCol] as string)) : rows;
+}
+
 /* ── Cross-Filter Bus ─────────────────────────────────────────────── */
 
 export interface CrossFilter {
