@@ -375,11 +375,17 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
     let pendingLeftH = 0;
     let nonFullCount = 0;
     const lg: any[] = orderedPanels.map((panel, i) => {
-      const existing = savedLayouts.lg?.find((l) => l.i === panel.id);
-      if (existing) return existing;
       const name = panel.componentName || "";
       const h = panelHeight(name);
       const fullWidth = isFullWidthComponent(name);
+      const existing = savedLayouts.lg?.find((l) => l.i === panel.id);
+      // Enforce full-width for maps even from saved layouts (user may have old half-width saves)
+      if (existing) {
+        if (fullWidth && existing.w < 12) {
+          return { ...existing, w: 12, x: 0 };
+        }
+        return existing;
+      }
       // Full-width: maps always get w:12
       if (fullWidth) {
         if (pendingLeftH > 0) {

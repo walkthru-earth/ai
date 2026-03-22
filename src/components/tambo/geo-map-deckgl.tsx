@@ -140,6 +140,11 @@ export function valueToColor(
   scheme: ColorScheme = "blue-red",
 ): [number, number, number, number] {
   const stops = SCHEMES[scheme] ?? SCHEMES["blue-red"];
+  // Guard against NaN/undefined values — fall back to midpoint color
+  if (!Number.isFinite(v) || !Number.isFinite(min) || !Number.isFinite(max)) {
+    const mid = stops[Math.floor(stops.length / 2)];
+    return [mid[0], mid[1], mid[2], 200];
+  }
   const range = max - min || 1;
   const t = Math.max(0, Math.min(1, (v - min) / range));
   const idx = t * (stops.length - 1);
@@ -961,10 +966,14 @@ export default function DeckGLMap({
     const overlay = new MapboxOverlay({ interleaved: true, layers: [] });
 
     map.once("load", () => {
-      map.addControl(overlay);
-      map.addControl(new maplibregl.NavigationControl(), "top-right");
-      // Apply layers only after map viewport is ready
-      overlay.setProps({ layers });
+      try {
+        map.addControl(overlay);
+        map.addControl(new maplibregl.NavigationControl(), "top-right");
+        // Apply layers only after map viewport is ready
+        overlay.setProps({ layers });
+      } catch {
+        /* MapLibre internal race — controls will be added on next render */
+      }
     });
 
     let boundsTimer: ReturnType<typeof setTimeout>;
