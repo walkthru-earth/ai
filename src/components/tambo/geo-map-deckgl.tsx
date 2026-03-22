@@ -892,6 +892,7 @@ export default function DeckGLMap({
   const prevViewRef = useRef({ latitude, longitude, zoom });
   const prevDataCountRef = useRef(0);
   const programmaticMoveRef = useRef(false);
+  const isFirstStyleEffect = useRef(true);
   const onBoundsChangeRef = useRef(onBoundsChange);
   onBoundsChangeRef.current = onBoundsChange;
   const onFeatureClickRef = useRef(onFeatureClick);
@@ -965,6 +966,14 @@ export default function DeckGLMap({
 
     const overlay = new MapboxOverlay({ interleaved: true, layers: [] });
 
+    // Suppress MapLibre internal errors (e.g. migrateProjection race during style load)
+    map.on("error", (e: maplibregl.ErrorEvent) => {
+      if (e.error?.message?.includes("projection") || e.error?.message?.includes("this.style")) {
+        return; // Known race condition in MapLibre v5 — safe to ignore
+      }
+      console.warn("[MapLibre]", e.error?.message);
+    });
+
     map.once("load", () => {
       try {
         map.addControl(overlay);
@@ -1023,6 +1032,14 @@ export default function DeckGLMap({
   const layersRef = useRef(layers);
   layersRef.current = layers;
   useEffect(() => {
+    // Skip the first run — the constructor already set the correct initial style.
+    // Running setStyle (or registering a load handler that calls setStyle) during
+    // the initial style load causes a MapLibre race: migrateProjection accesses
+    // map.style before it is assigned, crashing with "this.style is undefined".
+    if (isFirstStyleEffect.current) {
+      isFirstStyleEffect.current = false;
+      return;
+    }
     if (!mapRef.current) return;
     const map = mapRef.current;
     const newStyle = resolvedDark ? CARTO_DARK : CARTO_LIGHT;
