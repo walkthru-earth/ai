@@ -1,10 +1,11 @@
 import { withTamboInteractable } from "@tambo-ai/react";
 import { Check, ChevronLeft, ChevronRight, Clipboard, Locate } from "lucide-react";
 import * as React from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
+import { CardSkeleton } from "@/components/ui/card-skeleton";
 import { cn } from "@/lib/utils";
-import { requestFlyTo, setCrossFilter, useCrossFilter, useQueryResult } from "@/services/query-store";
+import { applyCrossFilter, requestFlyTo, setCrossFilter, useCrossFilter, useQueryResult } from "@/services/query-store";
 import { useInDashboardPanel } from "./panel-context";
 
 /* ── Schema ────────────────────────────────────────────────────────── */
@@ -92,7 +93,8 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
 
     // Resolve data: queryId mode (preferred) → inline mode (legacy)
     // Applies spatial cross-filter: when map viewport changes, only show rows for visible hexes
-    const { resolvedColumns, resolvedRows, filteredRawRows } = useMemo(() => {
+    // formatCell is deferred to the paginated slice (pageRows) to avoid formatting all rows
+    const { resolvedColumns, filteredRawRows, resolvedRows } = useMemo(() => {
       if (queryId) {
         if (!queryResult) return { resolvedColumns: null, resolvedRows: null };
 
@@ -100,24 +102,10 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
         const cols = colNames.map((c) => ({ id: c, label: c, align: "left" as const }));
 
         // Apply spatial cross-filter
-        let rRows = queryResult.rows;
-        if (
-          crossFilter &&
-          crossFilter.sourceComponent !== "DataTable" &&
-          crossFilter.filterType === "bbox" &&
-          crossFilter.values.length > 0
-        ) {
-          const visibleSet = new Set(crossFilter.values);
-          const matchCol = queryResult.columns.includes(crossFilter.column) ? crossFilter.column : null;
-          if (matchCol) {
-            rRows = rRows.filter((r) => visibleSet.has(r[matchCol] as string));
-          }
-        }
+        const rRows = applyCrossFilter(queryResult.rows, queryResult.columns, crossFilter, "DataTable");
 
-        const fRows = rRows.map((row, i) => ({
-          id: String(i),
-          cells: cols.map((c) => formatCell(row[c.id], c.id)),
-        }));
+        // Store raw row references (no formatCell yet — deferred to pageRows)
+        const fRows = rRows.map((_row, i) => ({ id: String(i), rawIdx: i }));
         return { resolvedColumns: cols, resolvedRows: fRows, filteredRawRows: rRows };
       }
       return { resolvedColumns: columns ?? null, resolvedRows: rows ?? null, filteredRawRows: null };
@@ -131,10 +119,31 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
       if (safePage !== page) setPage(safePage);
     }, [safePage, page]);
 
-    const pageRows = resolvedRows?.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE) ?? [];
+    // Format cells only for the visible page slice
+    const pageRows = useMemo(() => {
+      if (!resolvedRows || !resolvedColumns) return [];
+      const slice = resolvedRows.slice(safePage * PAGE_SIZE, (safePage + 1) * PAGE_SIZE);
+      // queryId mode: rows have rawIdx, format from filteredRawRows
+      if (filteredRawRows) {
+        return slice.map((entry) => ({
+          id: entry.id,
+          cells: resolvedColumns.map((c) =>
+            formatCell(filteredRawRows[(entry as { rawIdx: number }).rawIdx]?.[c.id], c.id),
+          ),
+        }));
+      }
+      // Legacy inline mode: rows already have cells
+      return slice as { id: string; cells: string[] }[];
+    }, [resolvedRows, resolvedColumns, filteredRawRows, safePage]);
 
     const [expandedRow, setExpandedRow] = useState<number | null>(null);
     const [copiedRow, setCopiedRow] = useState<number | null>(null);
+    const copiedTimerRef = useRef<ReturnType<typeof setTimeout>>();
+
+    // Cleanup copiedRow timer on unmount
+    useEffect(() => {
+      return () => clearTimeout(copiedTimerRef.current);
+    }, []);
 
     // Close expanded row on page change
     // biome-ignore lint/correctness/useExhaustiveDependencies: page triggers reset intentionally
@@ -145,19 +154,20 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
     const handleCopyRecord = useCallback(
       (globalIdx: number, e: React.MouseEvent) => {
         e.stopPropagation();
-        if (!resolvedColumns || !resolvedRows) return;
-        const row = resolvedRows[globalIdx];
-        if (!row) return;
+        if (!resolvedColumns || !filteredRawRows) return;
+        const rawRow = filteredRawRows[globalIdx];
+        if (!rawRow) return;
         const record: Record<string, string> = {};
         for (let i = 0; i < resolvedColumns.length; i++) {
-          record[resolvedColumns[i].id] = row.cells[i] ?? "";
+          record[resolvedColumns[i].id] = formatCell(rawRow[resolvedColumns[i].id], resolvedColumns[i].id);
         }
         navigator.clipboard.writeText(JSON.stringify(record, null, 2)).then(() => {
           setCopiedRow(globalIdx);
-          setTimeout(() => setCopiedRow(null), 1500);
+          clearTimeout(copiedTimerRef.current);
+          copiedTimerRef.current = setTimeout(() => setCopiedRow(null), 1500);
         });
       },
-      [resolvedColumns, resolvedRows],
+      [resolvedColumns, filteredRawRows],
     );
 
     const handleZoomToRecord = useCallback(
@@ -194,17 +204,40 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
       [queryResult, filteredRawRows],
     );
 
+    const handleRowClick = useCallback(
+      (rowIdx: number) => {
+        const globalIdx = safePage * PAGE_SIZE + rowIdx;
+        // Toggle expanded row
+        setExpandedRow((prev) => (prev === globalIdx ? null : globalIdx));
+        // Emit cross-filter
+        if (!queryId || !resolvedColumns?.length) return;
+        const firstCol = resolvedColumns[0].id;
+        const pageRow = pageRows[rowIdx];
+        const val = pageRow?.cells?.[0] ?? null;
+        if (val != null) {
+          setCrossFilter({
+            sourceQueryId: queryId,
+            sourceComponent: "DataTable",
+            filterType: "value",
+            column: firstCol,
+            values: [val],
+          });
+        }
+      },
+      [safePage, queryId, resolvedColumns, pageRows],
+    );
+
     // Loading state
     if (!resolvedColumns || !resolvedRows) {
       return (
-        <div ref={ref} className="rounded-xl border p-4 animate-pulse bg-muted/30 h-48">
+        <CardSkeleton ref={ref} className="h-48">
           <div className="h-4 bg-muted rounded w-1/3 mb-4" />
           <div className="space-y-2">
             {[...Array(4)].map((_, i) => (
               <div key={i} className="h-3 bg-muted rounded" />
             ))}
           </div>
-        </div>
+        </CardSkeleton>
       );
     }
 
@@ -213,25 +246,6 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
       crossFilter && crossFilter.sourceComponent !== "DataTable"
         ? resolvedColumns.findIndex((c) => c.id === crossFilter.column)
         : -1;
-
-    const handleRowClick = (rowIdx: number) => {
-      const globalIdx = safePage * PAGE_SIZE + rowIdx;
-      // Toggle expanded row
-      setExpandedRow((prev) => (prev === globalIdx ? null : globalIdx));
-      // Emit cross-filter
-      const val = resolvedRows[globalIdx]?.cells[0];
-      if (!queryId || !resolvedColumns.length || val == null) return;
-      const firstCol = resolvedColumns[0].id;
-      if (val != null) {
-        setCrossFilter({
-          sourceQueryId: queryId,
-          sourceComponent: "DataTable",
-          filterType: "value",
-          column: firstCol,
-          values: [val],
-        });
-      }
-    };
 
     return (
       <div ref={ref} className="rounded-xl border overflow-hidden bg-card h-full flex flex-col">
@@ -261,9 +275,7 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
               {pageRows.map((row, rowIdx) => {
                 const globalIdx = safePage * PAGE_SIZE + rowIdx;
                 const isFilterMatch =
-                  filterColIdx >= 0 && crossFilter
-                    ? crossFilter.values.includes(resolvedRows[globalIdx]?.cells[filterColIdx])
-                    : false;
+                  filterColIdx >= 0 && crossFilter ? crossFilter.values.includes(row.cells?.[filterColIdx]) : false;
                 const isExpanded = expandedRow === globalIdx;
 
                 return (
