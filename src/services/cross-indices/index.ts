@@ -40,12 +40,12 @@ export async function getCrossIndex(input: CrossIndexInput): Promise<CrossIndexD
   if (!result) {
     throw new Error(`Unknown analysis: ${input.analysis}. Available: ${CROSS_INDEX_IDS.join(", ")}`);
   }
-  // Dynamically replace LIMIT 500 in equivalentSQL with user's configured queryLimit
+  // Replace {queryLimit} placeholder in equivalentSQL with user's configured limit
   const { getSettings } = await import("@/lib/settings-store");
   const { queryLimit } = getSettings();
   return {
     ...result,
-    equivalentSQL: result.equivalentSQL.replace(/LIMIT 500/g, `LIMIT ${queryLimit}`),
+    equivalentSQL: result.equivalentSQL.replaceAll("{queryLimit}", String(queryLimit)),
   };
 }
 

@@ -40,6 +40,6 @@ export const waterSecurity: CrossIndexDefinition = {
     "LEFT JOIN building b USING (h3_index)\n" +
     "LEFT JOIN terrain te USING (h3_index)\n" +
     "WHERE p.pop_2025 > 100\n" +
-    "LIMIT 500",
+    "LIMIT {queryLimit}",
   focusRegion: { name: "Middle East & North Africa", lat: 15, lng: 45, zoom: 2.5 },
 };

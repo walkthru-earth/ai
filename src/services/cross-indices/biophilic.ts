@@ -31,6 +31,6 @@ export const biophilic: CrossIndexDefinition = {
     "FROM base ba\n" +
     "JOIN population p USING (h3_index)\n" +
     "WHERE p.pop_2025 > 0\n" +
-    "LIMIT 500",
+    "LIMIT {queryLimit}",
   focusRegion: { name: "Nile Delta, Egypt", lat: 30, lng: 31, zoom: 3.5 },
 };

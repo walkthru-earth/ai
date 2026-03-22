@@ -1,11 +1,11 @@
 /**
  * getCrossIndex tool — retrieves cross-dataset analysis patterns.
- * Edit the enum list when adding new cross-indices.
+ * Enum is derived from CROSS_INDEX_IDS — no manual sync needed.
  */
 
 import type { TamboTool } from "@tambo-ai/react";
 import { z } from "zod";
-import { getCrossIndex } from "@/services/cross-indices";
+import { CROSS_INDEX_IDS, getCrossIndex } from "@/services/cross-indices";
 
 export const getCrossIndexTool: TamboTool = {
   name: "getCrossIndex",
@@ -15,19 +15,7 @@ export const getCrossIndexTool: TamboTool = {
     "walkability, fifteen-min-city, biophilic, heat-vulnerability, water-security.",
   tool: getCrossIndex,
   inputSchema: z.object({
-    analysis: z.enum([
-      "urban-density",
-      "housing-pressure",
-      "landslide-risk",
-      "vertical-living",
-      "population-growth",
-      "shrinking-cities",
-      "walkability",
-      "fifteen-min-city",
-      "biophilic",
-      "heat-vulnerability",
-      "water-security",
-    ]),
+    analysis: z.enum(CROSS_INDEX_IDS as [string, ...string[]]),
   }),
   outputSchema: z.object({
     name: z.string(),

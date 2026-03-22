@@ -44,6 +44,6 @@ export const walkability: CrossIndexDefinition = {
     "LEFT JOIN terrain te USING (h3_index)\n" +
     "LEFT JOIN places pl USING (h3_index)\n" +
     "WHERE tr.segment_count > 0\n" +
-    "LIMIT 500",
+    "LIMIT {queryLimit}",
   focusRegion: { name: "Amsterdam, Netherlands", lat: 52.37, lng: 4.9, zoom: 5 },
 };

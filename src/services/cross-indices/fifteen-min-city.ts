@@ -41,6 +41,6 @@ export const fifteenMinCity: CrossIndexDefinition = {
     "LEFT JOIN terrain te USING (h3_index)\n" +
     "LEFT JOIN base ba USING (h3_index)\n" +
     "WHERE pl.place_count > 0\n" +
-    "LIMIT 500",
+    "LIMIT {queryLimit}",
   focusRegion: { name: "Paris, France", lat: 48.8, lng: 2.3, zoom: 4 },
 };
