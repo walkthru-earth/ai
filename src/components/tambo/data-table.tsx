@@ -257,12 +257,12 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
         <div className="overflow-auto flex-1 min-h-0">
           <table className="w-full text-sm">
             <thead className="sticky top-0 z-10">
-              <tr className="border-b bg-muted/40">
+              <tr className="border-b bg-muted">
                 {resolvedColumns.map((col) => (
                   <th
                     key={col.id}
                     className={cn(
-                      "px-3 py-1.5 font-semibold text-muted-foreground whitespace-nowrap text-xs bg-muted/40",
+                      "px-3 py-1.5 font-semibold text-muted-foreground whitespace-nowrap text-xs bg-muted",
                       col.align === "right" ? "text-right" : col.align === "center" ? "text-center" : "text-left",
                     )}
                   >
@@ -344,7 +344,7 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
         </div>
 
         {/* Footer: pagination + caption */}
-        <div className="px-3 py-1.5 border-t bg-muted/10 flex items-center gap-2 flex-shrink-0">
+        <div className="px-3 py-1.5 border-t bg-card flex items-center gap-2 flex-shrink-0">
           <span className="text-xs text-muted-foreground">
             {totalRows > PAGE_SIZE
               ? `${safePage * PAGE_SIZE + 1}–${Math.min((safePage + 1) * PAGE_SIZE, totalRows)} of ${totalRows.toLocaleString()}`
