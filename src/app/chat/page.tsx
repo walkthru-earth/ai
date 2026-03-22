@@ -1,27 +1,19 @@
+import type { Suggestion } from "@tambo-ai/react";
 import { TamboProvider, useTambo } from "@tambo-ai/react";
 import { Sparkles } from "lucide-react";
-import { useEffect, useMemo } from "react";
 import { SettingsButton } from "@/components/settings-popover";
 import { useMcpServers } from "@/components/tambo/mcp-config-modal";
 import { MessageThreadFull } from "@/components/tambo/message-thread-full";
 import { WalkthruLogo } from "@/components/walkthru-logo";
-import { buildContextHelpers, buildInitialSuggestions, tamboProviderConfig } from "@/lib/tambo";
+import { tamboProviderConfig } from "@/lib/tambo";
 import { useReplayQueries } from "@/lib/thread-hooks";
-import { useAnonymousUserKey } from "@/lib/use-anonymous-user-key";
-import { type GeoIP, useGeoIP } from "@/lib/use-geo-ip";
-import { preloadDuckDB } from "@/services/duckdb-wasm";
+import { usePageBootstrap } from "@/lib/use-page-bootstrap";
 
-function ChatInner({ geo }: { geo: GeoIP | null }) {
+function ChatInner({ suggestions }: { suggestions: Suggestion[] }) {
   const { messages } = useTambo();
-
-  useEffect(() => {
-    preloadDuckDB();
-  }, []);
 
   // Replay SQL queries from restored threads to repopulate the query store
   useReplayQueries(messages);
-
-  const suggestions = useMemo(() => buildInitialSuggestions(geo), [geo]);
 
   return (
     <div className="h-screen flex flex-col">
@@ -42,13 +34,11 @@ function ChatInner({ geo }: { geo: GeoIP | null }) {
 
 export default function Chat() {
   const mcpServers = useMcpServers();
-  const userKey = useAnonymousUserKey();
-  const geo = useGeoIP();
-  const contextHelpers = useMemo(() => buildContextHelpers(geo), [geo]);
+  const { userKey, contextHelpers, suggestions } = usePageBootstrap();
 
   return (
     <TamboProvider {...tamboProviderConfig} mcpServers={mcpServers} userKey={userKey} contextHelpers={contextHelpers}>
-      <ChatInner geo={geo} />
+      <ChatInner suggestions={suggestions} />
     </TamboProvider>
   );
 }
