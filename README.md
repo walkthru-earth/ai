@@ -58,11 +58,11 @@ All data is open and hosted on S3 as H3-indexed Parquet files. The AI resolves U
 | Terrain | Elevation, slope, aspect, ruggedness (10.5B cells) | 1–10 | GEDTM 30m |
 | Buildings | 2.75B buildings — count, height, footprint, density | 3–8 | Global Building Atlas |
 | Population | SSP2 projections 2025–2100 (16 time steps) | 1–8 | WorldPop |
-| Places | 72M POIs — 13 categories + landmarks | 1–10 | Overture Maps |
-| Transportation | 343M road/rail/water segments, surface types | 1–10 | Overture Maps |
-| Base | Land use, water bodies, infrastructure | 1–10 | Overture Maps |
-| Addresses | Address points | 1–10 | Overture Maps |
-| Buildings (Overture) | Overture building footprints | 1–10 | Overture Maps |
+| Places | 72M POIs — 13 categories + 15 subcategories | 1–10 | Overture Maps |
+| Transportation | 343M road/rail/water segments, 16 road types, paved/unpaved | 1–10 | Overture Maps |
+| Base | 16 land use types, 10 water types, 13 infrastructure types | 1–10 | Overture Maps |
+| Addresses | Address counts + unique postcodes per cell | 1–10 | Overture Maps |
+| Buildings (Overture) | Building classification by USE/SUBTYPE, height/floor aggregates | 1–10 | Overture Maps |
 
 ## Cross-Index Analyses
 
@@ -92,7 +92,7 @@ src/
 │   └── ui/                       # shadcn/ui primitives
 ├── lib/
 │   └── tambo/                    # Modular AI configuration
-│       ├── tools/                # 6 tool registrations (runSQL, datasets, cross-index, suggest)
+│       ├── tools/                # 8 tool registrations (runSQL, datasets×3, cross-index, suggest, arcgis, dashboard)
 │       ├── components/           # 11 component registrations
 │       ├── context/              # AI context (behavior, DuckDB rules, dataset paths, tips)
 │       └── suggestions.ts        # Geo-personalized suggestion chips

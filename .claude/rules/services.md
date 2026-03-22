@@ -35,23 +35,23 @@ Each file exports a `DatasetDefinition` with id, name, description, columns, col
 
 - `datasets/types.ts`: `DatasetDefinition`, `DatasetInfo`, `BuildUrlOutput`, S3_BASE constant
 - `datasets/index.ts`: Registry aggregating all datasets. Exports `listDatasets()`, `buildParquetUrl()`, `describeDataset()`, `DATASETS`, `COLUMN_DESCRIPTIONS`
-- `datasets/weather.ts`: GraphCast AI forecasts, res 1-5, 17 columns
-- `datasets/terrain.ts`: GEDTM 30m DEM, res 1-10, 6 columns
-- `datasets/building.ts`: Global Building Atlas (2.75B), res 3-8, 11 columns
-- `datasets/population.ts`: WorldPop SSP2, res 1-8, 16 time steps
-- `datasets/places.ts`: Overture POIs (72M), res 1-10, 20 columns (13 categories + landmarks)
-- `datasets/transportation.ts`: Overture transport (343M segments), res 1-10, 23 columns
-- `datasets/base.ts`: Overture base environment, res 1-10, 32 columns (land use, water, infra)
-- `datasets/addresses.ts`: Overture addresses (minimal, schema TBD)
-- `datasets/buildings-overture.ts`: Overture buildings (minimal, schema TBD)
+- `datasets/weather.ts`: GraphCast AI forecasts, res 1-5, 24 columns (temp, wind, humidity, pressure, precip, geopotential)
+- `datasets/terrain.ts`: GEDTM 30m DEM, res 1-10, 6 columns (elev, slope, aspect, tri, tpi)
+- `datasets/building.ts`: Global Building Atlas (2.75B), res 3-8, 11 columns (count, density, footprint, height, volume)
+- `datasets/population.ts`: WorldPop SSP2, res 1-8, 17 columns (h3_index + pop_2025 through pop_2100)
+- `datasets/places.ts`: Overture POIs (72M), res 1-10, 31 columns (13 categories + 15 granular subcategories)
+- `datasets/transportation.ts`: Overture transport (343M segments), res 1-10, 27 columns (road/rail/water + 16 road types + bridge/tunnel/paved/unpaved)
+- `datasets/base.ts`: Overture base environment, res 1-10, 43 columns (16 land use + 10 water + 13 infrastructure types)
+- `datasets/addresses.ts`: Overture addresses, res 1-10, 3 columns (h3_index, address_count, unique_postcodes)
+- `datasets/buildings-overture.ts`: Overture buildings, res 1-10, 42 columns (13 USE types, 20 SUBTYPES, height/floor aggregates)
 
 ### `cross-indices/` — 11 cross-index analyses
 Each file exports a `CrossIndexDefinition` with id, name, description, datasets, joinColumn, computedColumns, equivalentSQL, focusRegion.
 
 - `cross-indices/types.ts`: `CrossIndexDefinition`, `CrossIndexInput`
 - `cross-indices/index.ts`: Registry. Exports `getCrossIndex()`, `CROSS_INDEX_IDS`
-- Existing 6: urban-density, housing-pressure, landslide-risk, vertical-living, population-growth, shrinking-cities
-- New 5: walkability (5 signals, 4 datasets), fifteen-min-city (7 signals, 4 datasets), biophilic (base × population), heat-vulnerability (6 signals, 4 datasets), water-security (6 signals, 5 datasets)
+- Simple 6: urban-density (building+population), housing-pressure (building+population), landslide-risk (terrain+building), vertical-living (building+population), population-growth (population), shrinking-cities (population)
+- Composite 5: walkability (5 signals, 4 datasets), fifteen-min-city (7 signals, 4 datasets), biophilic (base×population), heat-vulnerability (6 signals, 4 datasets), water-security (6 signals, 5 datasets)
 
 ### `resolvers.ts` — Dynamic URL resolution
 - `resolveWeatherPrefix()`: GitHub state file → fallback HEAD probe cascade. Singleton-cached promise

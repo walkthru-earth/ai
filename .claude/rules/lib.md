@@ -32,13 +32,13 @@ src/lib/tambo/
 │   ├── duckdb-notes.ts   # DuckDB v1.5 WASM rules
 │   ├── dataset-paths.ts  # 9 dataset S3 paths
 │   └── component-tips.ts # Component usage tips + cross-index patterns
-└── suggestions.ts        # buildInitialSuggestions() — 4 geo-personalized chips
+└── suggestions.ts        # buildInitialSuggestions() — 10 geo-personalized suggestions (5 primary + 5 extended)
 ```
 
 ### Key exports
 - `tamboProviderConfig` — base config for all pages
 - `buildContextHelpers(geo)` — assembles behavior + DuckDB + datasets + tips into AI context
-- `buildInitialSuggestions(geo)` — 4 geo-personalized suggestion chips
+- `buildInitialSuggestions(geo)` — 10 geo-personalized suggestions (5 primary + 5 extended)
 - `tools` / `components` — aggregated arrays
 
 ### Editing guide

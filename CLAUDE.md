@@ -31,7 +31,7 @@ pnpm lint:fix     # biome auto-fix
 
 **Cross-filter bus**: Lightweight pub/sub in `query-store.ts`. Components emit/consume `bbox` (map viewport) and `value` (click) filters. Requires shared `queryId` + `hex`/`pentagon` column.
 
-**Dashboard canvas**: Desktop = `react-grid-layout`, Touch = `@dnd-kit/sortable` (1.2s hold, grip-only drag). Panel IDs are deduplicated via `Set`. State persisted to localStorage per thread: panel order (`panel-order-${threadId}`), panel layouts/sizes (`panel-layouts-${threadId}`, debounced 500ms), dismissed panels (`panel-dismissed-${threadId}`). First panel and maps always full-width. Non-first/non-map panels pair in 2-column layout. `nonFullCount` counter tracks column position (resets after full-width panels). **Compact panel sizing**: StatsGrid/StatsCard/InsightCard/DatasetCard/QueryDisplay/DataCard get 2 grid rows (160px) via `panelHeight()` and `h-auto` on touch via `isCompactComponent()`.
+**Dashboard canvas**: Desktop = `react-grid-layout`, Touch = `@dnd-kit/sortable` (1.2s hold, grip-only drag). Panel IDs are deduplicated via `Set`. State persisted to localStorage per thread: panel order (`panel-order-${threadId}`), panel layouts/sizes (`panel-layouts-${threadId}`, debounced 500ms), dismissed panels (`panel-dismissed-${threadId}`). First panel and maps always full-width. Non-first/non-map panels pair in 2-column layout. `nonFullCount` counter tracks column position (resets after full-width panels). **Panel sizing**: `panelHeight()` returns grid rows per type: maps=8, graphs=5, tables=4, QueryDisplay/InsightCard/DatasetCard=3, StatsGrid/StatsCard=2. `isCompactComponent()` identifies StatsGrid/StatsCard/InsightCard/DatasetCard/QueryDisplay/DataCard — these get `h-auto` on touch.
 
 **Data service (modular)**:
 - `src/services/datasets/` — 9 dataset modules + registry index
@@ -116,13 +116,13 @@ S3 base: `https://s3.us-west-2.amazonaws.com/us-west-2.opendata.source.coop/walk
 |---------|-------------|--------|-------|
 | Weather (GraphCast) | `indices/weather/model=GraphCast_GFS/date={date}/hour={0,12}/h3_res={1-5}/data.parquet` | 1-5 | Each file = 5-day forecast (21 timestamps, 6-hourly). Use `buildParquetUrl('weather')` to resolve latest date. Never build future-date URLs. Clamp precip: `GREATEST(precipitation_mm_6hr, 0)`. |
 | Terrain (GEDTM 30m) | `dem-terrain/v2/h3/h3_res={1-10}/data.parquet` | 1-10 | Columns: elev, slope, aspect, tri, tpi |
-| Buildings (2.75B) | `indices/building/v2/h3/h3_res={3-8}/data.parquet` | 3-8 | 12 columns incl. max_height_m, height_std_m, volume_density_m3_per_km2 |
+| Buildings (2.75B) | `indices/building/v2/h3/h3_res={3-8}/data.parquet` | 3-8 | 11 columns incl. max_height_m, height_std_m, volume_density_m3_per_km2 |
 | Population (SSP2) | `indices/population/v2/scenario=SSP2/h3_res={1-8}/data.parquet` | 1-8 | 16 time steps: pop_2025 through pop_2100 (every 5 years) |
-| Places (Overture) | `indices/places-index/v1/release={ver}/h3/h3_res={1-10}/data.parquet` | 1-10 | 72M POIs, 13 categories + landmarks. Release resolved via `buildParquetUrl('places')`. |
-| Transportation (Overture) | `indices/transportation-index/v1/release={ver}/h3/h3_res={1-10}/data.parquet` | 1-10 | 343M road/rail/water segments, surface types, bridges, tunnels. |
-| Base (Overture) | `indices/base-index/v1/release={ver}/h3/h3_res={1-10}/data.parquet` | 1-10 | Land use, water bodies, infrastructure. Nature, transit, barriers. |
-| Addresses (Overture) | `indices/addresses-index/v1/release={ver}/h3/h3_res={1-10}/data.parquet` | 1-10 | Address points. Schema evolving — use DESCRIBE. |
-| Buildings-Overture | `indices/buildings-index/v1/release={ver}/h3/h3_res={1-10}/data.parquet` | 1-10 | Building classification: 40 cols. USE types (residential, commercial, industrial, civic, education, medical, religious, entertainment). SUBTYPES (house, apartments, retail, warehouse, office, school, university, hospital, church, mosque, hotel, factory). Height/floor aggregates. Different from Global Building Atlas (morphology). JOIN both on h3_index. |
+| Places (Overture) | `indices/places-index/v1/release={ver}/h3/h3_res={1-10}/data.parquet` | 1-10 | 72M POIs, 31 columns: 13 categories + 15 granular subcategories. Release resolved via `buildParquetUrl('places')`. |
+| Transportation (Overture) | `indices/transportation-index/v1/release={ver}/h3/h3_res={1-10}/data.parquet` | 1-10 | 343M segments, 27 columns: road/rail/water counts, 16 road type breakdown, bridge, tunnel, paved/unpaved. |
+| Base (Overture) | `indices/base-index/v1/release={ver}/h3/h3_res={1-10}/data.parquet` | 1-10 | 43 columns: 16 land use types, 10 water types, 13 infrastructure types. |
+| Addresses (Overture) | `indices/addresses-index/v1/release={ver}/h3/h3_res={1-10}/data.parquet` | 1-10 | 3 columns: h3_index, address_count, unique_postcodes. |
+| Buildings-Overture | `indices/buildings-index/v1/release={ver}/h3/h3_res={1-10}/data.parquet` | 1-10 | Building classification: 42 cols. USE types (residential, commercial, industrial, civic, education, medical, religious, entertainment, military, agricultural, service, transportation, outbuilding). SUBTYPES (house, apartments, detached, retail, warehouse, office, school, university, hospital, church, mosque, hotel, garage, farm, barn, factory, greenhouse, hangar). Height/floor aggregates. Different from Global Building Atlas (morphology). JOIN both on h3_index. |
 
 ## Styling Rules
 
@@ -326,7 +326,7 @@ Packages: `@geoarrow/deck.gl-layers@0.3.1`, `@walkthru-earth/objex-utils@1.0.0`,
 ## Conventions
 
 - Never show "Tambo", "DuckDB", "H3", "Parquet", "deck.gl" in UI
-- **Settings**: Gear icon (`<SettingsButton />`) in both `/chat` and `/explore` — popover with theme toggle, cross-filter toggle, and query limit (presets + custom). Portal to `document.body` to avoid header backdrop-blur transparency. Settings stored in `settings-store.ts` (localStorage `walkthru-settings`).
+- **Settings**: Gear icon (`<SettingsButton />`) in both `/chat` and `/explore` — popover with theme toggle, cross-filter toggle, and query limit (presets: 500/5K/10K/50K + custom input 100-100000). Portal to `document.body` to avoid header backdrop-blur transparency. Settings stored in `settings-store.ts` (localStorage `walkthru-settings`).
 - Theme: system detection on first visit, settings popover cycles Dark/Light/System
 - Map basemap: CARTO Dark Matter / Positron. Always forced to `auto` (follows user's theme via MutationObserver). AI basemap prop is ignored — theme is user-controlled via settings.
 - **Thread delete**: Available in thread history dropdown (Trash icon + inline confirmation). Uses `client.threads.delete(threadId, { userKey })`. Switches to new thread if current was deleted.
