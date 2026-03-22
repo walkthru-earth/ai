@@ -322,6 +322,8 @@ function canUseGeoArrow(config: LayerConfig): boolean {
 
 /* ── Layer factory ──────────────────────────────────────────────── */
 
+const SKIP_HOVER_KEYS = new Set(["geom", "geometry", "source", "target", "__geo_wkb"]);
+
 function extractHoverProps(info: any, layerType: LayerType): Record<string, unknown> | null {
   if (!info?.object) return null;
   const obj = info.object;
@@ -330,18 +332,28 @@ function extractHoverProps(info: any, layerType: LayerType): Record<string, unkn
     const table = info.data.data;
     const props: Record<string, unknown> = {};
     const schema = table.schema;
-    if (schema?.fields) {
+    if (schema?.fields && typeof table.getChild === "function") {
       for (const field of schema.fields) {
         const name = field.name;
-        if (name === "geom" || name === "geometry" || name === "source" || name === "target") continue;
+        if (SKIP_HOVER_KEYS.has(name)) continue;
         const col = table.getChild(name);
         if (col) {
           const val = col.get(info.index);
           props[name] = typeof val === "bigint" ? Number(val) : val;
         }
       }
+      if (Object.keys(props).length > 0) return props;
     }
-    return Object.keys(props).length > 0 ? props : null;
+    // Fallback: GeoArrow object might be a StructRow or proxy with toJSON/toArray
+    if (typeof obj.toJSON === "function") {
+      const json = obj.toJSON();
+      const result: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(json)) {
+        if (SKIP_HOVER_KEYS.has(k) || k.startsWith("_")) continue;
+        result[k] = typeof v === "bigint" ? Number(v) : v;
+      }
+      return Object.keys(result).length > 0 ? result : null;
+    }
   }
   // Standard layers: object is a JS object
   if (layerType === "h3") return { hex: obj.hex, value: obj.value };
@@ -350,7 +362,7 @@ function extractHoverProps(info: any, layerType: LayerType): Record<string, unkn
   // Scatterplot, arc, wkb: return all props except internal
   const result: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(obj)) {
-    if (k.startsWith("_") || k === "geometry" || k === "geom") continue;
+    if (k.startsWith("_") || SKIP_HOVER_KEYS.has(k)) continue;
     result[k] = v;
   }
   return Object.keys(result).length > 0 ? result : null;

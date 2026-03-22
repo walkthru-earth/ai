@@ -123,6 +123,29 @@ export async function preloadDuckDB(): Promise<boolean> {
   }
 }
 
+/**
+ * Fetch remote JSON/GeoJSON via browser fetch and register as a virtual file
+ * in DuckDB-WASM. This uses DuckDB's registerFileBuffer API to bypass httpfs
+ * truncation issues with servers like ArcGIS that don't work well with
+ * DuckDB-WASM's XMLHttpRequest-based range requests.
+ *
+ * Returns virtual path for use in SQL: read_json_auto('/remote/{name}.geojson')
+ */
+const _registeredFiles = new Map<string, string>();
+
+export async function registerRemoteJSON(url: string, name: string): Promise<string> {
+  const virtualPath = `/remote/${name}.geojson`;
+  if (_registeredFiles.has(url)) return _registeredFiles.get(url)!;
+
+  const instance = await initDuckDB();
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error(`Failed to fetch ${url}: HTTP ${resp.status}`);
+  const buffer = new Uint8Array(await resp.arrayBuffer());
+  await instance.registerFileBuffer(virtualPath, buffer);
+  _registeredFiles.set(url, virtualPath);
+  return virtualPath;
+}
+
 /** Convert Arrow values to plain JS — handles BigInt, Uint8Array, Struct, List, nested objects. */
 function arrowToJs(val: unknown): unknown {
   if (val == null) return null;

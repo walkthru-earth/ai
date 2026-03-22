@@ -39,12 +39,19 @@ export function buildDuckdbWasmNotes(queryLimit: number): string[] {
       "Too-fine A5 (e.g. res 9 from H3 res 5) creates sparse pentagons with visible gaps. " +
       "When multiple H3 cells map to the same A5 cell, GROUP BY a5_cell and AVG/SUM the metrics. " +
       "Keep raw BIGINT a5_cell in CTE for a5_cell_to_lonlat(), only printf('%x', a5_cell) AS pentagon in final SELECT.",
-    "GeoJSON/WFS: read_json_auto returns STRUCTs. URL must be CORS-enabled. TWO patterns: " +
+    "GeoJSON/WFS/ArcGIS: read_json_auto returns STRUCTs. URL must be CORS-enabled. " +
+      "ALWAYS add maximum_object_size=10485760 to read_json_auto for remote JSON (prevents truncation). " +
+      "ArcGIS FeatureServer: call describeArcGISLayer tool — it fetches schema and builds the URL. " +
+      "Manual URL: append /query?where=1%3D1&outFields=%2A&f=geojson&resultRecordCount=N. " +
+      "CRITICAL: use %2A not * for outFields — DuckDB treats * as glob and errors. " +
+      "For large ArcGIS layers (>1000), paginate with &resultOffset=0, &resultOffset=1000, etc. " +
+      "WFS: append ?service=WFS&version=1.1.0&request=GetFeature&typeName=layer&outputFormat=application/json. " +
+      "Plain GeoJSON: use URL directly. ALL return FeatureCollections — same Pattern A/B applies. " +
       "PATTERN A (map + all columns): " +
       `WITH fc AS (SELECT unnest(features) AS f FROM read_json_auto('url')) SELECT f.id AS feature_id, unnest(f.properties), ST_GeomFromGeoJSON(to_json(f.geometry)) AS geometry FROM fc LIMIT ${queryLimit}. ` +
       "PATTERN B (aggregation — NO unnest, NO geometry): " +
       "WITH fc AS (SELECT unnest(features) AS f FROM read_json_auto('url')) " +
-      "SELECT f.properties.vehicle_name AS vehicle, AVG(f.properties.speed) AS avg_speed, COUNT(*) AS n FROM fc GROUP BY ALL. " +
+      "SELECT f.properties.field AS alias, AVG(f.properties.metric) AS avg_val, COUNT(*) AS n FROM fc GROUP BY ALL. " +
       "RULES: (1) NEVER use ->>'$...' JSON path on structs (WASM error). (2) NEVER use f.properties.* (parser error). " +
       "(3) unnest(f.properties) ONLY as a bare SELECT column — never inside CAST/CASE/expressions. " +
       "(4) For GROUP BY / ORDER BY: use f.properties.field dot notation. " +

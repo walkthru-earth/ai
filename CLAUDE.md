@@ -86,7 +86,9 @@ pnpm lint:fix     # biome auto-fix
   WHERE f.geometry IS NOT NULL
   LIMIT {queryLimit}
   ```
-  For WFS endpoints: same pattern with `read_json_auto('https://host/ows?service=WFS&version=1.1.0&request=GetFeature&typeName=layer&outputFormat=application/json')`. Note: remote URLs must be CORS-enabled for DuckDB-WASM httpfs to fetch them. Works with most WFS endpoints, GitHub raw URLs, and data portals. Servers without CORS headers will silently return 0 rows.
+  For WFS endpoints: same pattern with `read_json_auto('https://host/ows?service=WFS&version=1.1.0&request=GetFeature&typeName=layer&outputFormat=application/json')`.
+  For ArcGIS FeatureServer: append `/query?where=1%3D1&outFields=%2A&f=geojson&resultRecordCount=N` to the layer URL. **CRITICAL**: use `%2A` not `*` for outFields — DuckDB treats `*` in URLs as a glob pattern and errors. For large layers (>1000 features), paginate with `&resultOffset=0`, `&resultOffset=1000`, etc.
+  Note: remote URLs must be CORS-enabled for DuckDB-WASM httpfs to fetch them. Works with most WFS endpoints, ArcGIS services, GitHub raw URLs, and data portals. Servers without CORS headers will silently return 0 rows.
 
 ### DuckDB Friendly SQL (use these for cleaner queries)
 
