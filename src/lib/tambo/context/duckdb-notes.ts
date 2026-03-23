@@ -43,10 +43,19 @@ export function buildDuckdbWasmNotes(queryLimit: number): string[] {
       "Keep raw BIGINT a5_cell in CTE for a5_cell_to_lonlat(), only printf('%x', a5_cell) AS pentagon in final SELECT.",
     "GeoJSON/WFS/ArcGIS: read_json_auto returns STRUCTs. URL must be CORS-enabled. " +
       "ALWAYS add maximum_object_size=10485760 to read_json_auto for remote JSON (prevents truncation). " +
-      "ArcGIS FeatureServer: call describeArcGISLayer tool — it fetches schema and builds the URL. " +
-      "Manual URL: append /query?where=1%3D1&outFields=%2A&f=geojson&resultRecordCount=N. " +
+      "ArcGIS TOOL ROUTING (TOKEN-EFFICIENT): " +
+      "(1) ANY ArcGIS URL → call exploreArcGISService. It auto-detects URL level AND auto-loads data. " +
+      "(2) If response has layer.queryId → data is ALREADY queried. Render GeoMap + DataTable with that queryId IMMEDIATELY — NO runSQL call needed. " +
+      "(3) If response has layerList (multi-layer service) → present layers, call describeArcGISLayer for the chosen one — it also returns queryId. " +
+      "(4) Catalog level returns serviceNames + categories — present summary, use baseUrl + name to construct service URLs. Do NOT make multiple search calls. " +
+      "(5) For custom queries on loaded ArcGIS data, use localPath from the layer response with runSQL: " +
+      "WITH fc AS (SELECT unnest(features) AS f FROM read_json_auto(localPath)) SELECT f.properties.FIELD AS alias, ... FROM fc. " +
+      "ArcGIS SQL RULES: " +
+      "(a) NEVER use SQL comments (-- or /* */) in runSQL — they cause WASM parse errors. " +
+      "(b) Geometry auto-detection generates synthetic lat/lng — do NOT manually extract coordinates. " +
+      "(c) codedValueDomains field lists coded fields — decode with CASE WHEN or LEFT JOIN. " +
+      "For large ArcGIS layers: paginate with read_json_auto([url || '&resultOffset=' || x FOR x IN generate_series(0, total, pageSize)]). " +
       "CRITICAL: use %2A not * for outFields — DuckDB treats * as glob and errors. " +
-      "For large ArcGIS layers (>1000), paginate with &resultOffset=0, &resultOffset=1000, etc. " +
       "WFS: append ?service=WFS&version=1.1.0&request=GetFeature&typeName=layer&outputFormat=application/json. " +
       "Plain GeoJSON: use URL directly. ALL return FeatureCollections — same Pattern A/B applies. " +
       "PATTERN A (map + all columns): " +

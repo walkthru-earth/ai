@@ -4,7 +4,7 @@
  */
 
 import type { TamboTool } from "@tambo-ai/react";
-import { describeArcGISLayerTool } from "./arcgis";
+import { describeArcGISLayerTool, exploreArcGISServiceTool } from "./arcgis";
 import { getCrossIndexTool } from "./cross-index";
 import { dismissPanelsTool } from "./dashboard";
 import { buildParquetUrlTool, describeDatasetTool, listDatasetsTool } from "./dataset-tools";
@@ -18,6 +18,7 @@ export const tools: TamboTool[] = [
   describeDatasetTool,
   getCrossIndexTool,
   suggestAnalysisTool,
+  exploreArcGISServiceTool,
   describeArcGISLayerTool,
   dismissPanelsTool,
 ];
