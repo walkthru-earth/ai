@@ -12,8 +12,6 @@ export interface DatasetDefinition {
   description: string;
   columns: string[];
   columnDescriptions: Record<string, string>;
-  /** Optional DuckDB types per column — used for compact "name:TYPE" output in buildParquetUrl. */
-  columnTypes?: Record<string, string>;
   urlPattern: string;
   h3ResRange: [number, number];
   defaultH3Res: number;
@@ -39,9 +37,9 @@ export interface BuildUrlInput {
 
 export interface BuildUrlOutput {
   url: string;
+  dataset: DatasetInfo;
   h3Res: number;
-  columns: string;
-  h3ResRange: [number, number];
+  sql: string;
 }
 
 export interface DescribeDatasetInput {
