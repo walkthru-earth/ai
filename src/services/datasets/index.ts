@@ -59,7 +59,11 @@ export async function buildParquetUrl(input: BuildUrlInput): Promise<BuildUrlOut
     url = url.replace("{release}", release);
   }
 
-  return { url, h3Res };
+  const columns = ds.columnTypes
+    ? ds.columns.map((c) => `${c}:${ds.columnTypes![c] ?? "VARCHAR"}`).join(", ")
+    : ds.columns.join(", ");
+
+  return { url, h3Res, columns, h3ResRange: ds.h3ResRange };
 }
 
 /* ── Tool: Describe a dataset ────────────────────────────────────── */
