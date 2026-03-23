@@ -59,10 +59,7 @@ export async function buildParquetUrl(input: BuildUrlInput): Promise<BuildUrlOut
     url = url.replace("{release}", release);
   }
 
-  const { columnDescriptions: _, ...datasetInfo } = ds;
-  const sql = `SELECT ${ds.columns.join(", ")}\nFROM '${url}'`;
-
-  return { url, dataset: datasetInfo, h3Res, sql };
+  return { url, h3Res };
 }
 
 /* ── Tool: Describe a dataset ────────────────────────────────────── */
@@ -73,7 +70,7 @@ export async function describeDataset(input: DescribeDatasetInput): Promise<Data
     throw new Error(`Unknown dataset: ${input.dataset}. Available: ${DATASETS.map((d) => d.id).join(", ")}`);
   }
 
-  const { url, sql } = await buildParquetUrl({ dataset: ds.id });
+  const { url } = await buildParquetUrl({ dataset: ds.id });
 
   return {
     name: ds.name,
@@ -85,7 +82,7 @@ export async function describeDataset(input: DescribeDatasetInput): Promise<Data
     category: ds.category,
     h3ResRange: ds.h3ResRange,
     sampleUrl: url,
-    equivalentSQL: sql,
+    equivalentSQL: `FROM '${url}' LIMIT 1000`,
   };
 }
 

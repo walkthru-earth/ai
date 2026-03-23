@@ -68,9 +68,12 @@ export function buildDuckdbWasmNotes(queryLimit: number): string[] {
       "(4) For GROUP BY / ORDER BY: use f.properties.field dot notation. " +
       "(5) Struct fields keep their original types — if interval_start is TIMESTAMP, use strftime() to format it, " +
       "never CAST(TIMESTAMP AS BIGINT). Use epoch(ts) for numeric seconds.",
-    "OOM PREVENTION (~3GB WASM limit): NEVER SELECT * into CTEs on large files (weather res5=42M rows). " +
-      "Push WHERE h3_index=X directly into the Parquet scan for predicate pushdown. Only SELECT needed columns. " +
-      "For multi-file comparisons: filter each file BEFORE joining. Prefer res 3-4 for area/map queries.",
+    "OOM & SPEED PREVENTION (~3GB WASM limit, 42M rows at res5): " +
+      "NEVER SELECT * into CTEs on large files. NEVER use CTE JOINs for filtering — use WHERE h3_index IN (subquery) directly on the Parquet scan for predicate pushdown. " +
+      "FAST pattern: SELECT cols FROM 'url' WHERE h3_index IN (SELECT unnest(h3_grid_disk(cell, radius))::BIGINT). " +
+      "SLOW pattern (avoid): WITH cells AS (...) SELECT ... FROM url JOIN cells USING (h3_index) — no pushdown, full scan. " +
+      "For area/map queries: prefer res 3 (fast) over res 5 (42M rows, slow). Only use res 5 for single-cell detail. " +
+      "Only SELECT needed columns — never all 24 weather columns when you need 3.",
     "CROSS-DATASET: All datasets share h3_index — joins trivial BUT resolutions MUST match across all files. " +
       "Shared range: res 3-5. UNPIVOT population for time-series charts. " +
       "Use h3_cell_to_lat/lng to derive coordinates from h3_index directly.",

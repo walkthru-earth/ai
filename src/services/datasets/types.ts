@@ -37,9 +37,7 @@ export interface BuildUrlInput {
 
 export interface BuildUrlOutput {
   url: string;
-  dataset: DatasetInfo;
   h3Res: number;
-  sql: string;
 }
 
 export interface DescribeDatasetInput {

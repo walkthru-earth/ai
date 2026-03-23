@@ -44,9 +44,8 @@ export const buildParquetUrlTool: TamboTool = {
       .describe("H3 res — weather 1-5, building 3-8, population 1-8, terrain 1-10, overture 1-10"),
   }),
   outputSchema: z.object({
-    url: z.string(),
-    h3Res: z.number(),
-    sql: z.string(),
+    url: z.string().describe("Direct Parquet URL — use in FROM clause"),
+    h3Res: z.number().describe("H3 resolution used"),
   }),
 };
 
