@@ -86,6 +86,26 @@ async function initDuckDB(): Promise<any> {
           await conn.close();
         }
 
+        // Log loaded extensions
+        try {
+          const extConn = await instance.connect();
+          const result = await extConn.query(
+            "SELECT extension_name, loaded, installed FROM duckdb_extensions() WHERE loaded = true ORDER BY extension_name",
+          );
+          const rows = result.toArray().map((r: any) => r.toJSON());
+          const loaded = rows.map((r: any) => r.extension_name);
+          const expected = ["httpfs", "spatial", "h3", "a5"];
+          const missing = expected.filter((e) => !loaded.includes(e));
+          if (missing.length === 0) {
+            console.log(`[DuckDB] Extensions loaded: ${loaded.join(", ")}`);
+          } else {
+            console.warn(`[DuckDB] Extensions loaded: ${loaded.join(", ")} | MISSING: ${missing.join(", ")}`);
+          }
+          await extConn.close();
+        } catch {
+          /* non-critical */
+        }
+
         db = instance;
         return instance;
       } catch (error: any) {
