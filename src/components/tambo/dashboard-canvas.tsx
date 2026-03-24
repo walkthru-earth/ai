@@ -490,7 +490,7 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
           data-canvas-space="true"
           className={cn("fixed inset-0 flex flex-col overflow-hidden z-40 bg-background", className)}
         >
-          <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border/30 bg-muted/10 flex-shrink-0">
+          <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border bg-muted flex-shrink-0">
             <span className="text-xs font-semibold text-foreground truncate flex-1">{panel.title}</span>
             <span className="text-[10px] text-muted-foreground/40">
               {panels.length} panel{panels.length !== 1 ? "s" : ""}
