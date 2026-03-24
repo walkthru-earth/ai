@@ -24,6 +24,7 @@ import {
   RadarChart,
   RadialBar,
   RadialBarChart,
+  ReferenceLine,
   ResponsiveContainer,
   Scatter,
   ScatterChart,
@@ -34,7 +35,13 @@ import {
 } from "recharts";
 import { z } from "zod";
 import { cn } from "@/lib/utils";
-import { applyCrossFilter, setCrossFilter, useCrossFilter, useQueryResult } from "@/services/query-store";
+import {
+  applyCrossFilter,
+  setCrossFilter,
+  useCrossFilter,
+  useQueryResult,
+  useTimeFilter,
+} from "@/services/query-store";
 import { useInDashboardPanel } from "./panel-context";
 
 /* ── Variants ─────────────────────────────────────────────────────── */
@@ -227,6 +234,7 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
     ref,
   ) => {
     const crossFilter = useCrossFilter();
+    const timeFilter = useTimeFilter();
     const queryResult = useQueryResult(queryId);
     const inPanel = useInDashboardPanel();
 
@@ -405,6 +413,18 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
         : undefined,
     };
 
+    // Time filter: vertical reference line at current timestamp step (no hook — after early returns)
+    const timeRefLabel = (() => {
+      if (!timeFilter) return undefined;
+      const label = timeFilter.timestamps[timeFilter.currentIndex];
+      if (!label) return undefined;
+      return chartData.some((d) => d.name === label) ? label : undefined;
+    })();
+
+    const timeRefLine = timeRefLabel ? (
+      <ReferenceLine x={timeRefLabel} stroke="var(--primary)" strokeWidth={2} strokeDasharray="4 4" isFront />
+    ) : null;
+
     const renderChart = () => {
       switch (type) {
         case "bar":
@@ -421,6 +441,7 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
               {showLegend && validDatasets.length > 1 && (
                 <Legend verticalAlign="top" height={24} wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }} />
               )}
+              {timeRefLine}
               {validDatasets.map((d, i) => (
                 <Bar
                   key={d.label}
@@ -442,6 +463,7 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
               {showLegend && validDatasets.length > 1 && (
                 <Legend verticalAlign="top" height={24} wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }} />
               )}
+              {timeRefLine}
               {validDatasets.map((d, i) => (
                 <Line
                   key={d.label}
@@ -476,6 +498,7 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
               {showLegend && validDatasets.length > 1 && (
                 <Legend verticalAlign="top" height={24} wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }} />
               )}
+              {timeRefLine}
               {validDatasets.map((d, i) => (
                 <Area
                   key={d.label}
@@ -658,6 +681,7 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
               {showLegend && validDatasets.length > 1 && (
                 <Legend verticalAlign="top" height={24} wrapperStyle={{ color: "var(--foreground)", fontSize: 10 }} />
               )}
+              {timeRefLine}
               {validDatasets.map((d, i) =>
                 i === 0 ? (
                   <Bar

@@ -11,7 +11,9 @@ export const behaviorRules = [
   "Render MULTIPLE components per response: a map + a chart + a table for rich analysis. " +
     "ALWAYS render the GeoMap FIRST — maps auto-float to the top of the dashboard and get full-width. " +
     "Then render Graph, DataTable, and other components. " +
-    "ALWAYS include a Graph (line/bar/area) when data has a time dimension or ranking — never require the user to ask for a chart separately.",
+    "ALWAYS include a Graph (line/bar/area) when data has a time dimension or ranking — NEVER stop after just the map. " +
+    "WEATHER: You MUST render ALL 4 components (GeoMap + TimeSlider + Graph + DataTable) in a SINGLE response. " +
+    "The Graph is NOT optional — users always expect the timeline chart.",
   "UPDATE vs CREATE NEW components: " +
     "UPDATE an existing component (update_component_props) for appearance changes OR data replacement on the SAME panel — " +
     "e.g. 'zoom in', 'change colors', 'tilt the map', 'switch to bar chart', 'hide column', 'filter this to X', 'replace with wind data'. " +
@@ -41,6 +43,11 @@ export const behaviorRules = [
     "'warm' for temperature, 'cool' for precipitation/humidity, 'blue-red' for anomalies. " +
     "For comparisons: use composed chart (bar+line overlay) or multi-yColumns in Graph. " +
     "For population timeline: UNPIVOT wide columns → long format for a clean line chart.",
+  "WEATHER MULTI-LAYER + TIME SLIDER: When showing weather forecasts, ALWAYS use GeoMap with a layers array " +
+    "containing 3 layers sharing the SAME queryId but different valueColumns: " +
+    "temp_c (colorScheme='warm'), precip_mm (colorScheme='cool'), wind_ms (colorScheme='viridis'). " +
+    "ALWAYS include a TimeSlider component linked to the AREA queryId — it enables stepping through the 21 forecast timestamps. " +
+    "The TimeSlider cross-filters the map (showing spatial distribution at each timestep) and marks a reference line on the Graph.",
   "CROSS-DATASET ENRICHMENT: When context allows, enrich single-dataset queries with related data. " +
     "Weather query → add building density context (how exposed is the area?). " +
     "Building query → add population (how many people per building?). " +

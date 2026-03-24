@@ -42,6 +42,7 @@ function panelHeight(name: string): number {
   if (n.includes("querydisplay") || n.includes("query")) return 3;
   if (n.includes("insightcard") || n.includes("insight")) return 3;
   if (n.includes("datasetcard") || n.includes("dataset")) return 3;
+  if (n.includes("timeslider")) return 2;
   if (n.includes("statsgrid") || n.includes("statscard") || n.includes("stat")) return 2;
   return 4;
 }
@@ -61,7 +62,8 @@ function isCompactComponent(name: string): boolean {
     n.includes("insightcard") ||
     n.includes("datasetcard") ||
     n.includes("querydisplay") ||
-    n.includes("datacard")
+    n.includes("datacard") ||
+    n.includes("timeslider")
   );
 }
 

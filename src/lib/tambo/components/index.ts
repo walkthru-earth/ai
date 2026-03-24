@@ -16,10 +16,12 @@ import {
   statsCardComponent,
   statsGridComponent,
 } from "./static";
+import { timeSliderComponent } from "./time-slider";
 
 export const components: TamboComponent[] = [
   geoMapComponent,
   h3MapComponent,
+  timeSliderComponent,
   statsCardComponent,
   statsGridComponent,
   dataTableComponent,

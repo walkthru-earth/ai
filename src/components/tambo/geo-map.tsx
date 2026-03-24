@@ -4,7 +4,7 @@ import * as React from "react";
 import { lazy, Suspense, useMemo } from "react";
 import { z } from "zod";
 import { readStorage, writeStorage } from "@/lib/storage";
-import { setCrossFilter, useQueryResult } from "@/services/query-store";
+import { applyTimeFilter, setCrossFilter, useQueryResult, useTimeFilter } from "@/services/query-store";
 import type { Basemap, ColorScheme, LayerConfig, LayerType } from "./geo-map-deckgl";
 import { useInDashboardPanel } from "./panel-context";
 
@@ -512,6 +512,7 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
   // that conflict with the user's current theme preference
   const basemap = "auto" as const;
   const inPanel = useInDashboardPanel();
+  const timeFilter = useTimeFilter();
 
   // Multi-layer mode: determine if using `layers` array or single `queryId`
   const isMultiLayer = layersProp != null && layersProp.length > 0;
@@ -619,8 +620,11 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
         const qr = queryResults[i];
         if (!qr || (qr.rows.length === 0 && !qr.wkbArrays?.length)) continue;
 
+        // Apply time filter — narrows rows to the current timestamp step (H3/A5/scatter paths only)
+        const timeFilteredRows = qr.wkbArrays?.length ? qr.rows : applyTimeFilter(qr.rows, timeFilter, "GeoMap");
+
         const result = transformQueryToLayer(
-          qr.rows,
+          timeFilteredRows,
           {
             id: layer.id,
             layerType: layer.layerType as LayerType | undefined,
@@ -662,8 +666,11 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
       // Single-layer mode (backward compat)
       const qr = qr0;
       if (queryId && qr && qr.rows.length > 0) {
+        // Apply time filter — narrows rows to the current timestamp step
+        const timeFilteredRows = qr.wkbArrays?.length ? qr.rows : applyTimeFilter(qr.rows, timeFilter, "GeoMap");
+
         const result = transformQueryToLayer(
-          qr.rows,
+          timeFilteredRows,
           {
             id: "default",
             layerType: explicitLayerType,
@@ -735,6 +742,7 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
     destLatColumn,
     destLngColumn,
     colorScheme,
+    timeFilter,
   ]);
 
   // Precompute H3 centroids once when data loads — used for both bounds and bbox cross-filter
@@ -789,7 +797,9 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
 
   const finalBounds = bounds ?? h3Bounds;
 
-  const hasData = totalFeatureCount > 0;
+  // Keep map mounted when time filter is active — empty filtered rows are expected between steps.
+  // Unmounting/remounting triggers a MapLibre style race condition ("this.style is undefined").
+  const hasData = totalFeatureCount > 0 || timeFilter != null;
   const minVal = globalMinVal;
   const maxVal = globalMaxVal;
 

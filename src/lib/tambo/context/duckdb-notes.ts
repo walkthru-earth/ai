@@ -24,7 +24,12 @@ export function buildDuckdbWasmNotes(queryLimit: number): string[] {
       "Timestamp math: CAST(ts AS TIMESTAMP) + INTERVAL '72 hours' (WASM has no ICU — TIMESTAMPTZ + INTERVAL fails). " +
       "CAST(TIMESTAMP AS BIGINT) FAILS — use epoch(ts) for seconds or CAST(ts AS VARCHAR) for display.",
     "Weather: 5-day/21-step forecast. MUST call buildParquetUrl('weather') FIRST — NEVER guess the URL (date changes daily, guessing WILL 404). " +
-      "Clamp: GREATEST(precipitation_mm_6hr, 0). Format: strftime(CAST(timestamp AS TIMESTAMP), '%b %d %H:%M') AS time_label. " +
+      "PRECIPITATION SMART FILTER: For the MAP layer, use CASE WHEN precipitation_mm_6hr >= 0.1 THEN ROUND(precipitation_mm_6hr, 2) ELSE NULL END — " +
+      "NULL values don't render on the hex map, so only meaningful rain shows up (< 0.1mm is noise). " +
+      "For the CHART timeline, use 0 instead of NULL so the line stays continuous. " +
+      "Format: strftime(CAST(timestamp AS TIMESTAMP), '%b %d %H:%M') AS time_label. " +
+      "TIMEZONE: Weather timestamps are UTC. TimeSlider component auto-converts UTC to user's local timezone for display. " +
+      "In SQL, just output UTC time_label — no timezone conversion needed (DuckDB WASM has no ICU). " +
       "COLUMNS (exhaustive — NO others exist): h3_index, timestamp, temperature_2m_C, temperature_850hPa_C, temp_diff_850hPa_2m_C, " +
       "wind_speed_10m_ms, wind_direction_10m_deg, wind_speed_850hPa_ms, wind_direction_850hPa_deg, " +
       "wind_u/v_10m_ms, wind_u/v_850hPa_ms, wind_shear_magnitude_ms, wind_shear_direction_deg, " +

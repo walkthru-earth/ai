@@ -234,6 +234,61 @@ export function useFlyToVersion(): number {
   return useSyncExternalStore(subscribeFlyTo, getFlyToVersion, () => 0);
 }
 
+/* ── Time Filter Bus ──────────────────────────────────────────────── */
+
+export interface TimeFilter {
+  /** All unique sorted timestamp labels from the query */
+  timestamps: string[];
+  /** Current step index (0 to timestamps.length - 1) */
+  currentIndex: number;
+  /** Column name in the query result that holds the timestamp */
+  timestampColumn: string;
+  /** Source component to avoid self-filtering */
+  sourceComponent: string;
+}
+
+let currentTimeFilter: TimeFilter | null = null;
+const timeFilterListeners = new Set<() => void>();
+
+function emitTimeFilter() {
+  for (const fn of timeFilterListeners) fn();
+}
+
+export function setTimeFilter(filter: TimeFilter): void {
+  currentTimeFilter = filter;
+  emitTimeFilter();
+}
+
+export function clearTimeFilter(): void {
+  currentTimeFilter = null;
+  emitTimeFilter();
+}
+
+export function getTimeFilter(): TimeFilter | null {
+  return currentTimeFilter;
+}
+
+function subscribeTimeFilter(cb: () => void): () => void {
+  timeFilterListeners.add(cb);
+  return () => timeFilterListeners.delete(cb);
+}
+
+export function useTimeFilter(): TimeFilter | null {
+  return useSyncExternalStore(subscribeTimeFilter, getTimeFilter, () => null);
+}
+
+/** Apply time filter to rows — returns only rows matching the current timestamp step. */
+export function applyTimeFilter(
+  rows: Record<string, unknown>[],
+  timeFilter: TimeFilter | null,
+  selfComponent: string,
+): Record<string, unknown>[] {
+  if (!timeFilter || timeFilter.sourceComponent === selfComponent) return rows;
+  const target = timeFilter.timestamps[timeFilter.currentIndex];
+  if (!target) return rows;
+  return rows.filter((r) => String(r[timeFilter.timestampColumn]) === target);
+}
+
 /* ── Panel Dismiss Bus ─────────────────────────────────────────────── */
 
 export interface DismissRequest {

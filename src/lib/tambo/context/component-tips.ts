@@ -60,16 +60,41 @@ export function buildComponentTips(queryLimit: number): string[] {
     "OVERTURE CROSS-INDICES: call getCrossIndex(analysis) for signal breakdowns, weights, and SQL templates. " +
       "Available: walkability, fifteen-min-city, biophilic, heat-vulnerability, water-security, plus 6 more.",
 
+    // ── TimeSlider ──
+    "TimeSlider: queryId + timestampColumn (default 'time_label'). " +
+      "Cross-filters GeoMap (spatial snapshot at selected time) and shows ReferenceLine on Graph. " +
+      "Pass the AREA query queryId (all cells × all timestamps). Timezone auto-converted to user's local time.",
+
     // ── Weather forecast pattern ──
-    "WEATHER FORECAST (MANDATORY pattern — do NOT skip the chart): " +
+    "WEATHER FORECAST WITH TIME SLIDER (MANDATORY pattern): " +
       "STEP 0: Call buildParquetUrl('weather') to get the URL. " +
       "Each file has 21 timestamps (5-day, 6-hourly). For ANY weather query: " +
-      "(1) Run a TIMELINE query: all 21 timestamps for user's cell with strftime(CAST(timestamp AS TIMESTAMP), '%b %d %H:%M') AS time_label, " +
-      "temperature_2m_C AS temp_c, GREATEST(precipitation_mm_6hr, 0) AS precip_mm, wind_speed_10m_ms AS wind_ms. " +
+      "STEP 1 — AREA query (all cells × all 21 timestamps, for GeoMap + TimeSlider): " +
+      `SELECT h3_h3_to_string(w.h3_index) AS hex, strftime(CAST(w.timestamp AS TIMESTAMP), '%b %d %H:%M') AS time_label, ` +
+      "w.temperature_2m_C AS temp_c, " +
+      "CASE WHEN w.precipitation_mm_6hr >= 0.1 THEN ROUND(w.precipitation_mm_6hr, 2) ELSE NULL END AS precip_mm, " +
+      "w.wind_speed_10m_ms AS wind_ms, w.wind_direction_10m_deg AS wind_dir " +
+      "FROM url w WHERE w.h3_index IN (SELECT unnest(h3_grid_disk(h3_latlng_to_cell(LAT, LNG, 5)::BIGINT, 4))::BIGINT) " +
+      `ORDER BY w.timestamp, w.h3_index LIMIT {queryLimit}. ` +
+      "STEP 2 — TIMELINE query (single center cell × all timestamps, for Graph + DataTable): " +
+      `SELECT strftime(CAST(timestamp AS TIMESTAMP), '%b %d %H:%M') AS time_label, ` +
+      "temperature_2m_C AS temp_c, " +
+      "CASE WHEN precipitation_mm_6hr >= 0.1 THEN ROUND(precipitation_mm_6hr, 2) ELSE 0 END AS precip_mm, " +
+      "wind_speed_10m_ms AS wind_ms, wind_direction_10m_deg AS wind_dir, pressure_msl_hPa AS pressure " +
+      "FROM url WHERE h3_index = h3_latlng_to_cell(LAT, LNG, 5)::BIGINT ORDER BY timestamp LIMIT 21. " +
+      "STEP 3 — RENDER ALL 4 COMPONENTS IN ONE RESPONSE (do NOT stop after the map): " +
+      "(1) GeoMap with layers array — 3 layers ALL sharing the AREA queryId: " +
+      "layer 'temp' (valueColumn='temp_c', colorScheme='warm', colorMetric='Temperature °C'), " +
+      "layer 'precip' (valueColumn='precip_mm', colorScheme='cool', colorMetric='Precipitation mm/6hr'), " +
+      "layer 'wind' (valueColumn='wind_ms', colorScheme='viridis', colorMetric='Wind Speed m/s'). " +
+      "(2) TimeSlider with AREA queryId, timestampColumn='time_label'. " +
+      "(3) Graph — MANDATORY, NEVER SKIP: chartType='line', queryId from TIMELINE query, " +
+      "xColumn='time_label', yColumns=['temp_c','precip_mm','wind_ms'], " +
+      "xLabel='Time (UTC)', yLabel='Temp (°C) / Precip (mm) / Wind (m/s)'. " +
+      "(4) DataTable with TIMELINE queryId. " +
+      "The Graph is CRITICAL — users expect to see the 5-day forecast as a timeline chart. " +
       "ONLY use columns listed in the DuckDB weather note — do NOT invent columns like relative_humidity or dewpoint. " +
-      "(2) Run an AREA query: snapshot at first timestamp for surrounding cells (map). " +
-      "(3) Render: GeoMap (area snapshot) + Graph (chartType='line', xColumn='time_label', yColumns=['temp_c','precip_mm','wind_ms']) + DataTable. " +
-      "The line chart is NOT optional — users expect to see the 5-day forecast timeline without asking. " +
+      "The TimeSlider cross-filters the map (spatial snapshot at selected time) and marks a reference line on the Graph. " +
       "For A5 weather: compute A5 cells from H3 centroids (see grid rule).",
 
     // ── Smart defaults ──
