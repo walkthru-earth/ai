@@ -409,11 +409,6 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
       const defaultH = panelHeight(panel.componentName || "");
       const existing = savedLayouts.lg?.find((l) => l.i === panel.id);
       if (existing) {
-        // Force maps to their designated height even when a saved layout exists
-        const isMap = isMapComponent(panel.componentName || "");
-        if (isMap && existing.h < defaultH) {
-          return { ...existing, h: defaultH };
-        }
         return existing;
       }
       const item = { i: panel.id, x: 0, y: lgY, w: 12, h: defaultH, minW: 4, minH: 2 };
