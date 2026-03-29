@@ -2,6 +2,7 @@ import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { type ThreadListResponse, useTambo, useTamboClient, useTamboThreadList } from "@tambo-ai/react";
 import { ArrowLeftToLine, ArrowRightToLine, MoreHorizontal, Pencil, PlusIcon, SearchIcon, Trash2 } from "lucide-react";
 import React, { useMemo } from "react";
+import { USER_KEY_STORAGE_KEY } from "@/lib/use-anonymous-user-key";
 import { cn } from "@/lib/utils";
 
 /** Thread item from the thread list API */
@@ -351,8 +352,7 @@ const ThreadHistoryList = React.forwardRef<HTMLDivElement, React.HTMLAttributes<
 
       const query = searchQuery.toLowerCase();
       return threads.threads.filter((thread: ThreadListItem) => {
-        const idMatches = thread.id.toLowerCase().includes(query);
-        return idMatches;
+        return thread.id.toLowerCase().includes(query) || (thread.name?.toLowerCase().includes(query) ?? false);
       });
     }, [isCollapsed, threads, searchQuery]);
 
@@ -369,7 +369,7 @@ const ThreadHistoryList = React.forwardRef<HTMLDivElement, React.HTMLAttributes<
 
     const handleRename = (thread: ThreadListItem) => {
       setEditingThread(thread);
-      setNewName(`Thread ${thread.id.substring(0, 8)}`);
+      setNewName(thread.name?.trim() || `Thread ${thread.id.substring(0, 8)}`);
     };
 
     const handleDeleteRequest = (thread: ThreadListItem) => {
@@ -379,7 +379,7 @@ const ThreadHistoryList = React.forwardRef<HTMLDivElement, React.HTMLAttributes<
     const handleDeleteConfirm = async () => {
       if (!deletingThreadId) return;
       try {
-        const userKey = localStorage.getItem("walkthru-user-key") ?? undefined;
+        const userKey = localStorage.getItem(USER_KEY_STORAGE_KEY) ?? undefined;
         await client.threads.delete(deletingThreadId, { userKey });
         if (currentThreadId === deletingThreadId) {
           startNewThread();
@@ -395,10 +395,18 @@ const ThreadHistoryList = React.forwardRef<HTMLDivElement, React.HTMLAttributes<
 
     const handleNameSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
-      if (!editingThread) return;
+      if (!editingThread || !newName.trim()) return;
 
-      // Thread renaming is not supported in V1 API
-      setEditingThread(null);
+      try {
+        const userKey = localStorage.getItem(USER_KEY_STORAGE_KEY) ?? undefined;
+        await client.threads.update(editingThread.id, { userKey, name: newName.trim() });
+        await refetch();
+        onThreadChange?.();
+      } catch (err) {
+        console.error("Failed to rename thread:", err);
+      } finally {
+        setEditingThread(null);
+      }
     };
 
     // Content to show
@@ -472,7 +480,9 @@ const ThreadHistoryList = React.forwardRef<HTMLDivElement, React.HTMLAttributes<
                   </form>
                 ) : (
                   <>
-                    <span className="font-medium line-clamp-1">{`Thread ${thread.id.substring(0, 8)}`}</span>
+                    <span className="font-medium line-clamp-1">
+                      {thread.name?.trim() || `Thread ${thread.id.substring(0, 8)}`}
+                    </span>
                     <p className="text-xs text-muted-foreground truncate mt-1">
                       {new Date(thread.createdAt).toLocaleString(undefined, {
                         month: "short",

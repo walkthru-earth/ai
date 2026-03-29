@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-const STORAGE_KEY = "walkthru-user-key";
+export const USER_KEY_STORAGE_KEY = "walkthru-user-key";
 
 function generateUserKey(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -22,10 +22,10 @@ function generateUserKey(): string {
 export function useAnonymousUserKey(): string {
   const [userKey] = useState<string>(() => {
     if (typeof window === "undefined") return generateUserKey();
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = localStorage.getItem(USER_KEY_STORAGE_KEY);
     if (stored) return stored;
     const newKey = generateUserKey();
-    localStorage.setItem(STORAGE_KEY, newKey);
+    localStorage.setItem(USER_KEY_STORAGE_KEY, newKey);
     return newKey;
   });
   return userKey;

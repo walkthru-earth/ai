@@ -144,8 +144,8 @@ Components receive `_tambo_componentId`, `_tambo_*` hidden props. **Never spread
 - `invalid_previous_run` error → call `startNewThread()` to escape error loop
 - Thread URLs: `?thread=threadId` (validate `thr_` prefix)
 - `useReplayQueries(messages)` re-runs SQL from restored threads
-- **Thread delete**: `useTamboClient()` → `client.threads.delete(threadId, { userKey })`. Requires `userKey` in params (V1 API). Available in `ThreadOptionsDropdown` with inline confirmation UI.
-- **Thread rename**: `client.threads.update(threadId, { userKey, name })` - PATCH endpoint.
+- **Thread delete**: `useTamboClient()` → `client.threads.delete(threadId, { userKey })`. Requires `userKey` in params. Available in `ThreadOptionsDropdown` with inline confirmation UI.
+- **Thread rename**: `client.threads.update(threadId, { userKey, name })`. Wired up in `ThreadOptionsDropdown` with inline edit input, refetches thread list on success.
 
 ## Message Content Types (SDK)
 
