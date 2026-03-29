@@ -520,8 +520,6 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
           <SortableContext items={panelOrder} strategy={verticalListSortingStrategy}>
             <div className="flex flex-col gap-2 p-2">
               {orderedPanels.map((panel) => {
-                const name = (panel.componentName || "").toLowerCase();
-                const isMap = name.includes("map") || name.includes("h3map");
                 const compact = isCompactComponent(panel.componentName || "");
                 const minH = compact ? "h-auto" : "h-[280px]";
                 return (

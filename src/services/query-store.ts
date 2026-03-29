@@ -373,7 +373,6 @@ export function useRestoreVersion(): number {
 /* ── Dismissed Panel IDs (shared read for message.tsx) ────────────── */
 
 let dismissedPanelIds: Set<string> = new Set();
-let dismissedIdsVersion = 0;
 const dismissedIdsListeners = new Set<() => void>();
 
 function emitDismissedIds() {
@@ -383,7 +382,6 @@ function emitDismissedIds() {
 /** Called by DashboardCanvas whenever dismissedIds changes - syncs to shared store. */
 export function syncDismissedPanelIds(ids: Set<string>): void {
   dismissedPanelIds = ids;
-  dismissedIdsVersion++;
   emitDismissedIds();
 }
 

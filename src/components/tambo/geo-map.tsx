@@ -1076,7 +1076,7 @@ function LayerControlPanel({ layers, onUpdateLayers }: LayerControlPanelProps) {
   const [open, setOpen] = React.useState(false);
 
   const toggleVisibility = (idx: number) => {
-    const updated = layers.map((l, i) => (i === idx ? { ...l, visible: l.visible === false ? true : false } : l));
+    const updated = layers.map((l, i) => (i === idx ? { ...l, visible: l.visible === false } : l));
     onUpdateLayers(updated);
   };
 

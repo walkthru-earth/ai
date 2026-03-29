@@ -4,7 +4,7 @@
  * queryLimit is read from settings store at message-send time.
  */
 
-export function buildComponentTips(queryLimit: number): string[] {
+export function buildComponentTips(): string[] {
   return [
     // Data flow
     "ALL viz components use queryId from runSQL, ZERO token cost for data. Never pass inline data arrays.",

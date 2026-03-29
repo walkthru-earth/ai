@@ -101,7 +101,7 @@ export function buildContextHelpers(geo: GeoIP | null) {
           "ALWAYS use these resolutions for buildParquetUrl() and SQL queries unless the user explicitly asks for a different one.",
         s3Base: S3_BASE,
         datasets: datasetPaths,
-        componentTips: buildComponentTips(queryLimit),
+        componentTips: buildComponentTips(),
       };
     },
   };

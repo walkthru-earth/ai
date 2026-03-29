@@ -4,7 +4,7 @@
  */
 
 import { Link2, Link2Off, Monitor, Moon, Settings, Sun } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   A5_RES_RANGE,

@@ -13,7 +13,6 @@ import {
   Users,
   Zap,
 } from "lucide-react";
-import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ApiKeyCheck } from "@/components/ApiKeyCheck";
 import { ThemeSwitcher } from "@/components/theme-switcher";
