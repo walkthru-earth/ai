@@ -102,7 +102,7 @@ export const MessageThreadFull = React.forwardRef<HTMLDivElement, MessageThreadF
             <MessageSuggestionsStatus />
           </MessageSuggestions>
 
-          {/* Suggestion chips — above input for mobile accessibility */}
+          {/* Suggestion chips - above input for mobile accessibility */}
           <MessageSuggestions initialSuggestions={defaultSuggestions}>
             <MessageSuggestionsList className="px-4" />
           </MessageSuggestions>

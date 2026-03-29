@@ -5,7 +5,7 @@ export const placesDataset: DatasetDefinition = {
   id: "places",
   name: "Overture Places Index (72M POIs)",
   description:
-    "Points of interest from Overture Maps — 72 million places with 13 categories and landmark counts. " +
+    "Points of interest from Overture Maps - 72 million places with 13 categories and landmark counts. " +
     "Restaurants, hospitals, schools, parks, shops, gyms, cafes, and more. " +
     "Use for amenity density, neighborhood diversity (Shannon index), and urban function mapping. " +
     "Use buildParquetUrl('places') to resolve latest release.",

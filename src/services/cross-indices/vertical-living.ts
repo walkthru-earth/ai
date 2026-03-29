@@ -3,7 +3,7 @@ import type { CrossIndexDefinition } from "./types";
 export const verticalLiving: CrossIndexDefinition = {
   id: "vertical-living",
   name: "Vertical Living Index",
-  description: "Buildings per person — reveals how vertically people live. High values = dense high-rises.",
+  description: "Buildings per person - reveals how vertically people live. High values = dense high-rises.",
   datasets: ["building", "population"],
   joinColumn: "h3_index",
   computedColumns: [{ name: "bldg_per_person", formula: "building_count / pop_2025" }],

@@ -62,7 +62,7 @@ export function useGeoIP(): GeoIP | null {
         writeStorage(CACHE_KEY, { data: parsed, ts: Date.now() });
       })
       .catch(() => {
-        /* geo-ip fetch failed — non-critical */
+        /* geo-ip fetch failed - non-critical */
       });
   }, []);
 

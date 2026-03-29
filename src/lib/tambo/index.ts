@@ -1,5 +1,5 @@
 /**
- * Tambo configuration aggregator — single entry point for all pages.
+ * Tambo configuration aggregator - single entry point for all pages.
  * Import from "@/lib/tambo" resolves here.
  */
 

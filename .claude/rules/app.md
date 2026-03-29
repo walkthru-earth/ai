@@ -7,7 +7,7 @@ paths:
 
 ## Entry Point
 
-`index.html` → `src/main.tsx` → `src/App.tsx` (React Router). Theme detection script + `crypto.randomUUID` polyfill in `index.html`. Fonts: Quicksand (local woff2 via `@font-face` in `globals.css`) + DM Mono (`@fontsource/dm-mono` imported in `main.tsx`) — fully self-hosted, no CDN.
+`index.html` → `src/main.tsx` → `src/App.tsx` (React Router). Theme detection script + `crypto.randomUUID` polyfill in `index.html`. Fonts: Quicksand (local woff2 via `@font-face` in `globals.css`) + DM Mono (`@fontsource/dm-mono` imported in `main.tsx`), fully self-hosted, no CDN.
 
 ## `globals.css`
 
@@ -21,11 +21,11 @@ Tailwind v4 theme variables (light + dark). Brand colors: earth-blue, earth-cyan
 - SessionHistory: thread list with auto-names, new thread button
 - `useReplayQueries(messages)` re-runs runSQL tool calls from restored threads
 - Thread URLs: `?thread=threadId` (validates `thr_` prefix)
-- Settings (theme, cross-filter, query limit) via `<SettingsButton />` gear icon — all controls in popover
+- Settings (theme, cross-filter, query limit) via `<SettingsButton />` gear icon, all controls in popover
 
 ## `chat/page.tsx`
 
-- `ChatInner` inside TamboProvider — `useTambo()` for messages, `useReplayQueries()` for thread restore
+- `ChatInner` inside TamboProvider. `useTambo()` for messages, `useReplayQueries()` for thread restore
 - Shared `buildContextHelpers(geo)` + `buildInitialSuggestions(geo)` for AI context and suggestions
 - `MessageThreadFull` with `initialSuggestions` prop for geo-personalized chips
 - `<SettingsButton />` in header for theme, cross-filter, query limit

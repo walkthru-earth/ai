@@ -16,7 +16,7 @@ function generateUserKey(): string {
 }
 
 /**
- * Stable anonymous user key for Tambo — persisted to localStorage.
+ * Stable anonymous user key for Tambo - persisted to localStorage.
  * The SDK requires a userKey for thread scoping but doesn't auto-generate one.
  */
 export function useAnonymousUserKey(): string {

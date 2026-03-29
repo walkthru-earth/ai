@@ -1,6 +1,6 @@
 /**
  * Safe localStorage read with JSON parse. Returns fallback on any error.
- * No SSR guard needed — this is a pure SPA.
+ * No SSR guard needed - this is a pure SPA.
  */
 export function readStorage<T>(key: string, fallback: T): T {
   try {
@@ -18,7 +18,7 @@ export function writeStorage(key: string, value: unknown): void {
   try {
     localStorage.setItem(key, JSON.stringify(value));
   } catch {
-    // quota exceeded — silently ignore
+    // quota exceeded - silently ignore
   }
 }
 

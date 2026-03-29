@@ -1,5 +1,5 @@
 /**
- * Static component registrations — AI sends all props inline, no runtime updates.
+ * Static component registrations - AI sends all props inline, no runtime updates.
  * Group these together since they're simple and rarely change independently.
  */
 

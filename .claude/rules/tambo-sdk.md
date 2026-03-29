@@ -43,7 +43,7 @@ paths:
 ```tsx
 const component: TamboComponent = {
   name: "ComponentName",           // AI references this name
-  description: "When/how to use",  // Critical for AI routing — be specific
+  description: "When/how to use",  // Critical for AI routing - be specific
   component: ReactComponent,       // The actual component (or withTamboInteractable-wrapped)
   propsSchema: zodSchema,          // Zod schema with .describe() on EVERY field
 };
@@ -80,15 +80,15 @@ const Interactable = withTamboInteractable(BaseComponent, {
 
 ### CRITICAL Rules (setState conflicts)
 
-- **DO NOT use `useTamboComponentState`** inside `withTamboInteractable` — causes "setState during render"
-- **DO NOT use `useTamboInteractable()` or `useTamboCurrentComponent()`** inside wrapped components — same conflict
-- **NEVER call setState in render body** — always use `useEffect` or `queueMicrotask`
+- **DO NOT use `useTamboComponentState`** inside `withTamboInteractable`. Causes "setState during render"
+- **DO NOT use `useTamboInteractable()` or `useTamboCurrentComponent()`** inside wrapped components. Same conflict
+- **NEVER call setState in render body**. Always use `useEffect` or `queueMicrotask`
 - Root cause: `withTamboInteractable` re-registers with `TamboRegistryProvider` during render; any setState that triggers mount/unmount of wrapped components during that cycle causes React warning
 - Use `propsSchema` for ALL AI-controlled state (not component-level useState)
 
 ### Hidden Props
 
-Components receive `_tambo_componentId`, `_tambo_*` hidden props — **never spread `{...props}` onto DOM elements**. Destructure only the props you need.
+Components receive `_tambo_componentId`, `_tambo_*` hidden props. **Never spread `{...props}` onto DOM elements**. Destructure only the props you need.
 
 ## Context System
 
@@ -98,22 +98,22 @@ Components receive `_tambo_componentId`, `_tambo_*` hidden props — **never spr
 | `useTamboContextAttachment` | Next message only | Cleared after send | User-selected files, one-time data |
 | Resources (`@` mention) | When user references | On-demand | Docs, searchable data |
 
-**Context helpers are NOT conditional** — all run on every message. No per-tool or per-question filtering.
+**Context helpers are NOT conditional**. All run on every message. No per-tool or per-question filtering.
 
 ## Zod Schema Rules
 
-- **Always `.describe()` every field** — AI uses descriptions for prop generation
-- **No `z.record()`, `z.map()`, `z.set()`** — unsupported by Tambo serialization
-- **Array items need `id` field** — for stable React keys during streaming
-- **Streaming**: Props arrive incrementally — use optional chaining, `?? "Loading..."`, check `useTamboStreamStatus()`
+- **Always `.describe()` every field**. AI uses descriptions for prop generation
+- **No `z.record()`, `z.map()`, `z.set()`**. Unsupported by Tambo serialization
+- **Array items need `id` field**. Required for stable React keys during streaming
+- **Streaming**: Props arrive incrementally. Use optional chaining, `?? "Loading..."`, check `useTamboStreamStatus()`
 - Use `z.infer<typeof Schema>` for TypeScript props type
 
 ## Performance / Token Optimization
 
-- Response time proportional to props object size — keep schemas minimal
+- Response time proportional to props object size. Keep schemas minimal
 - Have components fetch data internally rather than passing data arrays as props
-- Pass IDs/references (small) instead of full datasets (large) — this is the queryId pattern
-- Tool output goes to AI context — return minimal data (queryId, not full rows)
+- Pass IDs/references (small) instead of full datasets (large). This is the queryId pattern
+- Tool output goes to AI context. Return minimal data (queryId, not full rows)
 
 ## Thread Management
 
@@ -122,7 +122,7 @@ Components receive `_tambo_componentId`, `_tambo_*` hidden props — **never spr
 - Thread URLs: `?thread=threadId` (validate `thr_` prefix)
 - `useReplayQueries(messages)` re-runs SQL from restored threads
 - **Thread delete**: `useTamboClient()` → `client.threads.delete(threadId, { userKey })`. Requires `userKey` in params (V1 API). Available in `ThreadOptionsDropdown` with inline confirmation UI.
-- **Thread rename**: `client.threads.update(threadId, { userKey, name })` — PATCH endpoint.
+- **Thread rename**: `client.threads.update(threadId, { userKey, name })` - PATCH endpoint.
 
 ## Message Content Types (SDK)
 
@@ -136,13 +136,13 @@ Tambo messages contain `content` blocks. The `ComponentContent` type (from `@tam
 | `type` | `"component"` | Content block type identifier |
 | `renderedComponent` | `ReactElement` | React-specific: the rendered element (added by `@tambo-ai/react`) |
 
-**CRITICAL**: The component name is `content.name`, NOT `content.componentName`. The `componentName` field exists only on `withTamboInteractable` config and `TamboCurrentComponent` hook — never on raw message content blocks. DashboardCanvas reads `content.name` to determine panel type for sizing and classification.
+**CRITICAL**: The component name is `content.name`, NOT `content.componentName`. The `componentName` field exists only on `withTamboInteractable` config and `TamboCurrentComponent` hook, never on raw message content blocks. DashboardCanvas reads `content.name` to determine panel type for sizing and classification.
 
 ## UPDATE vs CREATE NEW
 
-- `update_component_props`: appearance changes ONLY (zoom, colors, chart type) — same data
-- **NEVER change queryId via update** — won't re-render. Always create new component for new data
-- When in doubt, create new — users expect previous visualizations to remain for comparison
+- `update_component_props`: appearance changes ONLY (zoom, colors, chart type), same data
+- **NEVER change queryId via update**. Won't re-render. Always create new component for new data
+- When in doubt, create new. Users expect previous visualizations to remain for comparison
 
 ## State Persistence (Bidirectional Sync via localStorage)
 

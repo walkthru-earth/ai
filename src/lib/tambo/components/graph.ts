@@ -1,5 +1,5 @@
 /**
- * Graph component registration — interactive charts (10 types).
+ * Graph component registration - interactive charts (10 types).
  */
 
 import type { TamboComponent } from "@tambo-ai/react";

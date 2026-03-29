@@ -21,7 +21,7 @@ export interface StoredQuery {
   columnArrays?: Record<string, ArrayLike<any>>;
   /** Arrow IPC bytes for true zero-copy deserialization with GeoArrow layers */
   arrowIPC?: Uint8Array;
-  /** Raw WKB geometry arrays — auto-extracted from GEOMETRY columns for zero-copy GeoArrow rendering */
+  /** Raw WKB geometry arrays - auto-extracted from GEOMETRY columns for zero-copy GeoArrow rendering */
   wkbArrays?: Uint8Array[];
   /** Name of the auto-detected geometry column (e.g. "geom") */
   geometryColumn?: string;
@@ -41,7 +41,7 @@ function subscribeQuery(cb: () => void): () => void {
   return () => queryListeners.delete(cb);
 }
 
-/** Reactive version counter — increments on every store write so useSyncExternalStore detects changes. */
+/** Reactive version counter - increments on every store write so useSyncExternalStore detects changes. */
 let queryVersion = 0;
 function _getQueryVersion() {
   return queryVersion;
@@ -81,7 +81,7 @@ export function getLatestQueryResult(): StoredQuery | null {
 }
 
 /**
- * React hook — reactively reads a query result from the store.
+ * React hook - reactively reads a query result from the store.
  * Re-renders when any query result is stored (via storeQueryResult / storeQueryResultWithId).
  */
 export function useQueryResult(queryId: string | undefined): StoredQuery | null {
@@ -97,7 +97,7 @@ export function useQueryResult(queryId: string | undefined): StoredQuery | null 
 /* ── Cross-Filter Utility ─────────────────────────────────────────── */
 
 /**
- * Apply cross-filter to rows — filters to only rows matching the cross-filter values.
+ * Apply cross-filter to rows - filters to only rows matching the cross-filter values.
  * Returns original rows if no applicable filter.
  */
 export function applyCrossFilter(
@@ -127,7 +127,7 @@ export interface CrossFilter {
   filterType: "row" | "value" | "bbox";
   column: string;
   values: (string | number)[];
-  /** Spatial bounding box [west, south, east, north] — set by map viewport */
+  /** Spatial bounding box [west, south, east, north] - set by map viewport */
   bbox?: [number, number, number, number];
 }
 
@@ -277,7 +277,7 @@ export function useTimeFilter(): TimeFilter | null {
   return useSyncExternalStore(subscribeTimeFilter, getTimeFilter, () => null);
 }
 
-/** Apply time filter to rows — returns only rows matching the current timestamp step. */
+/** Apply time filter to rows - returns only rows matching the current timestamp step. */
 export function applyTimeFilter(
   rows: Record<string, unknown>[],
   timeFilter: TimeFilter | null,
@@ -304,7 +304,7 @@ function emitDismiss() {
   for (const fn of dismissListeners) fn();
 }
 
-/** Request panel dismissal — called by AI tool. target: "all", componentName, or panelId. */
+/** Request panel dismissal - called by AI tool. target: "all", componentName, or panelId. */
 export function requestDismissPanel(target: string): void {
   dismissRequest = { target };
   dismissVersion++;
@@ -342,7 +342,7 @@ function emitRestore() {
   for (const fn of restoreListeners) fn();
 }
 
-/** Request a dismissed panel to be restored — called from chat message "Restore to dashboard". */
+/** Request a dismissed panel to be restored - called from chat message "Restore to dashboard". */
 export function requestRestorePanel(panelId: string): void {
   restoreRequest = panelId;
   restoreVersion++;
@@ -380,7 +380,7 @@ function emitDismissedIds() {
   for (const fn of dismissedIdsListeners) fn();
 }
 
-/** Called by DashboardCanvas whenever dismissedIds changes — syncs to shared store. */
+/** Called by DashboardCanvas whenever dismissedIds changes - syncs to shared store. */
 export function syncDismissedPanelIds(ids: Set<string>): void {
   dismissedPanelIds = ids;
   dismissedIdsVersion++;
@@ -400,7 +400,7 @@ function subscribeDismissedIds(cb: () => void): () => void {
   return () => dismissedIdsListeners.delete(cb);
 }
 
-/** Reactive hook — re-renders when dismissed panel set changes. */
+/** Reactive hook - re-renders when dismissed panel set changes. */
 export function useDismissedPanelIds(): Set<string> {
   return useSyncExternalStore(subscribeDismissedIds, getDismissedIdsSnapshot, () => new Set());
 }

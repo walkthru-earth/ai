@@ -116,7 +116,7 @@ export const TimeSlider = React.forwardRef<HTMLDivElement, TimeSliderProps>(
       return () => clearInterval(interval);
     }, [playing, timestamps.length, intervalMs]);
 
-    // Emit time filter on index change (useEffect — NEVER during render)
+    // Emit time filter on index change (useEffect - NEVER during render)
     useEffect(() => {
       if (timestamps.length === 0) return;
       setTimeFilter({

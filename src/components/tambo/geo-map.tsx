@@ -53,7 +53,7 @@ export const geoMapSchema = z.object({
     .string()
     .optional()
     .describe(
-      "ID from runSQL result — the map reads data directly from the query store. Zero token cost, instant render. " +
+      "ID from runSQL result - the map reads data directly from the query store. Zero token cost, instant render. " +
         "For single-layer maps. Use `layers` array for multi-layer.",
     ),
   layerType: z
@@ -98,7 +98,7 @@ export const geoMapSchema = z.object({
   // Shared view
   latitude: z.number().optional().describe("Center latitude"),
   longitude: z.number().optional().describe("Center longitude"),
-  zoom: z.number().optional().describe("Zoom level (default 1 — world view)"),
+  zoom: z.number().optional().describe("Zoom level (default 1, world view)"),
   pitch: z
     .number()
     .optional()
@@ -120,7 +120,7 @@ export const geoMapSchema = z.object({
     .enum(["auto", "dark", "light"])
     .optional()
     .describe(
-      "Basemap style. ALWAYS use 'auto' (default) — it follows the user's chosen theme automatically. " +
+      "Basemap style. ALWAYS use 'auto' (default), it follows the user's chosen theme automatically. " +
         "Only use 'dark' or 'light' if the user EXPLICITLY asks to override their theme for the map.",
     ),
   // Multi-layer
@@ -158,11 +158,11 @@ function computePercentileRange(values: number[]): { min: number; max: number } 
 /**
  * Auto-detect layer type from query result column names.
  * Priority order (fastest → slowest rendering):
- *   1. h3 — GPU-native polygon generation from cell IDs (no geometry data needed)
- *   2. wkb — handled before this function (see WKB fast path above)
- *   3. scatterplot — GeoArrow interleave from lat/lng typed arrays
- *   4. arc — GeoArrow source/target points from coordinate arrays
- *   5. geojson — JSON.parse of geometry strings (LAST RESORT)
+ *   1. h3 - GPU-native polygon generation from cell IDs (no geometry data needed)
+ *   2. wkb - handled before this function (see WKB fast path above)
+ *   3. scatterplot - GeoArrow interleave from lat/lng typed arrays
+ *   4. arc - GeoArrow source/target points from coordinate arrays
+ *   5. geojson - JSON.parse of geometry strings (LAST RESORT)
  */
 function detectLayerType(columns: string[], explicitType?: LayerType): LayerType {
   if (explicitType) return explicitType;
@@ -172,7 +172,7 @@ function detectLayerType(columns: string[], explicitType?: LayerType): LayerType
   if (cols.has("pentagon") || cols.has("a5_cell") || cols.has("a5_index")) return "a5";
   // Priority 1b: H3 cell IDs → deck.gl generates hexagon polygons on GPU
   if (cols.has("hex") || cols.has("h3_index")) return "h3";
-  // Priority 2: Arc source/dest coordinates → GeoArrow arcs (before scatterplot — synthetic lat/lng would misdetect arcs)
+  // Priority 2: Arc source/dest coordinates → GeoArrow arcs (before scatterplot, synthetic lat/lng would misdetect arcs)
   if ((cols.has("source_lat") || cols.has("source_latitude")) && (cols.has("dest_lat") || cols.has("dest_latitude")))
     return "arc";
   // Priority 3: lat/lng coordinates → GeoArrow scatterplot
@@ -182,7 +182,7 @@ function detectLayerType(columns: string[], explicitType?: LayerType): LayerType
   return "h3"; // fallback for existing H3 datasets
 }
 
-/** Coerce a value to number — handles DuckDB Arrow edge cases where numbers arrive as strings (e.g. '"10"') */
+/** Coerce a value to number - handles DuckDB Arrow edge cases where numbers arrive as strings (e.g. '"10"') */
 function toNum(val: unknown): number {
   if (typeof val === "number") return val;
   if (typeof val === "string") {
@@ -288,7 +288,7 @@ function transformQueryToLayer(
   // Priority 2: WKB binary → GeoArrow zero-copy rendering (no JSON parse, no JS objects)
   // Auto-detected GEOMETRY/WKB columns are extracted as Uint8Array[] by runQuery().
   // buildGeoArrowTables() reads WKB headers to determine geom type (point/line/polygon)
-  // and builds Arrow Tables directly from binary — true zero-copy to GPU.
+  // and builds Arrow Tables directly from binary - true zero-copy to GPU.
   if (opts.wkbArrays && opts.wkbArrays.length > 0) {
     const vals: number[] = [];
     // Use lat/lng from rows (auto-injected by runQuery geometry wrapping) for bounds
@@ -336,7 +336,7 @@ function transformQueryToLayer(
   // Priority 1: H3/A5 cell IDs → GPU-native polygon generation (deck.gl generates geometry)
   // Priority 3: lat/lng columns → GeoArrow interleave (single Float64Array allocation)
   // Priority 4: Arc coordinates → GeoArrow source/target points
-  // Priority 5: GeoJSON strings → standard GeoJsonLayer (JSON.parse — LAST RESORT)
+  // Priority 5: GeoJSON strings → standard GeoJsonLayer (JSON.parse - LAST RESORT)
   const columns = Object.keys(rows[0]);
   const type = detectLayerType(columns, opts.layerType);
   const vals: number[] = [];
@@ -508,7 +508,7 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
     basemap: _basemap = "auto",
     layers: layersProp,
   } = props;
-  // Always use "auto" — old thread responses may have stale "dark"/"light" values
+  // Always use "auto" - old thread responses may have stale "dark"/"light" values
   // that conflict with the user's current theme preference
   const basemap = "auto" as const;
   const inPanel = useInDashboardPanel();
@@ -548,7 +548,7 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
     [storageKey],
   );
 
-  // Viewport persistence (localStorage) — saves user pan/zoom/tilt across refresh
+  // Viewport persistence (localStorage) - saves user pan/zoom/tilt across refresh
   const viewportStorageKey = isMultiLayer
     ? `geomap-viewport:${layersProp?.map((l) => l.id).join(",")}`
     : queryId
@@ -620,7 +620,7 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
         const qr = queryResults[i];
         if (!qr || (qr.rows.length === 0 && !qr.wkbArrays?.length)) continue;
 
-        // Apply time filter — narrows rows to the current timestamp step (H3/A5/scatter paths only)
+        // Apply time filter - narrows rows to the current timestamp step (H3/A5/scatter paths only)
         const timeFilteredRows = qr.wkbArrays?.length ? qr.rows : applyTimeFilter(qr.rows, timeFilter, "GeoMap");
 
         const result = transformQueryToLayer(
@@ -666,7 +666,7 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
       // Single-layer mode (backward compat)
       const qr = qr0;
       if (queryId && qr && qr.rows.length > 0) {
-        // Apply time filter — narrows rows to the current timestamp step
+        // Apply time filter - narrows rows to the current timestamp step
         const timeFilteredRows = qr.wkbArrays?.length ? qr.rows : applyTimeFilter(qr.rows, timeFilter, "GeoMap");
 
         const result = transformQueryToLayer(
@@ -745,7 +745,7 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
     timeFilter,
   ]);
 
-  // Precompute H3 centroids once when data loads — used for both bounds and bbox cross-filter
+  // Precompute H3 centroids once when data loads - used for both bounds and bbox cross-filter
   const hasH3Layer = layerConfigs.some((c) => c.type === "h3");
   const [h3Centroids, setH3Centroids] = React.useState<Map<string, [number, number]>>(new Map());
   const [h3Bounds, setH3Bounds] = React.useState<[[number, number], [number, number]] | null>(null);
@@ -797,7 +797,7 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
 
   const finalBounds = bounds ?? h3Bounds;
 
-  // Keep map mounted when time filter is active — empty filtered rows are expected between steps.
+  // Keep map mounted when time filter is active - empty filtered rows are expected between steps.
   // Unmounting/remounting triggers a MapLibre style race condition ("this.style is undefined").
   const hasData = totalFeatureCount > 0 || timeFilter != null;
   const minVal = globalMinVal;
@@ -806,7 +806,7 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
   const centerLat = latitude ?? center?.lat ?? 0;
   const centerLng = longitude ?? center?.lng ?? 0;
 
-  // Cross-filter: feature click — emit for the first layer's queryId (or single queryId)
+  // Cross-filter: feature click - emit for the first layer's queryId (or single queryId)
   const primaryQueryId = isMultiLayer ? visibleLayers[0]?.queryId : queryId;
   const primaryHexColumn = isMultiLayer ? (visibleLayers[0]?.hexColumn ?? "hex") : hexColumn;
   const primaryValueColumn = isMultiLayer ? (visibleLayers[0]?.valueColumn ?? "value") : valueColumn;
@@ -843,7 +843,7 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
     [primaryQueryId, primaryHexColumn, primaryValueColumn, isMultiLayer, visibleLayers, pentagonColumn],
   );
 
-  // Cross-filter: bbox — applies to all layers
+  // Cross-filter: bbox - applies to all layers
   const handleBoundsChange = React.useCallback(
     (bbox: [number, number, number, number]) => {
       const [west, south, east, north] = bbox;
@@ -860,7 +860,7 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
         if (config.type === "h3") {
           const hexData = config.data ?? [];
           const hCol = isMultiLayer ? (visibleLayers[i]?.hexColumn ?? "hex") : hexColumn;
-          // Use precomputed centroids — no dynamic h3-js import needed on every viewport change
+          // Use precomputed centroids - no dynamic h3-js import needed on every viewport change
           const visibleHexes = hexData
             .filter((h: any) => {
               const centroid = h3Centroids.get(h.hex);
@@ -931,7 +931,7 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
     }
   }, [primaryType, totalFeatureCount, isMultiLayer, layerConfigs.length]);
 
-  // Loading state — multi-layer with all hidden still shows the map shell + layer control
+  // Loading state - multi-layer with all hidden still shows the map shell + layer control
   const allLayersHidden = isMultiLayer && effectiveLayers && effectiveLayers.length > 0 && visibleLayers.length === 0;
   const hasAnyQueryId = isMultiLayer ? visibleLayers.length > 0 || allLayersHidden : !!queryId;
   if (!hasAnyQueryId) {
@@ -950,7 +950,7 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
       ref={ref}
       className={`rounded-xl border overflow-hidden bg-card w-full flex flex-col ${inPanel ? "h-full" : "h-[420px]"}`}
     >
-      {/* Header — hidden when inside dashboard panel */}
+      {/* Header - hidden when inside dashboard panel */}
       {title && !inPanel && (
         <div className="px-3 py-1.5 border-b bg-muted/30 flex items-center gap-2 flex-shrink-0">
           <MapIcon className="w-3.5 h-3.5 text-muted-foreground" />
@@ -970,7 +970,7 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
         onTouchStart={(e) => e.stopPropagation()}
         onTouchMove={(e) => e.stopPropagation()}
       >
-        {/* Layer control — only for multi-layer maps */}
+        {/* Layer control - only for multi-layer maps */}
         {isMultiLayer && effectiveLayers && effectiveLayers.length > 1 && (
           <LayerControlPanel layers={effectiveLayers} onUpdateLayers={handleUpdateLayers} />
         )}
@@ -1203,9 +1203,9 @@ export const InteractableGeoMap = withTamboInteractable(GeoMap, {
     "Interactive deck.gl map supporting multiple geometry types (H3 hexagons, A5 pentagons, scatter points, GeoJSON polygons/lines, arcs, native WKB geometry). " +
     "AUTO-ROUTING: Query results are automatically routed to the best layer type. " +
     "GEOMETRY columns → wkb (zero-copy GeoArrow polygon/line/point). A5 cells → a5 (GPU pentagons). H3 cells → h3 (GPU hexagons). lat/lng → scatterplot. No manual layerType needed. " +
-    "Supports multiple simultaneous layers via `layers` array — each layer has its own queryId, layerType, columns, colorScheme, and visibility. " +
+    "Supports multiple simultaneous layers via `layers` array - each layer has its own queryId, layerType, columns, colorScheme, and visibility. " +
     "AI can update view (latitude, longitude, zoom, pitch, bearing), color scheme, extruded mode, and layer type at runtime. " +
-    "Basemap always follows user's theme automatically — do NOT set basemap prop (it's always 'auto'). " +
+    "Basemap always follows user's theme automatically. Do NOT set basemap prop (it's always 'auto'). " +
     "To add a layer: update_component_props with layers array including existing layers + the new one. " +
     "To remove a layer: update with layers array excluding that layer. " +
     "To toggle visibility: set visible=false on a layer. " +

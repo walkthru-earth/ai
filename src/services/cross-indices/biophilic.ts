@@ -2,12 +2,12 @@ import type { CrossIndexDefinition } from "./types";
 
 export const biophilic: CrossIndexDefinition = {
   id: "biophilic",
-  name: "Biophilic Index — Nature Access per Capita",
+  name: "Biophilic Index - Nature Access per Capita",
   description:
     "How much nature surrounds each person? Parks, recreation, protected areas, agriculture, and water bodies " +
     "divided by population. Research shows 120 min/week in nature reduces cortisol 21%. " +
     "High = abundant nature per person. Low = nature-deprived. " +
-    "Height = population — tall deprived cells are the most nature-starved communities.",
+    "Height = population, tall deprived cells are the most nature-starved communities.",
   datasets: ["base", "population"],
   joinColumn: "h3_index",
   computedColumns: [

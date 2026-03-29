@@ -1,5 +1,5 @@
 /**
- * Centralized settings store — reactive via useSyncExternalStore + localStorage.
+ * Centralized settings store - reactive via useSyncExternalStore + localStorage.
  *
  * Manages: theme (dark/light/system), queryLimit (default 10000).
  * All Tambo AI context reads queryLimit from here at message-send time.
@@ -25,7 +25,7 @@ export interface Settings {
 /* ── Constants ────────────────────────────────────────────────── */
 
 const STORAGE_KEY = "walkthru-settings";
-const OLD_THEME_KEY = "theme"; // legacy key — migrated on first load
+const OLD_THEME_KEY = "theme"; // legacy key - migrated on first load
 
 export const DEFAULT_QUERY_LIMIT = 10000;
 
@@ -78,7 +78,7 @@ function notify() {
 
 /* ── Public API ───────────────────────────────────────────────── */
 
-/** Read current settings (non-reactive — use in callbacks, thunks, non-React code). */
+/** Read current settings (non-reactive - use in callbacks, thunks, non-React code). */
 export function getSettings(): Settings {
   return settings;
 }
@@ -96,7 +96,7 @@ export function updateSettings(partial: Partial<Settings>): void {
   notify();
 }
 
-/** Reactive hook — re-renders when any setting changes. */
+/** Reactive hook - re-renders when any setting changes. */
 export function useSettings(): Settings {
   return useSyncExternalStore(
     (cb) => {

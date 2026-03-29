@@ -1,5 +1,5 @@
 /**
- * Geo-personalized suggestion chips — shown to users on first visit.
+ * Geo-personalized suggestion chips - shown to users on first visit.
  * Edit this file to add/change suggestion topics.
  */
 
@@ -41,7 +41,7 @@ export function buildInitialSuggestions(geo: GeoIP | null) {
         detailedSuggestion: `Show me terrain elevation around ${city}`,
         messageId: "s-terrain",
       },
-      // Extended pool — loaded on scroll
+      // Extended pool - loaded on scroll
       {
         id: "s-building-types",
         title: `Building types in ${city}`,
@@ -69,7 +69,7 @@ export function buildInitialSuggestions(geo: GeoIP | null) {
       {
         id: "s-transport",
         title: `Transport near ${city}`,
-        detailedSuggestion: `Show me road and transport network around ${city} — road types, rail, cycling infra.`,
+        detailedSuggestion: `Show me road and transport network around ${city} - road types, rail, cycling infra.`,
         messageId: "s-transport",
       },
     ];
@@ -106,7 +106,7 @@ export function buildInitialSuggestions(geo: GeoIP | null) {
       detailedSuggestion: "Show me the highest elevations in the Himalayas",
       messageId: "s-terrain",
     },
-    // Extended pool — loaded on scroll
+    // Extended pool - loaded on scroll
     {
       id: "s-building-types",
       title: "Building types",
@@ -135,7 +135,7 @@ export function buildInitialSuggestions(geo: GeoIP | null) {
     {
       id: "s-transport",
       title: "Transport network",
-      detailedSuggestion: "Show me road and transport network around Berlin — road types, rail, cycling infra.",
+      detailedSuggestion: "Show me road and transport network around Berlin - road types, rail, cycling infra.",
       messageId: "s-transport",
     },
   ];

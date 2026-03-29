@@ -1,6 +1,6 @@
 /**
- * runSQL tool — the most critical tool. Executes DuckDB SQL and returns queryId.
- * Tune this description carefully — it controls how the AI writes SQL.
+ * runSQL tool - the most critical tool. Executes DuckDB SQL and returns queryId.
+ * Tune this description carefully - it controls how the AI writes SQL.
  */
 
 import type { TamboTool } from "@tambo-ai/react";
@@ -25,7 +25,7 @@ export const runSQLTool: TamboTool = {
       ),
   }),
   outputSchema: z.object({
-    queryId: z.string().describe("Store ID for components — pass to GeoMap/Graph/DataTable."),
+    queryId: z.string().describe("Store ID for components - pass to GeoMap/Graph/DataTable."),
     columns: z.array(z.string()),
     rowCount: z.number(),
     duration: z.number(),
@@ -33,6 +33,6 @@ export const runSQLTool: TamboTool = {
     geometryNote: z
       .string()
       .optional()
-      .describe("When present, lat/lng are AUTO-GENERATED from geometry — don't reference in follow-up SQL."),
+      .describe("When present, lat/lng are AUTO-GENERATED from geometry. Don't reference in follow-up SQL."),
   }),
 };

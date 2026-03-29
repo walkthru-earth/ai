@@ -1,5 +1,5 @@
 /**
- * Shared ThemeSwitcher — cycles dark → light → system.
+ * Shared ThemeSwitcher - cycles dark → light → system.
  * Reads/writes via centralized settings store. Theme application handled by useThemeEffect in App.tsx.
  */
 

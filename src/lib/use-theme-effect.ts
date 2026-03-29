@@ -1,5 +1,5 @@
 /**
- * Global theme application effect — call once in App.tsx.
+ * Global theme application effect - call once in App.tsx.
  * Reads theme from settings store, applies to document.documentElement,
  * and listens for system preference changes when theme is "system".
  */

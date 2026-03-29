@@ -1,5 +1,5 @@
 /**
- * Dataset tools — listDatasets, buildParquetUrl, describeDataset.
+ * Dataset tools - listDatasets, buildParquetUrl, describeDataset.
  * Related trio for dataset discovery and URL construction.
  */
 
@@ -41,7 +41,7 @@ export const buildParquetUrlTool: TamboTool = {
     h3Res: z
       .number()
       .optional()
-      .describe("H3 res — weather 1-5, building 3-8, population 1-8, terrain 1-10, overture 1-10"),
+      .describe("H3 res - weather 1-5, building 3-8, population 1-8, terrain 1-10, overture 1-10"),
   }),
   outputSchema: z.object({
     url: z.string(),

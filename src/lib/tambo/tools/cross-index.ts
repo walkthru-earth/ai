@@ -1,6 +1,6 @@
 /**
- * getCrossIndex tool — retrieves cross-dataset analysis patterns.
- * Enum is derived from CROSS_INDEX_IDS — no manual sync needed.
+ * getCrossIndex tool - retrieves cross-dataset analysis patterns.
+ * Enum is derived from CROSS_INDEX_IDS - no manual sync needed.
  */
 
 import type { TamboTool } from "@tambo-ai/react";
@@ -10,7 +10,7 @@ import { CROSS_INDEX_IDS, getCrossIndex } from "@/services/cross-indices";
 export const getCrossIndexTool: TamboTool = {
   name: "getCrossIndex",
   description:
-    "Get cross-dataset analysis details — join pattern, weights, SQL template. " +
+    "Get cross-dataset analysis details - join pattern, weights, SQL template. " +
     "11 analyses: urban-density, housing-pressure, landslide-risk, vertical-living, population-growth, shrinking-cities, " +
     "walkability, fifteen-min-city, biophilic, heat-vulnerability, water-security.",
   tool: getCrossIndex,

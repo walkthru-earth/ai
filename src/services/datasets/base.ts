@@ -84,7 +84,7 @@ export const baseDataset: DatasetDefinition = {
     n_intermittent: "Intermittent/seasonal water features",
     n_salt_water: "Salt water features (salt lakes, tidal)",
     n_power: "Power infrastructure (substations, lines)",
-    n_barrier: "Barrier features (walls, fences, gates — block movement)",
+    n_barrier: "Barrier features (walls, fences, gates, block movement)",
     n_transportation: "Transport infrastructure (stations, stops)",
     n_transit: "Transit stops and stations (bus, rail, metro)",
     n_bridge: "Bridge infrastructure features",

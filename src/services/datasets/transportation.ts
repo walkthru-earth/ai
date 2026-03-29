@@ -5,7 +5,7 @@ export const transportationDataset: DatasetDefinition = {
   id: "transportation",
   name: "Overture Transportation Index (343M Segments)",
   description:
-    "Road, rail, and water transport segments from Overture Maps — 343 million segments. " +
+    "Road, rail, and water transport segments from Overture Maps - 343 million segments. " +
     "Detailed road type breakdown (motorway to footway), surface types (paved/unpaved), bridges, tunnels. " +
     "Use for walkability analysis, infrastructure mapping, and mobility studies. " +
     "Use buildParquetUrl('transportation') to resolve latest release.",

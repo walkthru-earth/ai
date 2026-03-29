@@ -328,7 +328,7 @@ const MessageInputInternal = React.forwardRef<HTMLFormElement, MessageInputProps
 
           const errorMsg = error instanceof Error ? error.message : String(error);
 
-          // Detect stale previousRunId — the SDK's internal run tracking is permanently
+          // Detect stale previousRunId - the SDK's internal run tracking is permanently
           // out of sync with the server (e.g. stream disconnected before RUN_FINISHED).
           // Only recovery is starting a fresh thread.
           if (
@@ -338,7 +338,7 @@ const MessageInputInternal = React.forwardRef<HTMLFormElement, MessageInputProps
             errorMsg.includes("Error in input stream")
           ) {
             startNewThread();
-            setSubmitError("Connection lost — started a new conversation. Please resend your message.");
+            setSubmitError("Connection lost. Started a new conversation. Please resend your message.");
           } else {
             setSubmitError(errorMsg || "Failed to send message. Please try again.");
           }

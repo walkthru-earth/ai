@@ -1,5 +1,5 @@
 /**
- * Context helpers assembler — combines all context pieces into a single object for TamboProvider.
+ * Context helpers assembler - combines all context pieces into a single object for TamboProvider.
  * This file wires the pieces together. Edit individual files for specific concerns.
  */
 
@@ -26,14 +26,14 @@ function buildUserEnvironment(geo: GeoIP | null) {
     currentDate,
     userTimezone: timezone,
     dateNote:
-      "currentDate is the user's local date in YYYY-MM-DD (ISO 8601) — DuckDB casts directly. " +
+      "currentDate is the user's local date in YYYY-MM-DD (ISO 8601). DuckDB casts directly. " +
       "Use for weather file URLs and date filtering.",
     theme,
     basemapHint:
-      "ALWAYS set basemap='auto' — it automatically matches the user's theme (" +
+      "ALWAYS set basemap='auto'. It automatically matches the user's theme (" +
       theme +
       "). NEVER set basemap='dark' or 'light' unless the user explicitly asks to override. " +
-      "Do NOT read the theme value and manually pick dark/light — that causes reversal bugs. Just use 'auto'.",
+      "Do NOT read the theme value and manually pick dark/light. That causes reversal bugs. Just use 'auto'.",
     ...(geo ? buildLocationContext(geo, timezone, currentDate) : {}),
   };
 }
@@ -68,11 +68,11 @@ function buildLocationContext(geo: GeoIP, timezone: string, currentDate: string)
       ". " +
       "Coordinate order: see DuckDB notes. " +
       (geo.h3Cells
-        ? "USER H3 CELLS (use these — NEVER hardcode or compute H3 for 'my location' queries): " +
+        ? "USER H3 CELLS (use these, NEVER hardcode or compute H3 for 'my location' queries): " +
           Object.entries(geo.h3Cells)
             .map(([res, hex]) => `res${res}='${hex}'`)
             .join(", ") +
-          ". SQL PATTERNS — Single cell: WHERE h3_index = h3_string_to_h3('<cell>')::BIGINT. " +
+          ". SQL PATTERNS - Single cell: WHERE h3_index = h3_string_to_h3('<cell>')::BIGINT. " +
           "Area: WITH c AS (SELECT unnest(h3_grid_disk(h3_string_to_h3('<cell>')::BIGINT, 4))::BIGINT AS h3_index) SELECT ... FROM file JOIN c USING (h3_index). "
         : "") +
       "Use this to personalize initial suggestions (e.g., show data for their city/region first). " +

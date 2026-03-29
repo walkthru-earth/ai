@@ -1,5 +1,5 @@
 /**
- * suggestAnalysis tool — routes natural language to best datasets/cross-indices.
+ * suggestAnalysis tool - routes natural language to best datasets/cross-indices.
  */
 
 import type { TamboTool } from "@tambo-ai/react";

@@ -5,11 +5,11 @@ export const walkability: CrossIndexDefinition = {
   name: "Walkability Index",
   description:
     "5-signal walkability composite across 4 datasets. " +
-    "Signals: (1) road type ratio — footways, cycleways, paths vs motorways, arterials (35%); " +
-    "(2) pedestrian infrastructure — crosswalks, sidewalks from base environment (15%); " +
-    "(3) barrier penalty — fences, walls, gates that block movement (10%); " +
-    "(4) terrain slope — steep = hard to walk (15%); " +
-    "(5) destination density — a walkable road to nowhere isn't walkable (25%).",
+    "Signals: (1) road type ratio - footways, cycleways, paths vs motorways, arterials (35%); " +
+    "(2) pedestrian infrastructure - crosswalks, sidewalks from base environment (15%); " +
+    "(3) barrier penalty - fences, walls, gates that block movement (10%); " +
+    "(4) terrain slope - steep = hard to walk (15%); " +
+    "(5) destination density - a walkable road to nowhere isn't walkable (25%).",
   datasets: ["transportation", "base", "terrain", "places"],
   joinColumn: "h3_index",
   computedColumns: [

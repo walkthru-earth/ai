@@ -260,13 +260,13 @@ export function useReplayQueries(messages: TamboThreadMessage[]) {
           if (!sql) continue;
 
           // Find matching tool_result across all messages.
-          // Only replay queries that already completed (have a result) — skip in-flight/streaming tool calls
+          // Only replay queries that already completed (have a result) - skip in-flight/streaming tool calls
           // whose SQL may be partially received.
           const resultBlock = toolResults.get(block.id) as any;
           if (!resultBlock) continue;
 
           // Extract original queryId from tool_result content.
-          // Skip queries that failed (no queryId in result) — no component references them.
+          // Skip queries that failed (no queryId in result) - no component references them.
           let originalQueryId: string | null = null;
           const text =
             typeof resultBlock.content === "string"
@@ -278,7 +278,7 @@ export function useReplayQueries(messages: TamboThreadMessage[]) {
             try {
               originalQueryId = JSON.parse(text).queryId;
             } catch {
-              /* not JSON — likely an error message, skip */
+              /* not JSON - likely an error message, skip */
             }
           }
           if (!originalQueryId) continue;
@@ -296,7 +296,7 @@ export function useReplayQueries(messages: TamboThreadMessage[]) {
               }
             })
             .catch(() => {
-              /* query replay failed — skip silently */
+              /* query replay failed - skip silently */
             });
         }
       }

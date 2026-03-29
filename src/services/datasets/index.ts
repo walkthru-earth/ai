@@ -1,5 +1,5 @@
 /**
- * Dataset registry — aggregates all dataset definitions and exports tool functions.
+ * Dataset registry - aggregates all dataset definitions and exports tool functions.
  */
 
 import { resolveOvertureRelease, resolveWeatherPrefix } from "../resolvers";

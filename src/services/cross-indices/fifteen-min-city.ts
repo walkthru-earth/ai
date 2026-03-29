@@ -4,14 +4,14 @@ export const fifteenMinCity: CrossIndexDefinition = {
   id: "fifteen-min-city",
   name: "15-Minute City Score",
   description:
-    "Carlos Moreno's 15-minute city — 7 signals across 4 datasets. " +
-    "Signals: (1) amenity diversity — Shannon entropy across 13 POI categories (20%); " +
-    "(2) essential services — penalizes cells missing healthcare, education, food, or shopping (15%); " +
-    "(3) walkability — human-scale vs car-scale roads (20%); " +
-    "(4) cycling infrastructure — cycleways (10%); " +
-    "(5) transit density — bus/rail/metro stops (15%); " +
-    "(6) green space access — parks and recreation (10%); " +
-    "(7) terrain flatness — steep = less accessible (10%). " +
+    "Carlos Moreno's 15-minute city - 7 signals across 4 datasets. " +
+    "Signals: (1) amenity diversity - Shannon entropy across 13 POI categories (20%); " +
+    "(2) essential services - penalizes cells missing healthcare, education, food, or shopping (15%); " +
+    "(3) walkability - human-scale vs car-scale roads (20%); " +
+    "(4) cycling infrastructure - cycleways (10%); " +
+    "(5) transit density - bus/rail/metro stops (15%); " +
+    "(6) green space access - parks and recreation (10%); " +
+    "(7) terrain flatness - steep = less accessible (10%). " +
     "Grades: A (>=70%) Excellent, B (>=50%) Good, C (>=30%) Fair, D (<30%) Car-dependent.",
   datasets: ["places", "transportation", "base", "terrain"],
   joinColumn: "h3_index",

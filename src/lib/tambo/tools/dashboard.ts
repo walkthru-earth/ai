@@ -1,5 +1,5 @@
 /**
- * Dashboard management tools — clear/dismiss panels from the dashboard.
+ * Dashboard management tools - clear/dismiss panels from the dashboard.
  */
 
 import type { TamboTool } from "@tambo-ai/react";

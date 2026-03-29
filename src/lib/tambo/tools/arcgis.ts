@@ -1,5 +1,5 @@
 /**
- * ArcGIS FeatureServer tools — explore service catalogs and describe/pre-load layers.
+ * ArcGIS FeatureServer tools - explore service catalogs and describe/pre-load layers.
  *
  * Token-efficient design:
  * - Service listings use compact format (names only, baseUrl separate)
@@ -147,7 +147,7 @@ async function describeAndLoadLayer(layerUrl: string): Promise<LayerResult> {
   const metaResp = await fetch(`${layerUrl}?f=json`);
   if (!metaResp.ok) throw new Error(`ArcGIS HTTP ${metaResp.status}`);
   const info: ArcGISLayerInfo = await metaResp.json();
-  if (!info.fields?.length) throw new Error("No fields — check URL");
+  if (!info.fields?.length) throw new Error("No fields. Check URL");
 
   // Count features
   let featureCount: number | null = null;
@@ -210,7 +210,7 @@ async function describeAndLoadLayer(layerUrl: string): Promise<LayerResult> {
     spatialReference,
     paginationNote:
       featureCount != null && featureCount > maxPerRequest
-        ? `${featureCount.toLocaleString()} features, max ${maxPerRequest}/request — paginate with resultOffset`
+        ? `${featureCount.toLocaleString()} features, max ${maxPerRequest}/request - paginate with resultOffset`
         : undefined,
   };
 }
@@ -245,7 +245,7 @@ async function exploreArcGISService({ url, search }: { url: string; search?: str
   if (level === "service") {
     const resp = await fetch(`${normalized}?f=json`);
     if (!resp.ok) {
-      return { level: "service" as const, url: normalized, hint: `HTTP ${resp.status} — check URL` };
+      return { level: "service" as const, url: normalized, hint: `HTTP ${resp.status}, check URL` };
     }
     const info: ArcGISServiceInfo = await resp.json();
 
@@ -279,7 +279,7 @@ async function exploreArcGISService({ url, search }: { url: string; search?: str
       }
     }
 
-    // Multi-layer service — return compact listing
+    // Multi-layer service - return compact listing
     const layerList = layers
       .slice(0, MAX_LIST_ITEMS)
       .map((l) => `${l.id}: ${l.name}${l.geometryType ? ` (${l.geometryType})` : ""}`);
@@ -296,7 +296,7 @@ async function exploreArcGISService({ url, search }: { url: string; search?: str
   // ── Catalog or folder → compact service listing + categories ──
   const resp = await fetch(`${normalized}?f=json`);
   if (!resp.ok) {
-    return { level: level as "catalog" | "folder", url: normalized, hint: `HTTP ${resp.status} — check URL` };
+    return { level: level as "catalog" | "folder", url: normalized, hint: `HTTP ${resp.status}, check URL` };
   }
   const info: ArcGISCatalogInfo = await resp.json();
   const catalogBase = extractCatalogBase(normalized) ?? normalized;
@@ -343,11 +343,11 @@ const layerSchema = z.object({
   name: z.string(),
   geometryType: z.string().describe("Point, LineString, Polygon"),
   featureCount: z.number().nullable(),
-  localPath: z.string().describe("DuckDB virtual path — use in read_json_auto() for custom queries"),
+  localPath: z.string().describe("DuckDB virtual path - use in read_json_auto() for custom queries"),
   queryId: z
     .string()
     .nullable()
-    .describe("Pre-executed query result — pass directly to GeoMap/Graph/DataTable. null if query failed."),
+    .describe("Pre-executed query result - pass directly to GeoMap/Graph/DataTable. null if query failed."),
   columns: z.string().describe("Comma-separated column names"),
   columnTypes: z.string().describe("Compact name:TYPE pairs"),
   codedValueDomains: z
@@ -362,7 +362,7 @@ const exploreOutputSchema = z.object({
   level: z.enum(["catalog", "folder", "service", "layer"]),
   url: z.string(),
   // Catalog/folder level (compact)
-  baseUrl: z.string().optional().describe("Catalog base — construct service URL as baseUrl/{name}/FeatureServer"),
+  baseUrl: z.string().optional().describe("Catalog base - construct service URL as baseUrl/{name}/FeatureServer"),
   serviceNames: z.array(z.string()).optional().describe("Service names (construct URL with baseUrl)"),
   categories: z
     .array(z.object({ name: z.string(), count: z.number() }))
@@ -380,7 +380,7 @@ export const exploreArcGISServiceTool: TamboTool = {
   name: "exploreArcGISService",
   description:
     "Browse ArcGIS REST services. Auto-detects URL level. " +
-    "SMART: auto-loads single-layer services and layer URLs — returns queryId ready for GeoMap/DataTable (no runSQL needed). " +
+    "SMART: auto-loads single-layer services and layer URLs, returns queryId ready for GeoMap/DataTable (no runSQL needed). " +
     "Catalogs return categorized service names (compact). Supports tokenized keyword search. " +
     "Use for ANY ArcGIS URL.",
   tool: exploreArcGISService,
@@ -403,7 +403,7 @@ export const describeArcGISLayerTool: TamboTool = {
   name: "describeArcGISLayer",
   description:
     "Describe + pre-load an ArcGIS layer into DuckDB-WASM and auto-run the query. " +
-    "Returns queryId ready for GeoMap/DataTable — no separate runSQL call needed. " +
+    "Returns queryId ready for GeoMap/DataTable. No separate runSQL call needed. " +
     "Use after exploreArcGISService identifies a specific layer in a multi-layer service. " +
     "For custom queries, use localPath with runSQL.",
   tool: describeArcGISLayer,

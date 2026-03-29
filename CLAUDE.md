@@ -1,6 +1,6 @@
 # Walkthru Earth AI
 
-AI urban intelligence platform — natural language queries over global geospatial data (weather, terrain, buildings, population, places, transportation, land use, addresses). Built on Vite + React Router + Tambo AI + DuckDB-WASM + deck.gl.
+AI urban intelligence platform - natural language queries over global geospatial data (weather, terrain, buildings, population, places, transportation, land use, addresses). Built on Vite + React Router + Tambo AI + DuckDB-WASM + deck.gl.
 
 ## Commands
 
@@ -12,14 +12,14 @@ pnpm lint         # biome check
 pnpm lint:fix     # biome auto-fix
 ```
 
-- **Vite** (not Next.js) — `vite.config.ts`: React plugin, `@tailwindcss/vite`, `base: "/ai"`, output to `out/`
-- **React Router** — `src/App.tsx` defines routes: `/`, `/chat`, `/explore`, `/interactables`
+- **Vite** (not Next.js) - `vite.config.ts`: React plugin, `@tailwindcss/vite`, `base: "/ai"`, output to `out/`
+- **React Router** - `src/App.tsx` defines routes: `/`, `/chat`, `/explore`, `/interactables`
 - **Entry point**: `index.html` → `src/main.tsx` → `<BrowserRouter basename="/ai">`
-- **Biome** (not ESLint) — `biome.json`: 2-space indent, double quotes, semicolons, 120 chars
+- **Biome** (not ESLint) - `biome.json`: 2-space indent, double quotes, semicolons, 120 chars
 - **Pre-commit**: lefthook runs `pnpx @biomejs/biome check --write` on staged files
 - **Env vars**: Use `import.meta.env.VITE_*` (not `process.env.NEXT_PUBLIC_*`). Defined in `.env.local`, typed in `vite-env.d.ts`
-- **No SSR**: Pure SPA — all pages are client-rendered. No `"use server"`, no API routes
-- **Fonts**: Quicksand (local woff2 via `@font-face` in `globals.css`) + DM Mono (`@fontsource/dm-mono` in `main.tsx`) — fully offline, no CDN
+- **No SSR**: Pure SPA, all pages are client-rendered. No `"use server"`, no API routes
+- **Fonts**: Quicksand (local woff2 via `@font-face` in `globals.css`) + DM Mono (`@fontsource/dm-mono` in `main.tsx`), fully offline, no CDN
 - **Lazy loading**: Use `React.lazy()` + `<Suspense>` instead of `next/dynamic`
 - **Static assets**: `basePath` from `import.meta.env.BASE_URL` (set by Vite `base` config)
 
@@ -27,52 +27,52 @@ pnpm lint:fix     # biome auto-fix
 
 **queryId pattern** (zero-token data bridge): AI calls `runSQL` → DuckDB executes → full result stored in `query-store.ts` → only `queryId` returned to LLM (~10 tokens). Components read data from store via `useQueryResult(queryId)`.
 
-**Geometry auto-detection**: `runQuery()` auto-detects geometry columns via `DESCRIBE` (fast, metadata-only). Two paths: (1) native GEOMETRY type → `ST_AsWKB` + `ST_Centroid`, (2) WKB BLOB with well-known column name (geom, geometry, shape, etc.) → `ST_GeomFromWKB` + direct WKB passthrough. `enable_geoparquet_conversion = false` in init prevents WASM `stoi` crash on some GeoParquet files — our wrapping handles geometry instead. WKB arrays stored in query-store → GeoArrow zero-copy rendering. AI just writes `SELECT * FROM parquet_file`. **Synthetic lat/lng**: When geometry is auto-detected, `lat`/`lng` columns are injected into results — they do NOT exist in the raw Parquet file. `runQuery` returns a `geometryNote` field explaining which column holds the actual geometry. AI must use `SELECT *` (auto-wrapping re-generates lat/lng) — never reference `lat`/`lng` directly on the raw file.
+**Geometry auto-detection**: `runQuery()` auto-detects geometry columns via `DESCRIBE` (fast, metadata-only). Two paths: (1) native GEOMETRY type → `ST_AsWKB` + `ST_Centroid`, (2) WKB BLOB with well-known column name (geom, geometry, shape, etc.) → `ST_GeomFromWKB` + direct WKB passthrough. `enable_geoparquet_conversion = false` in init prevents WASM `stoi` crash on some GeoParquet files, our wrapping handles geometry instead. WKB arrays stored in query-store → GeoArrow zero-copy rendering. AI just writes `SELECT * FROM parquet_file`. **Synthetic lat/lng**: When geometry is auto-detected, `lat`/`lng` columns are injected into results, they do NOT exist in the raw Parquet file. `runQuery` returns a `geometryNote` field explaining which column holds the actual geometry. AI must use `SELECT *` (auto-wrapping re-generates lat/lng). Never reference `lat`/`lng` directly on the raw file.
 
 **Cross-filter bus**: Lightweight pub/sub in `query-store.ts`. Components emit/consume `bbox` (map viewport) and `value` (click) filters. Requires shared `queryId` + `hex`/`pentagon` column.
 
-**Dashboard canvas**: Desktop = `react-grid-layout`, Touch = `@dnd-kit/sortable` (1.2s hold, grip-only drag). Panel IDs are deduplicated via `Set`. State persisted to localStorage per thread: panel order (`panel-order-${threadId}`), panel layouts/sizes (`panel-layouts-${threadId}`, debounced 500ms), dismissed panels (`panel-dismissed-${threadId}`). First panel and maps always full-width. Non-first/non-map panels pair in 2-column layout. `nonFullCount` counter tracks column position (resets after full-width panels). **Panel sizing**: `panelHeight()` returns grid rows per type: maps=10 (2× other panels), graphs=5, tables=5, QueryDisplay/InsightCard/DatasetCard=3, StatsGrid/StatsCard=2. Component name is read from Tambo's `content.name` (SDK field), NOT `content.componentName`. Maps are forced to minimum `panelHeight()` even when saved layouts exist. `isCompactComponent()` identifies StatsGrid/StatsCard/InsightCard/DatasetCard/QueryDisplay/DataCard — these get `h-auto` on touch.
+**Dashboard canvas**: Desktop = `react-grid-layout`, Touch = `@dnd-kit/sortable` (1.2s hold, grip-only drag). Panel IDs are deduplicated via `Set`. State persisted to localStorage per thread: panel order (`panel-order-${threadId}`), panel layouts/sizes (`panel-layouts-${threadId}`, debounced 500ms), dismissed panels (`panel-dismissed-${threadId}`). First panel and maps always full-width. Non-first/non-map panels pair in 2-column layout. `nonFullCount` counter tracks column position (resets after full-width panels). **Panel sizing**: `panelHeight()` returns grid rows per type: maps=10 (2× other panels), graphs=5, tables=5, QueryDisplay/InsightCard/DatasetCard=3, StatsGrid/StatsCard=2. Component name is read from Tambo's `content.name` (SDK field), NOT `content.componentName`. Maps are forced to minimum `panelHeight()` even when saved layouts exist. `isCompactComponent()` identifies StatsGrid/StatsCard/InsightCard/DatasetCard/QueryDisplay/DataCard. These get `h-auto` on touch.
 
 **Data service (modular)**:
-- `src/services/datasets/` — 9 dataset modules + registry index
-- `src/services/cross-indices/` — 11 cross-index modules + registry index
-- `src/services/resolvers.ts` — Weather (GitHub state file at walkthru-weather-index repo, single fetch, fallback to HEAD probing) and Overture release resolution (GitHub state file at walkthru-overture-index repo, fallback `2026-03-18.0`)
-- `src/services/suggest-analysis.ts` — Keyword routing for 9 datasets + 11 cross-indices
+- `src/services/datasets/` - 9 dataset modules + registry index
+- `src/services/cross-indices/` - 11 cross-index modules + registry index
+- `src/services/resolvers.ts` - Weather (GitHub state file at walkthru-weather-index repo, single fetch, fallback to HEAD probing) and Overture release resolution (GitHub state file at walkthru-overture-index repo, fallback `2026-03-18.0`)
+- `src/services/suggest-analysis.ts` - Keyword routing for 9 datasets + 11 cross-indices
 
 **Cross-indices** (composite multi-dataset analyses): 11 cross-index modules including:
 - **walkability** (5 signals: transport + base + terrain + places)
 - **fifteen-min-city** (7 signals: places + transport + base + terrain)
-- **biophilic** (base x population — nature per capita)
+- **biophilic** (base x population, nature per capita)
 - **heat-vulnerability** (6 signals: building + transport + base + weather)
 - **water-security** (6 signals: base + population + weather + building + terrain)
 
 ## DuckDB Rules (for AI tool descriptions)
 
 - **DuckDB v1.5+** (Variegata). Extensions loaded: `httpfs`, `spatial`, `h3`, `a5`. `geometry_always_xy = true` set at init.
-- **GEOMETRY is a core type** in v1.5 — no `INSTALL spatial` needed to read GEOMETRY columns from Parquet. `ST_AsWKB`/`ST_GeomFromWKB` are built-in. `ST_Centroid`, `ST_X`, `ST_Y`, `ST_Transform`, `ST_Intersects` still need spatial (pre-loaded).
-- **Geometry auto-detection**: Parquet files with GEOMETRY columns auto-render — just `SELECT * FROM file`. DESCRIBE returns `GEOMETRY('EPSG:4326')` in v1.5 (not just `GEOMETRY`), so detection uses `startsWith("GEOMETRY")`. **Synthetic lat/lng**: auto-generated by `wrapSqlForGeometry` — NEVER reference them directly in follow-up SQL. Use `SELECT *` (re-generates them), `SELECT * EXCLUDE (unwanted)`, or `SELECT *, expr FROM (SELECT * FROM file)`.
+- **GEOMETRY is a core type** in v1.5, no `INSTALL spatial` needed to read GEOMETRY columns from Parquet. `ST_AsWKB`/`ST_GeomFromWKB` are built-in. `ST_Centroid`, `ST_X`, `ST_Y`, `ST_Transform`, `ST_Intersects` still need spatial (pre-loaded).
+- **Geometry auto-detection**: Parquet files with GEOMETRY columns auto-render, just `SELECT * FROM file`. DESCRIBE returns `GEOMETRY('EPSG:4326')` in v1.5 (not just `GEOMETRY`), so detection uses `startsWith("GEOMETRY")`. **Synthetic lat/lng**: auto-generated by `wrapSqlForGeometry`. NEVER reference them directly in follow-up SQL. Use `SELECT *` (re-generates them), `SELECT * EXCLUDE (unwanted)`, or `SELECT *, expr FROM (SELECT * FROM file)`.
 - `h3_cell_to_lat(h3_index)` / `h3_cell_to_lng(h3_index)` return DOUBLE directly (preferred). `h3_cell_to_latlng()` returns `DOUBLE[2]` list, NOT a struct
 - Use `h3_grid_ring` not `h3_k_ring` (deprecated)
 - `h3_cell_area(h3_index, 'km^2')` not `h3_cell_area_km2`
-- `ST_AsGeoJSON(geometry)` converts spatial geometry to GeoJSON string for GeoMap (but prefer geometry auto-detection — no conversion needed)
+- `ST_AsGeoJSON(geometry)` converts spatial geometry to GeoJSON string for GeoMap (but prefer geometry auto-detection, no conversion needed)
 - ONE statement per call, always use LIMIT {queryLimit} (user-configurable, default 10000, set via settings gear icon), HTTPS URLs in FROM
-- **v1.5 syntax**: Use `lambda x: x + 1` NOT `x -> x + 1` (arrow syntax deprecated). `TRY_CAST(x AS GEOMETRY)` is broken — use `TRY(ST_GeomFromText(x))`.
+- **v1.5 syntax**: Use `lambda x: x + 1` NOT `x -> x + 1` (arrow syntax deprecated). `TRY_CAST(x AS GEOMETRY)` is broken. Use `TRY(ST_GeomFromText(x))`.
 - **Spatial filter pushdown**: `geom && ST_MakeEnvelope(w,s,e,n)` prunes Parquet row groups for bbox queries (uses column stats).
-- **Coordinate order**: `lat` = latitude (north/south, e.g. 30.05 for Cairo), `lng` = longitude (east/west, e.g. 31.25 for Cairo). H3: `h3_latlng_to_cell(lat, lng, res)` — lat FIRST. A5: `a5_lonlat_to_cell(lng, lat, res)` — lng FIRST (opposite of H3!). DuckDB spatial: `ST_Point(lng, lat)` (x=lon, y=lat). deck.gl GeoMap props: `latitude`/`longitude`.
-- **NEVER hardcode H3/A5 cell strings** — AI will hallucinate wrong indices. Always compute from coordinates: `h3_latlng_to_cell(lat, lng, res)::BIGINT`. For area queries: `h3_grid_disk(h3_latlng_to_cell(lat, lng, res)::BIGINT, radius)`. If user's pre-computed H3 cells are available in context, use those directly. Pre-computed cells cover res 1-8.
-- **`h3_great_circle_distance(lat1, lng1, lat2, lng2, 'km')`** — 5th arg (unit: 'km','m','rads') is MANDATORY. 4-arg call WILL FAIL. Also `h3_grid_distance(cell1, cell2)` for grid-hop count.
+- **Coordinate order**: `lat` = latitude (north/south, e.g. 30.05 for Cairo), `lng` = longitude (east/west, e.g. 31.25 for Cairo). H3: `h3_latlng_to_cell(lat, lng, res)` - lat FIRST. A5: `a5_lonlat_to_cell(lng, lat, res)` - lng FIRST (opposite of H3!). DuckDB spatial: `ST_Point(lng, lat)` (x=lon, y=lat). deck.gl GeoMap props: `latitude`/`longitude`.
+- **NEVER hardcode H3/A5 cell strings**. AI will hallucinate wrong indices. Always compute from coordinates: `h3_latlng_to_cell(lat, lng, res)::BIGINT`. For area queries: `h3_grid_disk(h3_latlng_to_cell(lat, lng, res)::BIGINT, radius)`. If user's pre-computed H3 cells are available in context, use those directly. Pre-computed cells cover res 1-8.
+- **`h3_great_circle_distance(lat1, lng1, lat2, lng2, 'km')`** - 5th arg (unit: 'km','m','rads') is MANDATORY. 4-arg call WILL FAIL. Also `h3_grid_distance(cell1, cell2)` for grid-hop count.
 - **WASM TIMESTAMPTZ limitation**: `TIMESTAMPTZ + INTERVAL` fails in DuckDB-WASM (no ICU extension). Always cast first: `CAST(timestamp AS TIMESTAMP) + INTERVAL '72 hours'`.
 - **OOM prevention**: DuckDB-WASM has ~3GB memory limit. Weather res 5 = 42M rows. ALWAYS push `WHERE h3_index = ...` directly into the Parquet scan. Never `SELECT *` into CTEs on large files. Use lower resolutions (res 3-4) for area/map queries.
-- **Cross-dataset joins**: All datasets share `h3_index` — joins are trivial BUT resolutions MUST match. Shared range: res 3-5. Prefer res 5 for neighborhood detail, res 3 for city overview.
+- **Cross-dataset joins**: All datasets share `h3_index`, joins are trivial BUT resolutions MUST match. Shared range: res 3-5. Prefer res 5 for neighborhood detail, res 3 for city overview.
 - **Overture datasets** (places, transportation, base, addresses, buildings-overture) res 1-10. Release version auto-resolved by `buildParquetUrl`. Cross-dataset shared range across ALL datasets (including Overture): **res 3-5**.
 - **queryId is NOT a DuckDB table**: `queryId` (e.g. `qr_1`) is a client-side store reference. NEVER use in SQL `FROM` clauses. Re-query the Parquet URL instead.
-- **Grid system rule**: When the user asks about A5, use A5 functions — do NOT convert to H3. When the user asks about H3, use H3. Respect the user's choice. A5 has no grid_disk/grid_ring equivalents. All datasets are H3-indexed — for A5, compute from H3 centroids: `a5_lonlat_to_cell(h3_cell_to_lng(h3_index), h3_cell_to_lat(h3_index), res)`. A5 resolution must match H3 source: H3 res 3→A5 res 5-6, H3 res 4→A5 res 6-7, H3 res 5→A5 res 7-8. Too-fine A5 creates gaps.
-- **A5 function names (exact)**: `a5_lonlat_to_cell`, `a5_cell_to_lonlat`, `a5_cell_to_boundary`, `a5_cell_to_children`, `a5_cell_area`, `a5_hex_to_u64`, `a5_u64_to_hex`. There is NO `a5_hex_to_cell` — use `a5_hex_to_u64` to convert hex string to UBIGINT.
-- **Spatial analysis**: All spatial functions (ST_Buffer, ST_Intersects, ST_Contains, ST_DWithin, spatial joins) produce native GEOMETRY → results auto-render on the map via zero-copy WKB. Just `SELECT *` — no ST_AsGeoJSON needed. Spatial joins trigger automatic R-tree (no index creation). `ST_DWithin(a, b, meters)` also triggers SPATIAL_JOIN optimizer.
-- **Geometry detection skips CTEs** — `DESCRIBE (WITH ...)` is invalid DuckDB syntax. CTE queries bypass geometry auto-detection (they're computed queries, not raw Parquet geometry).
-- **No same-name column aliasing** — `SELECT ST_AsWKB(geom) AS geom` fails in DuckDB v1.5 (circular alias due to friendly SQL reusable aliases). Use a different alias name like `wkb_data`.
-- **Prefer `SELECT *` for geometry files** — the system auto-handles geometry extraction. Do NOT manually call `ST_AsWKB`/`ST_GeomFromWKB`/`ST_AsGeoJSON`.
-- **GeoJSON/WFS SQL patterns**: Use `read_json_auto` + `unnest(features)` + `ST_GeomFromGeoJSON` for GeoJSON FeatureCollections. **CRITICAL**: `read_json_auto` returns STRUCTs, NOT JSON strings. Rules: (1) Use struct dot notation (`f.id`, `f.properties.name`) — JSON path operators (`f->>'$.id'`) fail in DuckDB-WASM. (2) Use `unnest(f.properties)` to expand all property fields into columns — `f.properties.*` is a parser error. (3) Use `to_json(f.geometry)` when passing to `ST_GeomFromGeoJSON` — direct struct may not auto-cast in WASM. `ST_GeomFromGeoJSON` produces native GEOMETRY → auto-detection → EXCLUDE from Arrow (WASM can't serialize GEOMETRY) → WKB → GeoArrow → deck.gl zero-copy rendering. Pattern:
+- **Grid system rule**: When the user asks about A5, use A5 functions. Do NOT convert to H3. When the user asks about H3, use H3. Respect the user's choice. A5 has no grid_disk/grid_ring equivalents. All datasets are H3-indexed. For A5, compute from H3 centroids: `a5_lonlat_to_cell(h3_cell_to_lng(h3_index), h3_cell_to_lat(h3_index), res)`. A5 resolution must match H3 source: H3 res 3→A5 res 5-6, H3 res 4→A5 res 6-7, H3 res 5→A5 res 7-8. Too-fine A5 creates gaps.
+- **A5 function names (exact)**: `a5_lonlat_to_cell`, `a5_cell_to_lonlat`, `a5_cell_to_boundary`, `a5_cell_to_children`, `a5_cell_area`, `a5_hex_to_u64`, `a5_u64_to_hex`. There is NO `a5_hex_to_cell`. Use `a5_hex_to_u64` to convert hex string to UBIGINT.
+- **Spatial analysis**: All spatial functions (ST_Buffer, ST_Intersects, ST_Contains, ST_DWithin, spatial joins) produce native GEOMETRY → results auto-render on the map via zero-copy WKB. Just `SELECT *`, no ST_AsGeoJSON needed. Spatial joins trigger automatic R-tree (no index creation). `ST_DWithin(a, b, meters)` also triggers SPATIAL_JOIN optimizer.
+- **Geometry detection skips CTEs**. `DESCRIBE (WITH ...)` is invalid DuckDB syntax. CTE queries bypass geometry auto-detection (they're computed queries, not raw Parquet geometry).
+- **No same-name column aliasing**. `SELECT ST_AsWKB(geom) AS geom` fails in DuckDB v1.5 (circular alias due to friendly SQL reusable aliases). Use a different alias name like `wkb_data`.
+- **Prefer `SELECT *` for geometry files**. The system auto-handles geometry extraction. Do NOT manually call `ST_AsWKB`/`ST_GeomFromWKB`/`ST_AsGeoJSON`.
+- **GeoJSON/WFS SQL patterns**: Use `read_json_auto` + `unnest(features)` + `ST_GeomFromGeoJSON` for GeoJSON FeatureCollections. **CRITICAL**: `read_json_auto` returns STRUCTs, NOT JSON strings. Rules: (1) Use struct dot notation (`f.id`, `f.properties.name`), JSON path operators (`f->>'$.id'`) fail in DuckDB-WASM. (2) Use `unnest(f.properties)` to expand all property fields into columns, `f.properties.*` is a parser error. (3) Use `to_json(f.geometry)` when passing to `ST_GeomFromGeoJSON`, direct struct may not auto-cast in WASM. `ST_GeomFromGeoJSON` produces native GEOMETRY → auto-detection → EXCLUDE from Arrow (WASM can't serialize GEOMETRY) → WKB → GeoArrow → deck.gl zero-copy rendering. Pattern:
   ```sql
   -- unnest(f.properties) expands ALL struct fields into individual columns
   WITH fc AS (
@@ -87,19 +87,19 @@ pnpm lint:fix     # biome auto-fix
   LIMIT {queryLimit}
   ```
   For WFS endpoints: same pattern with `read_json_auto('https://host/ows?service=WFS&version=1.1.0&request=GetFeature&typeName=layer&outputFormat=application/json')`.
-  For ArcGIS FeatureServer: append `/query?where=1%3D1&outFields=%2A&f=geojson&resultRecordCount=N` to the layer URL. **CRITICAL**: use `%2A` not `*` for outFields — DuckDB treats `*` in URLs as a glob pattern and errors. For large layers (>1000 features), paginate with `&resultOffset=0`, `&resultOffset=1000`, etc.
+  For ArcGIS FeatureServer: append `/query?where=1%3D1&outFields=%2A&f=geojson&resultRecordCount=N` to the layer URL. **CRITICAL**: use `%2A` not `*` for outFields, DuckDB treats `*` in URLs as a glob pattern and errors. For large layers (>1000 features), paginate with `&resultOffset=0`, `&resultOffset=1000`, etc.
   Note: remote URLs must be CORS-enabled for DuckDB-WASM httpfs to fetch them. Works with most WFS endpoints, ArcGIS services, GitHub raw URLs, and data portals. Servers without CORS headers will silently return 0 rows.
 
 ### DuckDB Friendly SQL (use these for cleaner queries)
 
-- **`FROM`-first syntax**: `FROM tbl` selects all columns — no `SELECT *` needed. `FROM tbl SELECT col1, col2` also works.
+- **`FROM`-first syntax**: `FROM tbl` selects all columns, no `SELECT *` needed. `FROM tbl SELECT col1, col2` also works.
 - **`GROUP BY ALL`**: Auto-infer grouping columns from non-aggregated `SELECT` expressions. No need to repeat column names.
 - **`ORDER BY ALL`**: Order on all columns for deterministic results.
 - **`SELECT * EXCLUDE (col)`**: Select all columns except specific ones. E.g. `SELECT * EXCLUDE (h3_index, __geo_wkb) FROM tbl`.
 - **`SELECT * REPLACE (expr AS col)`**: Replace a column with an expression. E.g. `SELECT * REPLACE (ROUND(pop_2100) AS pop_2100)`.
-- **`UNION BY NAME`**: Union tables by column names (not positions) — handles different column orders gracefully.
-- **Column aliases in `WHERE`/`GROUP BY`/`HAVING`**: Reference aliases defined in `SELECT` directly — no subquery needed.
-- **Reusable column aliases**: Use an alias defined earlier in the same `SELECT` clause. E.g. `SELECT pop_2100 - pop_2025 AS growth, growth / pop_2025 AS pct`. **Caveat**: never alias a column with the same name as the source column — DuckDB treats it as a circular reference (e.g. `SELECT col + 1 AS col` fails).
+- **`UNION BY NAME`**: Union tables by column names (not positions), handles different column orders gracefully.
+- **Column aliases in `WHERE`/`GROUP BY`/`HAVING`**: Reference aliases defined in `SELECT` directly, no subquery needed.
+- **Reusable column aliases**: Use an alias defined earlier in the same `SELECT` clause. E.g. `SELECT pop_2100 - pop_2025 AS growth, growth / pop_2025 AS pct`. **Caveat**: never alias a column with the same name as the source column, DuckDB treats it as a circular reference (e.g. `SELECT col + 1 AS col` fails).
 - **`LIMIT` with percentage**: `LIMIT 10%` returns 10% of rows.
 - **`count()` shorthand**: `count()` works as `count(*)`.
 - **Trailing commas**: Allowed in column lists and `LIST` construction.
@@ -127,11 +127,11 @@ S3 base: `https://s3.us-west-2.amazonaws.com/us-west-2.opendata.source.coop/walk
 ## Styling Rules
 
 - Tailwind CSS v4, dark/light via CSS variables. Font: Quicksand.
-- **No hardcoded colors**: use `bg-muted`, `text-foreground`, `bg-card`, etc. — never `bg-zinc-950`, `#hex`, `rgb()`, `hsl()` inline
+- **No hardcoded colors**: use `bg-muted`, `text-foreground`, `bg-card`, etc. Never use `bg-zinc-950`, `#hex`, `rgb()`, `hsl()` inline
 - **No `!important`**: use JS conditionals instead
 - Semantic classes: `text-destructive` not `text-red-500`, `text-primary` not `text-blue-500`
 
-## Tambo SDK (v1.2.2) — Bidirectional AI Components
+## Tambo SDK (v1.2.2) - Bidirectional AI Components
 
 Config in `src/lib/tambo/` (modular directory). All pages spread `tamboProviderConfig` (apiKey, components, tools, tamboUrl). Shared `buildContextHelpers(geo)` provides AI with user theme, geo-IP location, and pre-computed H3 cells. `buildInitialSuggestions(geo)` generates personalized suggestion chips.
 
@@ -142,12 +142,12 @@ src/lib/tambo/
 ├── index.ts                  # Aggregator: tamboProviderConfig + re-exports
 ├── tools/
 │   ├── index.ts              # Aggregates all tools into TamboTool[]
-│   ├── run-sql.ts            # runSQL — SQL execution, queryId pattern
+│   ├── run-sql.ts            # runSQL - SQL execution, queryId pattern
 │   ├── dataset-tools.ts      # listDatasets + buildParquetUrl + describeDataset
-│   ├── cross-index.ts        # getCrossIndex — 11 cross-dataset analyses
-│   ├── suggest.ts            # suggestAnalysis — NL keyword routing
-│   ├── arcgis.ts             # describeArcGISLayer — FeatureServer metadata + pre-load
-│   └── dashboard.ts          # dismissPanels — clear all or specific panels by type/id
+│   ├── cross-index.ts        # getCrossIndex - 11 cross-dataset analyses
+│   ├── suggest.ts            # suggestAnalysis - NL keyword routing
+│   ├── arcgis.ts             # describeArcGISLayer - FeatureServer metadata + pre-load
+│   └── dashboard.ts          # dismissPanels - clear all or specific panels by type/id
 ├── components/
 │   ├── index.ts              # Aggregates all components into TamboComponent[]
 │   ├── geo-map.ts            # GeoMap + H3Map (deck.gl map)
@@ -156,12 +156,12 @@ src/lib/tambo/
 │   ├── objex-viewer.ts       # ObjexViewer (3D raster/point-cloud)
 │   └── static.ts             # StatsCard, StatsGrid, InsightCard, DatasetCard, QueryDisplay, DataCard
 ├── context/
-│   ├── index.ts              # buildContextHelpers() — assembles all pieces
+│   ├── index.ts              # buildContextHelpers() - assembles all pieces
 │   ├── behavior.ts           # AI behavior rules (decisiveness, rendering, output)
 │   ├── duckdb-notes.ts       # DuckDB v1.5 WASM rules (syntax, OOM, spatial)
 │   ├── dataset-paths.ts      # 9 dataset S3 paths + descriptions
 │   └── component-tips.ts     # Component usage patterns + cross-index tips
-└── suggestions.ts            # buildInitialSuggestions() — geo-personalized chips
+└── suggestions.ts            # buildInitialSuggestions() - geo-personalized chips
 ```
 
 ### How Tambo Works (AI ↔ Component flow)
@@ -221,11 +221,11 @@ export const InteractableMyComponent = withTamboInteractable(MyComponent, {
 
 ### Key Rules
 
-- **`_tambo_*` props**: Components receive hidden props (`_tambo_componentId`, etc.) — never spread `{...props}` onto DOM elements
+- **`_tambo_*` props**: Components receive hidden props (`_tambo_componentId`, etc.). Never spread `{...props}` onto DOM elements
 - **Zod constraints**: No `z.record()`, `z.map()`, `z.set()`. Always `.describe()` every field. Array items need `id` field.
-- **`useQueryResult(queryId)`** (reactive via `useSyncExternalStore`) — NOT `getQueryResult()` (won't re-render on thread replay)
-- **DO NOT use `useTamboComponentState`** with `withTamboInteractable` — causes "setState during render" error. Use `propsSchema` for all AI-controlled state.
-- **DO NOT use `useTamboInteractable()` or `useTamboCurrentComponent()`** inside a `withTamboInteractable`-wrapped component — same setState conflict.
+- **`useQueryResult(queryId)`** (reactive via `useSyncExternalStore`). NOT `getQueryResult()` (won't re-render on thread replay)
+- **DO NOT use `useTamboComponentState`** with `withTamboInteractable`. Causes "setState during render" error. Use `propsSchema` for all AI-controlled state.
+- **DO NOT use `useTamboInteractable()` or `useTamboCurrentComponent()`** inside a `withTamboInteractable`-wrapped component. Same setState conflict.
 - **NEVER call setState during render** in components wrapped with `withTamboInteractable` or in components that mount/unmount interactable children (e.g. DashboardCanvas). Always use `useEffect` or `queueMicrotask` for state updates triggered by prop/data changes. Direct setState in render body causes "Cannot update TamboRegistryProvider while rendering TamboInteractableProvider" because re-registration runs during the same render cycle.
 - **`useInDashboardPanel()`**: Components check if they're in a dashboard panel to hide redundant headers.
 - **Run ID desync**: `invalid_previous_run` error → auto `startNewThread()` to escape error loop
@@ -240,7 +240,7 @@ export const InteractableMyComponent = withTamboInteractable(MyComponent, {
 
 ### Static Components (AI sends all props, no runtime updates)
 
-StatsCard, StatsGrid, InsightCard, DatasetCard, QueryDisplay, DataCard — AI provides all values inline.
+StatsCard, StatsGrid, InsightCard, DatasetCard, QueryDisplay, DataCard. AI provides all values inline.
 
 ### Graph Chart Types
 
@@ -248,15 +248,15 @@ StatsCard, StatsGrid, InsightCard, DatasetCard, QueryDisplay, DataCard — AI pr
 
 ### UPDATE vs CREATE NEW Components
 
-**Update existing** (`update_component_props`) for appearance changes OR data replacement on the same panel — zoom, pitch, bearing, colors, chart type, hide columns, or a new `queryId` to swap data in place. Changing `queryId` via `update_component_props` works — `useQueryResult` reactively picks up the new data. Use update when the user says "show me X instead" or "change this to Y". **Create new** component when the user wants to see both old and new data side by side for comparison ("also show X", "compare with Y").
+**Update existing** (`update_component_props`) for appearance changes OR data replacement on the same panel, zoom, pitch, bearing, colors, chart type, hide columns, or a new `queryId` to swap data in place. Changing `queryId` via `update_component_props` works, `useQueryResult` reactively picks up the new data. Use update when the user says "show me X instead" or "change this to Y". **Create new** component when the user wants to see both old and new data side by side for comparison ("also show X", "compare with Y").
 
 ### Multi-Layer GeoMap
 
-`layers` array prop (max 5). Each layer: `{ id, queryId, layerType, hexColumn, pentagonColumn, valueColumn, ..., colorScheme, opacity, visible }`. Floating layer control panel (top-left) for toggle/opacity/reorder persists to localStorage (`geomap-layers:{layerIds}`). Map viewport (zoom/pan/pitch/bearing) persisted to localStorage (`geomap-viewport:{queryId|layerIds}`) — only user gestures saved, AI flyTo/fitBounds suppressed via `programmaticMoveRef`. Uses 5 fixed `useQueryResult` hook slots (React hooks can't be called conditionally).
+`layers` array prop (max 5). Each layer: `{ id, queryId, layerType, hexColumn, pentagonColumn, valueColumn, ..., colorScheme, opacity, visible }`. Floating layer control panel (top-left) for toggle/opacity/reorder persists to localStorage (`geomap-layers:{layerIds}`). Map viewport (zoom/pan/pitch/bearing) persisted to localStorage (`geomap-viewport:{queryId|layerIds}`), only user gestures saved, AI flyTo/fitBounds suppressed via `programmaticMoveRef`. Uses 5 fixed `useQueryResult` hook slots (React hooks can't be called conditionally).
 
 ### Adding a New Bidirectional Component (checklist)
 
-1. Define Zod schema in component file — `.describe()` every field, use `queryId` for data
+1. Define Zod schema in component file. `.describe()` every field, use `queryId` for data
 2. Build with `React.forwardRef`, use `useQueryResult(queryId)` for data, `useCrossFilter()` if needed
 3. Wrap with `withTamboInteractable(Component, { componentName, description, propsSchema })`
 4. Create registration file in `src/lib/tambo/components/` (or add to `static.ts` for simple components)
@@ -268,7 +268,7 @@ StatsCard, StatsGrid, InsightCard, DatasetCard, QueryDisplay, DataCard — AI pr
 
 ### Adding a New Dataset
 
-1. Create dataset module in `src/services/datasets/<name>.ts` — export a `DatasetDefinition`
+1. Create dataset module in `src/services/datasets/<name>.ts`. Export a `DatasetDefinition`
 2. Import and add to `DATASETS` array in `src/services/datasets/index.ts`
 3. Add dataset path to `src/lib/tambo/context/dataset-paths.ts`
 4. Add keyword routing in `src/services/suggest-analysis.ts`
@@ -277,7 +277,7 @@ StatsCard, StatsGrid, InsightCard, DatasetCard, QueryDisplay, DataCard — AI pr
 
 ### Adding a New Cross-Index
 
-1. Create cross-index module in `src/services/cross-indices/<name>.ts` — export a `CrossIndexDefinition`
+1. Create cross-index module in `src/services/cross-indices/<name>.ts`. Export a `CrossIndexDefinition`
 2. Import and add to `CROSS_INDICES` in `src/services/cross-indices/index.ts`
 3. Add the analysis name to the `z.enum()` in `src/lib/tambo/tools/cross-index.ts`
 4. Add keyword routing in `src/services/suggest-analysis.ts`
@@ -285,9 +285,9 @@ StatsCard, StatsGrid, InsightCard, DatasetCard, QueryDisplay, DataCard — AI pr
 
 ### Adding a New Tool
 
-1. Create tool file in `src/lib/tambo/tools/<name>.ts` — export a `TamboTool`
+1. Create tool file in `src/lib/tambo/tools/<name>.ts`. Export a `TamboTool`
 2. Import and add to the array in `src/lib/tambo/tools/index.ts`
-3. Write a lean description (~3 lines) — detailed rules go in `src/lib/tambo/context/`
+3. Write a lean description (~3 lines). Detailed rules go in `src/lib/tambo/context/`
 
 ### Tuning AI Behavior
 
@@ -310,11 +310,11 @@ DuckDB-WASM → Arrow Table → columnArrays (typed array views) + arrowIPC (byt
   → GeoArrow layers render directly from Arrow buffers
 ```
 
-- **H3**: Always uses standard deck.gl `H3HexagonLayer` (not GeoArrow). deck.gl natively generates hexagon polygons from H3 hex strings on the GPU — this is more efficient than passing pre-computed lat/lng, polygon/WKB, or Arrow geometry. Just pass `hex` (string) + `value` (number) per row. GeoArrowH3HexagonLayer is experimental and unreliable.
-- **A5**: deck.gl 9.2+ `A5Layer` for pentagonal DGGS cells. A5 is a pentagonal global grid (vs H3's hexagons) with exactly equal-area cells and lower distortion. Uses `getPentagon` accessor (BigInt or hex string). Same GPU-native approach as H3 — deck.gl generates pentagon polygons from cell IDs, no geometry passthrough needed. DuckDB: `a5_lonlat_to_cell(lng, lat, res)` (lng FIRST — opposite of H3!), `a5_cell_to_lonlat(cell)` returns `[lon, lat]`, `a5_cell_to_boundary(cell)`, `a5_cell_to_children(cell, res)`, `a5_cell_area(res)`. Column auto-detection: `pentagon`/`a5_cell`/`a5_index` → layerType=a5. SQL pattern: `SELECT printf('%x', a5_lonlat_to_cell(lng, lat, res)) AS pentagon, <metric> AS value`.
+- **H3**: Always uses standard deck.gl `H3HexagonLayer` (not GeoArrow). deck.gl natively generates hexagon polygons from H3 hex strings on the GPU, which is more efficient than passing pre-computed lat/lng, polygon/WKB, or Arrow geometry. Just pass `hex` (string) + `value` (number) per row. GeoArrowH3HexagonLayer is experimental and unreliable.
+- **A5**: deck.gl 9.2+ `A5Layer` for pentagonal DGGS cells. A5 is a pentagonal global grid (vs H3's hexagons) with exactly equal-area cells and lower distortion. Uses `getPentagon` accessor (BigInt or hex string). Same GPU-native approach as H3, deck.gl generates pentagon polygons from cell IDs, no geometry passthrough needed. DuckDB: `a5_lonlat_to_cell(lng, lat, res)` (lng FIRST, opposite of H3!), `a5_cell_to_lonlat(cell)` returns `[lon, lat]`, `a5_cell_to_boundary(cell)`, `a5_cell_to_children(cell, res)`, `a5_cell_area(res)`. Column auto-detection: `pentagon`/`a5_cell`/`a5_index` → layerType=a5. SQL pattern: `SELECT printf('%x', a5_lonlat_to_cell(lng, lat, res)) AS pentagon, <metric> AS value`.
 - **Scatterplot**: `buildPointGeomVector()` interleaves lat/lng into `Float64Array(2*N)`, wraps as `FixedSizeList(2, Float64)` via `makeData`
-- **Arc**: `buildGeoArrowArcTable()` — source/target point geometry columns, same interleave pattern
-- **WKB/GeoJSON geometry**: `@walkthru-earth/objex-utils` `buildGeoArrowTables()` — direct WKB binary → DataView reads → pre-allocated Float64Array → Arrow Table. Supports point, linestring, polygon, multi* geometries. No GeoJSON parsing, no intermediate JS objects.
+- **Arc**: `buildGeoArrowArcTable()` - source/target point geometry columns, same interleave pattern
+- **WKB/GeoJSON geometry**: `@walkthru-earth/objex-utils` `buildGeoArrowTables()` - direct WKB binary → DataView reads → pre-allocated Float64Array → Arrow Table. Supports point, linestring, polygon, multi* geometries. No GeoJSON parsing, no intermediate JS objects.
 - **Fallback**: if `columnArrays`/`wkbArrays` missing, falls back to standard deck.gl layers with JS object data
 
 Layer types: `h3`, `a5`, `scatterplot`, `geojson`, `arc`, `wkb` (native geometry via WKB)
@@ -326,14 +326,14 @@ Packages: `@geoarrow/deck.gl-layers@0.3.1`, `@walkthru-earth/objex-utils@1.0.0`,
 ## Conventions
 
 - Never show "Tambo", "DuckDB", "H3", "Parquet", "deck.gl" in UI
-- **Settings**: Gear icon (`<SettingsButton />`) in both `/chat` and `/explore` — popover with theme toggle, cross-filter toggle, and query limit (presets: 500/5K/10K/50K + custom input 100-100000). Portal to `document.body` to avoid header backdrop-blur transparency. Settings stored in `settings-store.ts` (localStorage `walkthru-settings`).
+- **Settings**: Gear icon (`<SettingsButton />`) in both `/chat` and `/explore`, popover with theme toggle, cross-filter toggle, and query limit (presets: 500/5K/10K/50K + custom input 100-100000). Portal to `document.body` to avoid header backdrop-blur transparency. Settings stored in `settings-store.ts` (localStorage `walkthru-settings`).
 - Theme: system detection on first visit, settings popover cycles Dark/Light/System
-- Map basemap: CARTO Dark Matter / Positron. Always forced to `auto` (follows user's theme via MutationObserver). AI basemap prop is ignored — theme is user-controlled via settings.
+- Map basemap: CARTO Dark Matter / Positron. Always forced to `auto` (follows user's theme via MutationObserver). AI basemap prop is ignored, theme is user-controlled via settings.
 - **Thread delete**: Available in thread history dropdown (Trash icon + inline confirmation). Uses `client.threads.delete(threadId, { userKey })`. Switches to new thread if current was deleted.
 - Thread URLs: `?thread=threadId` only for real IDs (prefix `thr_`)
 - Plain `<textarea>` for all text input (no TipTap/rich-text)
-- AI must NEVER render checkboxes or selectable lists — users cannot submit selections. Use DatasetCard components + auto-submitting suggestion chips instead.
+- AI must NEVER render checkboxes or selectable lists. Users cannot submit selections. Use DatasetCard components + auto-submitting suggestion chips instead.
 - Geo-IP: `useGeoIP()` fetches from geojs.io, caches 24h in localStorage (null on first render). Returns city, country, lat/lng, timezone, and pre-computed H3 cells at res 1-8. Falls back gracefully when blocked.
 - Query replay: `useReplayQueries(messages)` shared hook re-runs SQL from restored threads to repopulate query-store. Used by both `/chat` and `/explore`.
-- GeoMap height: `h-[420px]` in chat (inline), `h-full` in dashboard panels. Default zoom: 1 (world view). Viewport persisted to localStorage — survives refresh.
+- GeoMap height: `h-[420px]` in chat (inline), `h-full` in dashboard panels. Default zoom: 1 (world view). Viewport persisted to localStorage, survives refresh.
 - Auto-scroll: `ScrollableMessageContainer` uses ref-based stick-to-bottom. Instant scroll during streaming, smooth on new content. Pauses on user scroll-up, resumes on new user message (ChatGPT/Claude behavior).

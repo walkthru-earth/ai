@@ -36,7 +36,7 @@ function threadLabel(thread: { id: string; name?: string; createdAt: string }): 
   // Fallback: short date + truncated ID
   const date = new Date(thread.createdAt);
   const dateStr = date.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  return `${dateStr} — ${thread.id.substring(0, 8)}`;
+  return `${dateStr} - ${thread.id.substring(0, 8)}`;
 }
 
 /* ── Thread History ────────────────────────────────────────────────── */
@@ -168,7 +168,7 @@ function MobileBottomSheet({
         expanded && "top-0",
       )}
     >
-      {/* Drag handle — swipe up to expand, down to collapse, tap to toggle */}
+      {/* Drag handle - swipe up to expand, down to collapse, tap to toggle */}
       <div
         className="flex justify-center py-1.5 cursor-grab active:cursor-grabbing flex-shrink-0"
         onTouchStart={handleTouchStart}
@@ -215,7 +215,7 @@ function ExplorerLayout({ suggestions: defaultSuggestions }: { suggestions: Sugg
   }, [messages]);
 
   // Sync thread ID from URL → Tambo on initial load only (for shared links).
-  // Must NOT re-run on currentThreadId changes — otherwise startNewThread() gets
+  // Must NOT re-run on currentThreadId changes, otherwise startNewThread() gets
   // overridden by the stale URL param before the URL-update effect clears it.
   const initialSyncDone = useRef(false);
   useEffect(() => {
@@ -226,7 +226,7 @@ function ExplorerLayout({ suggestions: defaultSuggestions }: { suggestions: Sugg
     if (urlThread?.startsWith("thr_") && urlThread !== currentThreadId) {
       switchThread(urlThread);
     } else if (urlThread && !urlThread.startsWith("thr_")) {
-      // Invalid thread param — clean URL
+      // Invalid thread param. Clean URL
       params.delete("thread");
       const qs = params.toString();
       window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
@@ -258,7 +258,7 @@ function ExplorerLayout({ suggestions: defaultSuggestions }: { suggestions: Sugg
     <div className="flex h-screen bg-background relative grain">
       {/* ── Desktop: side-by-side layout ─────────────────────────── */}
 
-      {/* Chat Panel — glass sidebar (desktop only) */}
+      {/* Chat Panel - glass sidebar (desktop only) */}
       <div
         className={`hidden sm:flex ${
           isChatOpen ? "sm:w-[400px]" : "w-0"
@@ -334,8 +334,8 @@ function ExplorerLayout({ suggestions: defaultSuggestions }: { suggestions: Sugg
         </button>
       </div>
 
-      {/* Dashboard — all AI components become draggable/resizable panels */}
-      {/* Floating toolbar passed as children — hidden when a panel is maximized */}
+      {/* Dashboard - all AI components become draggable/resizable panels */}
+      {/* Floating toolbar passed as children - hidden when a panel is maximized */}
       <DashboardCanvas className="bg-muted/30">
         {mobileChat === "collapsed" && (
           <div className="sm:hidden fixed top-2 right-2 z-20 flex items-center gap-1 rounded-lg glass-panel-subtle px-1.5 py-1">
@@ -377,7 +377,7 @@ function ExplorerLayout({ suggestions: defaultSuggestions }: { suggestions: Sugg
           </div>
         )}
 
-        {/* Messages — only when expanded */}
+        {/* Messages - only when expanded */}
         {mobileChat === "expanded" && (
           <>
             {showHistory ? (
@@ -395,12 +395,12 @@ function ExplorerLayout({ suggestions: defaultSuggestions }: { suggestions: Sugg
           </>
         )}
 
-        {/* Suggestion chips — above input for mobile visibility */}
+        {/* Suggestion chips - above input for mobile visibility */}
         <MessageSuggestions initialSuggestions={isEmpty ? defaultSuggestions : undefined}>
           <MessageSuggestionsList className="px-2 pb-1" />
         </MessageSuggestions>
 
-        {/* Input bar — always visible */}
+        {/* Input bar - always visible */}
         <div className={cn("p-2", mobileChat === "expanded" && "border-t border-border/30")}>
           <MessageInput variant="bordered">
             <MessageInputTextarea placeholder="Ask about weather, terrain, buildings, population..." />

@@ -29,7 +29,7 @@ import { PanelContext } from "./panel-context";
 
 interface DashboardCanvasProps {
   className?: string;
-  /** Overlay content (e.g. floating toolbar) — hidden when a panel is maximized */
+  /** Overlay content (e.g. floating toolbar) - hidden when a panel is maximized */
   children?: React.ReactNode;
 }
 
@@ -123,7 +123,7 @@ function SortablePanel({
         isDragging && "ring-2 ring-earth-blue/40 opacity-80 shadow-lg z-50",
       )}
     >
-      {/* Header — drag handle is ONLY the grip icon area */}
+      {/* Header - drag handle is ONLY the grip icon area */}
       <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border/30 bg-muted/10 flex-shrink-0 select-none">
         <div
           ref={setActivatorNodeRef}
@@ -173,19 +173,19 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
   const { width, containerRef } = useContainerWidth({ initialWidth: 800 });
   const isTouch = useIsTouchDevice();
 
-  // Storage keys — all scoped per thread
+  // Storage keys - all scoped per thread
   const orderKey = currentThreadId ? `panel-order-${currentThreadId}` : null;
   const layoutKey = currentThreadId ? `panel-layouts-${currentThreadId}` : null;
   const dismissedKey = currentThreadId ? `panel-dismissed-${currentThreadId}` : null;
 
-  // Dismissed panels — persisted to localStorage per thread
+  // Dismissed panels - persisted to localStorage per thread
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => {
     if (!dismissedKey) return new Set();
     const arr = readStorage<string[]>(dismissedKey, []);
     return arr.length > 0 ? new Set(arr) : new Set();
   });
 
-  // Panel layouts — persisted to localStorage per thread (debounced)
+  // Panel layouts - persisted to localStorage per thread (debounced)
   const [savedLayouts, setSavedLayouts] = useState<Record<string, any[]>>(() => {
     if (!layoutKey) return {};
     return readStorage<Record<string, any[]>>(layoutKey, {});
@@ -207,7 +207,7 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
     writeStorage(orderKey, panelOrder);
   }, [panelOrder, orderKey]);
 
-  // Reset on thread change — must be in useEffect to avoid setState during render
+  // Reset on thread change - must be in useEffect to avoid setState during render
   useEffect(() => {
     if (prevThreadRef.current === currentThreadId) return;
     prevThreadRef.current = currentThreadId;
@@ -245,7 +245,7 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
       let compIdx = 0;
       for (const content of msg.content) {
         if (content.type === "component" && content.renderedComponent) {
-          // Ensure unique panel ID — content.id can collide across components
+          // Ensure unique panel ID - content.id can collide across components
           let panelId = content.id || `${msg.id}-comp-${compIdx}`;
           if (usedIds.has(panelId)) panelId = `${panelId}-${compIdx}`;
           usedIds.add(panelId);
@@ -262,7 +262,7 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
     return result;
   }, [messages, dismissedIds]);
 
-  // Keep panelOrder in sync — maps always float to top among new panels
+  // Keep panelOrder in sync - maps always float to top among new panels
   const panelIds = useMemo(() => panels.map((p) => p.id), [panels]);
   const panelNameById = useMemo(() => new globalThis.Map(panels.map((p) => [p.id, p.componentName || ""])), [panels]);
   useEffect(() => {
@@ -316,7 +316,7 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
     }, 0);
   }, [dismissVersion, panelIds, panels, dismissedKey]);
 
-  // Defer dismissal to next tick — withTamboInteractable unregisters during unmount
+  // Defer dismissal to next tick - withTamboInteractable unregisters during unmount
   // which triggers setState in TamboRegistryProvider; deferring avoids "update during render"
   const removePanel = useCallback(
     (id: string) => {
@@ -575,7 +575,7 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
               key={panel.id}
               className="rounded-xl border border-border bg-card overflow-hidden flex flex-col shadow-sm hover:shadow-md transition-shadow"
             >
-              {/* Desktop header — entire bar is drag handle */}
+              {/* Desktop header - entire bar is drag handle */}
               <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border/30 bg-muted/10 flex-shrink-0 select-none panel-drag-handle cursor-grab active:cursor-grabbing">
                 <GripVertical className="w-3 h-3 text-muted-foreground/30 flex-shrink-0" />
                 <span className="text-xs font-semibold text-foreground truncate flex-1">{panel.title}</span>

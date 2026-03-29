@@ -13,7 +13,7 @@ import { useInDashboardPanel } from "./panel-context";
 export const dataTableSchema = z.object({
   title: z.string().describe("Table title describing the data shown"),
 
-  // PREFERRED: queryId mode (zero tokens — reads from query store)
+  // PREFERRED: queryId mode (zero tokens - reads from query store)
   queryId: z
     .string()
     .optional()
@@ -104,14 +104,14 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
         // Apply spatial cross-filter
         const rRows = applyCrossFilter(queryResult.rows, queryResult.columns, crossFilter, "DataTable");
 
-        // Store raw row references (no formatCell yet — deferred to pageRows)
+        // Store raw row references (no formatCell yet - deferred to pageRows)
         const fRows = rRows.map((_row, i) => ({ id: String(i), rawIdx: i }));
         return { resolvedColumns: cols, resolvedRows: fRows, filteredRawRows: rRows };
       }
       return { resolvedColumns: columns ?? null, resolvedRows: rows ?? null, filteredRawRows: null };
     }, [queryId, queryResult, visibleColumns, columns, rows, crossFilter]);
 
-    // Reset page when data changes — useEffect to avoid setState during render
+    // Reset page when data changes - useEffect to avoid setState during render
     const totalRows = resolvedRows?.length ?? 0;
     const totalPages = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
     const safePage = Math.min(page, totalPages - 1);
@@ -385,7 +385,7 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
 );
 DataTable.displayName = "DataTable";
 
-/** Interactable DataTable — AI can update visibleColumns, title at runtime */
+/** Interactable DataTable - AI can update visibleColumns, title at runtime */
 export const InteractableDataTable = withTamboInteractable(DataTable, {
   componentName: "DataTable",
   description:

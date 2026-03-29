@@ -5,11 +5,11 @@ export const waterSecurity: CrossIndexDefinition = {
   name: "Water Security Score",
   description:
     "Where is water scarce relative to people? 6 signals across 5 datasets. " +
-    "Signals: (1) natural water per capita — rivers, lakes, streams (30%); " +
-    "(2) engineered water infra — treatment plants, pipes, reservoirs (15%); " +
+    "Signals: (1) natural water per capita - rivers, lakes, streams (30%); " +
+    "(2) engineered water infra - treatment plants, pipes, reservoirs (15%); " +
     "(3) precipitation (20%); " +
-    "(4) ground permeability — sealed concrete prevents aquifer recharge (10%); " +
-    "(5) terrain slope — steep = runoff, flat = retention (10%); " +
+    "(4) ground permeability - sealed concrete prevents aquifer recharge (10%); " +
+    "(5) terrain slope - steep = runoff, flat = retention (10%); " +
     "(6) population growth pressure 2025-2050 (15%).",
   datasets: ["base", "population", "weather", "building", "terrain"],
   joinColumn: "h3_index",

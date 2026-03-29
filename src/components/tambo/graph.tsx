@@ -139,10 +139,10 @@ export const graphSchema = z.object({
     .string()
     .optional()
     .describe("Y-axis label (e.g. 'Buildings per km²', 'Population'). Shown vertically on the left."),
-  // LEGACY: inline data (backward compat — deprecated)
+  // LEGACY: inline data (backward compat - deprecated)
   data: graphDataSchema
     .optional()
-    .describe("Inline chart data. DEPRECATED — prefer queryId + xColumn + yColumns instead."),
+    .describe("Inline chart data. DEPRECATED - prefer queryId + xColumn + yColumns instead."),
   title: z.string().optional().describe("Title for the chart"),
   showLegend: z.boolean().optional().describe("Whether to show the legend"),
   variant: z.enum(["default", "solid", "bordered"]).optional(),
@@ -314,7 +314,7 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
 
     // Auto-rotate/hide X labels when many data points
     const manyPoints = chartData.length > 10;
-    // Detect if X labels are long (e.g. datetime strings) — need more rotation + truncation
+    // Detect if X labels are long (e.g. datetime strings) - need more rotation + truncation
     const maxLabelLen = Math.max(...chartData.slice(0, 20).map((d) => String(d.name).length));
     const longLabels = maxLabelLen > 12;
     const rotated = manyPoints || longLabels;
@@ -413,7 +413,7 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
         : undefined,
     };
 
-    // Time filter: vertical reference line at current timestamp step (no hook — after early returns)
+    // Time filter: vertical reference line at current timestamp step (no hook - after early returns)
     const timeRefLabel = (() => {
       if (!timeFilter) return undefined;
       const label = timeFilter.timestamps[timeFilter.currentIndex];
@@ -773,15 +773,15 @@ export const Graph = React.forwardRef<HTMLDivElement, GraphProps>(
 );
 Graph.displayName = "Graph";
 
-/** Interactable Graph — AI can update chartType, xColumn, yColumns at runtime */
+/** Interactable Graph - AI can update chartType, xColumn, yColumns at runtime */
 export const InteractableGraph = withTamboInteractable(Graph, {
   componentName: "Graph",
   description:
     "Interactive chart (bar/line/area/pie/scatter/radar/radialBar/treemap/composed/funnel). " +
     "ALWAYS set xLabel and yLabel to explain axes (e.g. xLabel='Rank', yLabel='Buildings per km²'). " +
     "Chart types: bar (comparisons), line (trends), area (filled line), pie (proportions), " +
-    "scatter (correlation — first yColumn=X, second=Y), radar (multi-dimensional profiles), " +
-    "radialBar (circular gauge), treemap (hierarchical proportions), composed (bar+line overlay — first yColumn=bar, rest=lines), " +
+    "scatter (correlation, first yColumn=X, second=Y), radar (multi-dimensional profiles), " +
+    "radialBar (circular gauge), treemap (hierarchical proportions), composed (bar+line overlay, first yColumn=bar, rest=lines), " +
     "funnel (conversion/pipeline stages). " +
     "AI can update chart type, axes, axis labels, and data source at runtime.",
   propsSchema: graphSchema,

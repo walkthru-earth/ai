@@ -1,5 +1,5 @@
 /**
- * Cross-index registry — aggregates all cross-index definitions and exports getCrossIndex tool.
+ * Cross-index registry - aggregates all cross-index definitions and exports getCrossIndex tool.
  */
 
 import { biophilic } from "./biophilic";
@@ -15,7 +15,7 @@ import { verticalLiving } from "./vertical-living";
 import { walkability } from "./walkability";
 import { waterSecurity } from "./water-security";
 
-/* ── Registry ────────────────────────────────────────────────────── */
+/* -- Registry ────────────────────────────────────────────────────── */
 
 const CROSS_INDICES: Record<string, CrossIndexDefinition> = {
   "urban-density": urbanDensity,
@@ -33,7 +33,7 @@ const CROSS_INDICES: Record<string, CrossIndexDefinition> = {
 
 export const CROSS_INDEX_IDS = Object.keys(CROSS_INDICES) as string[];
 
-/* ── Tool: Get cross-index analysis ──────────────────────────────── */
+/* -- Tool: Get cross-index analysis ──────────────────────────────── */
 
 export async function getCrossIndex(input: CrossIndexInput): Promise<CrossIndexDefinition> {
   const result = CROSS_INDICES[input.analysis];

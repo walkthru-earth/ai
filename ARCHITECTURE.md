@@ -1,4 +1,4 @@
-# Walkthru Earth AI — Architecture & Workflows
+# Walkthru Earth AI - Architecture & Workflows
 
 Complete technical architecture of the AI urban intelligence platform. All diagrams use Mermaid.
 
@@ -9,7 +9,7 @@ Complete technical architecture of the AI urban intelligence platform. All diagr
 - [System Overview](#system-overview)
 - [Technology Stack](#technology-stack)
 - [Application Structure](#application-structure)
-- [Data Flow — The queryId Pattern](#data-flow--the-queryid-pattern)
+- [Data Flow - The queryId Pattern](#data-flow--the-queryid-pattern)
 - [AI Tool Workflow](#ai-tool-workflow)
 - [Component Rendering Pipeline](#component-rendering-pipeline)
 - [GeoArrow Zero-Copy Rendering](#geoarrow-zero-copy-rendering)
@@ -34,7 +34,7 @@ Complete technical architecture of the AI urban intelligence platform. All diagr
 
 ```mermaid
 graph TB
-    subgraph Browser["Browser (Pure SPA — No Backend)"]
+    subgraph Browser["Browser (Pure SPA, No Backend)"]
         User([User])
         UI[React UI]
         Tambo[Tambo AI SDK]
@@ -64,7 +64,7 @@ graph TB
     CARTO -->|Tiles| DeckGL
 ```
 
-The entire computation runs in the browser. No backend server exists. DuckDB-WASM executes SQL against remote Parquet files on S3 via HTTP range requests. The LLM only sees a `queryId` string (~10 tokens) — never the actual data.
+The entire computation runs in the browser. No backend server exists. DuckDB-WASM executes SQL against remote Parquet files on S3 via HTTP range requests. The LLM only sees a `queryId` string (~10 tokens), never the actual data.
 
 ---
 
@@ -111,14 +111,14 @@ graph LR
 ```mermaid
 graph TB
     subgraph Pages["Pages (src/app/)"]
-        Landing["/ — Landing"]
-        Chat["/chat — Chat"]
-        Explore["/explore — Explorer"]
-        Inter["/interactables — Demo"]
+        Landing["/ - Landing"]
+        Chat["/chat - Chat"]
+        Explore["/explore - Explorer"]
+        Inter["/interactables - Demo"]
     end
 
     subgraph Components["Components (src/components/)"]
-        subgraph Tambo_Comp["tambo/ — AI Components"]
+        subgraph Tambo_Comp["tambo/ - AI Components"]
             GeoMap[GeoMap]
             Graph[Graph]
             DataTable[DataTable]
@@ -130,7 +130,7 @@ graph TB
             DataCard[DataCard]
             ObjexViewer[ObjexViewer]
         end
-        subgraph Chat_Comp["tambo/ — Chat"]
+        subgraph Chat_Comp["tambo/ - Chat"]
             MsgInput[MessageInput]
             MsgThread[MessageThreadFull]
             ThreadContent_C[ThreadContent]
@@ -138,14 +138,14 @@ graph TB
             DashCanvas[DashboardCanvas]
             ThreadHistory_C[ThreadHistory]
         end
-        subgraph UI_Comp["ui/ — Primitives"]
+        subgraph UI_Comp["ui/ - Primitives"]
             CardSkel[CardSkeleton]
         end
         Settings_C[SettingsButton]
     end
 
     subgraph Lib["Lib (src/lib/)"]
-        TamboConfig["tambo/ — AI Config"]
+        TamboConfig["tambo/ - AI Config"]
         Hooks["Hooks"]
         Storage_L["storage.ts"]
         SettingsStore["settings-store.ts"]
@@ -154,8 +154,8 @@ graph TB
     subgraph Services["Services (src/services/)"]
         DuckDBSvc[duckdb-wasm.ts]
         QStore[query-store.ts]
-        Datasets["datasets/ — 9 modules"]
-        CrossIdx["cross-indices/ — 11 modules"]
+        Datasets["datasets/ - 9 modules"]
+        CrossIdx["cross-indices/ - 11 modules"]
         Resolvers[resolvers.ts]
         Suggest[suggest-analysis.ts]
     end
@@ -182,9 +182,9 @@ graph TB
 ```
 src/
 ├── app/                              # Pages
-│   ├── page.tsx                      # Landing — static, no AI
-│   ├── chat/page.tsx                 # Chat — inline components
-│   ├── explore/page.tsx              # Explorer — sidebar + dashboard
+│   ├── page.tsx                      # Landing - static, no AI
+│   ├── chat/page.tsx                 # Chat - inline components
+│   ├── explore/page.tsx              # Explorer - sidebar + dashboard
 │   └── interactables/                # Demo page
 ├── components/
 │   ├── tambo/                        # AI-driven components (14 files)
@@ -220,7 +220,7 @@ src/
 
 ---
 
-## Data Flow — The queryId Pattern
+## Data Flow - The queryId Pattern
 
 The core innovation: AI never sees the data. Only a tiny `queryId` string (~10 tokens) bridges the LLM and components.
 
@@ -383,19 +383,19 @@ flowchart TB
     end
 
     subgraph Interactable_Components["Interactable (AI updates at runtime)"]
-        I_Map[GeoMap — zoom, pitch, colors]
-        I_Graph[Graph — chartType, axes]
-        I_Table[DataTable — visibleColumns]
-        I_Objex[ObjexViewer — url, title]
+        I_Map[GeoMap - zoom, pitch, colors]
+        I_Graph[Graph - chartType, axes]
+        I_Table[DataTable - visibleColumns]
+        I_Objex[ObjexViewer - url, title]
     end
 
     subgraph Static_Components["Static (AI sends all props)"]
-        S_Stats[StatsCard — value, trend]
-        S_Grid[StatsGrid — stats array]
-        S_Insight[InsightCard — severity, details]
-        S_Dataset[DatasetCard — columns, h3Res]
-        S_Query[QueryDisplay — sql, duration]
-        S_Data[DataCard — options list]
+        S_Stats[StatsCard - value, trend]
+        S_Grid[StatsGrid - stats array]
+        S_Insight[InsightCard - severity, details]
+        S_Dataset[DatasetCard - columns, h3Res]
+        S_Query[QueryDisplay - sql, duration]
+        S_Data[DataCard - options list]
     end
 ```
 
@@ -412,7 +412,7 @@ flowchart TD
     SameData -->|No| CreateNew
 
     CreateNew --> Note1["Previous viz stays visible<br/>for comparison"]
-    Update --> Note2["NEVER change queryId<br/>via update — won't re-render"]
+    Update --> Note2["NEVER change queryId<br/>via update, won't re-render"]
 ```
 
 ---
@@ -735,12 +735,12 @@ sequenceDiagram
     Registry->>WTI: Mount wrapper
     WTI->>Comp: Pass props + ref
 
-    Note over AI,Comp: Later — AI updates props
+    Note over AI,Comp: Later, AI updates props
 
     AI->>Registry: update_component_props({ zoom: 14 })
     Registry->>WTI: Merge new props
     WTI->>Comp: Re-render with merged props
-    Note over Comp: No remount — same instance
+    Note over Comp: No remount, same instance
 
     Note over WTI: CRITICAL RULES:<br/>1. No useTamboComponentState inside<br/>2. No setState in render body<br/>3. Never change queryId via update
 ```
@@ -848,9 +848,9 @@ flowchart TB
     end
 
     subgraph Render["3. Render (mandatory components)"]
-        RMap["GeoMap — area snapshot<br/>temperature/wind heatmap"]
-        RGraph["Graph — 5-day timeline<br/>line chart (temp, precip, wind)"]
-        RTable["DataTable — all timesteps<br/>detailed values"]
+        RMap["GeoMap - area snapshot<br/>temperature/wind heatmap"]
+        RGraph["Graph - 5-day timeline<br/>line chart (temp, precip, wind)"]
+        RTable["DataTable - all timesteps<br/>detailed values"]
     end
 
     Resolution --> Step0
@@ -869,8 +869,8 @@ Each Parquet file = ONE forecast run:
 ├── All H3 cells at the chosen resolution
 └── 24 weather variables per cell per timestamp
 
-DO NOT build URLs for future dates — only the latest run exists.
-Precip values can be negative (model artifact) — always GREATEST(val, 0).
+DO NOT build URLs for future dates. Only the latest run exists.
+Precip values can be negative (model artifact). Always GREATEST(val, 0).
 ```
 
 ---
@@ -948,7 +948,7 @@ sequenceDiagram
     DB-->>Store: Result with wkbArrays
     Store-->>AI: queryId
 
-    AI->>AI: GeoMap(queryId) — auto-renders geometry
+    AI->>AI: GeoMap(queryId), auto-renders geometry
 ```
 
 ---
@@ -1140,7 +1140,7 @@ flowchart TB
 | **DuckDB-WASM** | Full SQL engine in browser = no backend, instant queries, privacy (data never leaves browser) |
 | **GeoArrow zero-copy** | Typed arrays from DuckDB → GPU buffers with no JS intermediary = 60fps map rendering |
 | **H3/A5 grid indexing** | All datasets share h3_index = trivial cross-dataset joins at any resolution |
-| **Geometry auto-detection** | Users just write `SELECT *` — system handles WKB extraction, centroid injection, and map rendering |
+| **Geometry auto-detection** | Users just write `SELECT *`. System handles WKB extraction, centroid injection, and map rendering |
 | **CSS variables for theming** | Single source of truth for colors. No `dark:` variants needed in component code |
 | **readStorage/writeStorage** | Centralized error handling. Pure SPA = no SSR guards needed |
 | **All panels full-width** | Simpler layout, better readability. Maps get 640px height, charts/tables get 400px |

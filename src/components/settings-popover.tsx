@@ -1,5 +1,5 @@
 /**
- * Settings popover — gear icon button that opens a compact settings panel.
+ * Settings popover - gear icon button that opens a compact settings panel.
  * Contains theme toggle, cross-filter toggle, and query limit (presets + custom input).
  */
 
@@ -49,7 +49,7 @@ function CrossFilterControl() {
         }`}
       >
         {enabled ? <Link2 className="w-3.5 h-3.5 shrink-0" /> : <Link2Off className="w-3.5 h-3.5 shrink-0" />}
-        <span>{enabled ? "Linked — map filters chart & table" : "Off — components independent"}</span>
+        <span>{enabled ? "Linked - map filters chart & table" : "Off - components independent"}</span>
       </button>
     </div>
   );

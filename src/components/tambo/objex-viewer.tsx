@@ -44,7 +44,7 @@ export const ObjexViewer = React.forwardRef<HTMLDivElement, ObjexViewerProps>(({
         expanded ? "fixed inset-4 z-50" : inPanel ? "h-full" : "h-[480px]",
       )}
     >
-      {/* Header — hidden in dashboard panels (panel already has its own title bar) */}
+      {/* Header - hidden in dashboard panels (panel already has its own title bar) */}
       {title && !inPanel && (
         <div className="px-4 py-2 border-b bg-muted/30 flex items-center justify-between flex-shrink-0">
           <h3 className="text-sm font-semibold text-foreground truncate">{title}</h3>
@@ -85,7 +85,7 @@ export const ObjexViewer = React.forwardRef<HTMLDivElement, ObjexViewerProps>(({
 });
 ObjexViewer.displayName = "ObjexViewer";
 
-/** Interactable ObjexViewer — AI can update url, title at runtime */
+/** Interactable ObjexViewer - AI can update url, title at runtime */
 export const InteractableObjexViewer = withTamboInteractable(ObjexViewer, {
   componentName: "ObjexViewer",
   description:

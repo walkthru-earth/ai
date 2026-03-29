@@ -5,7 +5,7 @@ import { basePath } from "@/lib/utils";
 
 let initialized = false;
 
-/** Initialize PostHog — call once in the root layout or provider. */
+/** Initialize PostHog - call once in the root layout or provider. */
 export function initPostHog() {
   if (initialized || typeof window === "undefined") return;
   const key = import.meta.env.VITE_POSTHOG_KEY;
@@ -16,13 +16,13 @@ export function initPostHog() {
     person_profiles: "identified_only",
     capture_pageview: false,
     capture_pageleave: true,
-    persistence: "memory", // Cookieless by default — privacy-first
+    persistence: "memory", // Cookieless by default - privacy-first
     opt_out_capturing_by_default: false,
   });
   initialized = true;
 }
 
-/** Track page views — use as a component in the layout. */
+/** Track page views - use as a component in the layout. */
 export function PostHogPageView(): null {
   const { pathname, search } = useLocation();
 

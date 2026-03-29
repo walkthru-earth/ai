@@ -132,7 +132,7 @@
     font-weight: 500;
     letter-spacing: -0.01em;
   }
-  /* Force Quicksand on all elements — prevents Tambo/library components from resetting to browser default */
+  /* Force Quicksand on all elements - prevents Tambo/library components from resetting to browser default */
   *,
   *::before,
   *::after {

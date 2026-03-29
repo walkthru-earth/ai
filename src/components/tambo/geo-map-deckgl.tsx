@@ -140,7 +140,7 @@ export function valueToColor(
   scheme: ColorScheme = "blue-red",
 ): [number, number, number, number] {
   const stops = SCHEMES[scheme] ?? SCHEMES["blue-red"];
-  // Guard against NaN/undefined values — fall back to midpoint color
+  // Guard against NaN/undefined values - fall back to midpoint color
   if (!Number.isFinite(v) || !Number.isFinite(min) || !Number.isFinite(max)) {
     const mid = stops[Math.floor(stops.length / 2)];
     return [mid[0], mid[1], mid[2], 200];
@@ -214,7 +214,7 @@ function wrapFloat64(arr: ArrayLike<any>) {
  */
 function buildPointGeomVector(latArr: ArrayLike<any>, lngArr: ArrayLike<any>) {
   const len = Math.min(latArr.length, lngArr.length);
-  // Interleave [lng0, lat0, lng1, lat1, ...] — one typed array allocation
+  // Interleave [lng0, lat0, lng1, lat1, ...] - one typed array allocation
   const coords = new Float64Array(len * 2);
   for (let i = 0; i < len; i++) {
     coords[i * 2] = Number(lngArr[i]); // x = longitude
@@ -303,11 +303,11 @@ function canUseGeoArrow(config: LayerConfig): boolean {
       return (lat in cols && lng in cols) || hasIPC;
     }
     case "h3":
-      // H3 uses standard H3HexagonLayer — GeoArrowH3HexagonLayer is experimental and unreliable.
+      // H3 uses standard H3HexagonLayer - GeoArrowH3HexagonLayer is experimental and unreliable.
       // deck.gl generates hexagon polygons from hex strings internally, no GeoArrow benefit.
       return false;
     case "a5":
-      // A5 uses deck.gl A5Layer — generates pentagon polygons from cell IDs on GPU.
+      // A5 uses deck.gl A5Layer - generates pentagon polygons from cell IDs on GPU.
       return false;
     case "arc": {
       const sLat = mapping.sourceLatColumn ?? "source_lat";
@@ -699,7 +699,7 @@ function buildLayers(
               }
             }
           } else {
-            // Standard GeoJSON layer (fallback — parsed geometry)
+            // Standard GeoJSON layer (fallback - parsed geometry)
             result.push(
               new GeoJsonLayer<any>({
                 id: `geojson-${layerId}`,
@@ -828,7 +828,7 @@ function buildLayers(
 /* ── Tooltip formatting ─────────────────────────────────────────── */
 
 function formatTooltipValue(val: unknown): string {
-  if (val == null) return "—";
+  if (val == null) return "-";
   if (typeof val === "number") {
     if (Number.isInteger(val) && Math.abs(val) >= 1000) return val.toLocaleString();
     if (!Number.isInteger(val)) return val.toLocaleString(undefined, { maximumFractionDigits: 4 });
@@ -969,7 +969,7 @@ export default function DeckGLMap({
     // Suppress MapLibre internal errors (e.g. migrateProjection race during style load)
     map.on("error", (e: maplibregl.ErrorEvent) => {
       if (e.error?.message?.includes("projection") || e.error?.message?.includes("this.style")) {
-        return; // Known race condition in MapLibre v5 — safe to ignore
+        return; // Known race condition in MapLibre v5 - safe to ignore
       }
       console.warn("[MapLibre]", e.error?.message);
     });
@@ -981,7 +981,7 @@ export default function DeckGLMap({
         // Apply layers only after map viewport is ready
         overlay.setProps({ layers });
       } catch {
-        /* MapLibre internal race — controls will be added on next render */
+        /* MapLibre internal race - controls will be added on next render */
       }
     });
 
@@ -1032,7 +1032,7 @@ export default function DeckGLMap({
   const layersRef = useRef(layers);
   layersRef.current = layers;
   useEffect(() => {
-    // Skip the first run — the constructor already set the correct initial style.
+    // Skip the first run - the constructor already set the correct initial style.
     // Running setStyle (or registering a load handler that calls setStyle) during
     // the initial style load causes a MapLibre race: migrateProjection accesses
     // map.style before it is assigned, crashing with "this.style is undefined".
@@ -1052,7 +1052,7 @@ export default function DeckGLMap({
         try {
           map.setStyle(newStyle);
         } catch {
-          /* MapLibre internal race — style will load on next theme change */
+          /* MapLibre internal race - style will load on next theme change */
         }
       });
       return;
@@ -1060,7 +1060,7 @@ export default function DeckGLMap({
     try {
       map.setStyle(newStyle);
     } catch {
-      /* MapLibre internal race — style will load on next theme change */
+      /* MapLibre internal race - style will load on next theme change */
     }
     map.once("styledata", () => {
       if (overlayRef.current) {

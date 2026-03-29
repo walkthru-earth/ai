@@ -1,5 +1,5 @@
 /**
- * Tool registry — aggregates all tool registrations.
+ * Tool registry - aggregates all tool registrations.
  * To add a new tool: create a file in this directory, import and add here.
  */
 

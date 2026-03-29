@@ -1,8 +1,8 @@
 /**
- * DuckDB-WASM service — runs SQL against remote Parquet in-browser.
+ * DuckDB-WASM service - runs SQL against remote Parquet in-browser.
  *
  * The runSQL tool returns a queryId (not row data) to the LLM.
- * Map components read data directly from the query store — zero tokens wasted.
+ * Map components read data directly from the query store, zero tokens wasted.
  *
  * Features:
  * - Automatic retry on chunk load failure (up to 3 attempts)
@@ -71,7 +71,7 @@ async function initDuckDB(): Promise<any> {
             "SET GLOBAL s3_region = 'us-west-2'",
             "SET GLOBAL s3_url_style = 'path'",
             "SET GLOBAL geometry_always_xy = true",
-            // Disable auto GeoParquet→GEOMETRY conversion — triggers stoi crash in WASM on some files.
+            // Disable auto GeoParquet→GEOMETRY conversion - triggers stoi crash in WASM on some files.
             // Our detectGeometryColumns + wrapSqlForGeometry handles geometry extraction instead.
             // Must be GLOBAL so it persists across connections (runQuery opens new connections).
             "SET GLOBAL enable_geoparquet_conversion = false",
@@ -119,7 +119,7 @@ async function initDuckDB(): Promise<any> {
       }
     }
 
-    // All retries exhausted — reset so next call can retry fresh
+    // All retries exhausted - reset so next call can retry fresh
     initPromise = null;
     throw new Error(
       `DuckDB failed to initialize after ${MAX_INIT_RETRIES} attempts: ${lastError?.message ?? "unknown error"}. ` +
@@ -131,7 +131,7 @@ async function initDuckDB(): Promise<any> {
 }
 
 /**
- * Preload DuckDB — call early so it's warm before the first query.
+ * Preload DuckDB - call early so it's warm before the first query.
  * Returns true on success, false on failure (non-blocking).
  */
 export async function preloadDuckDB(): Promise<boolean> {
@@ -166,7 +166,7 @@ export async function registerRemoteJSON(url: string, name: string): Promise<str
   return virtualPath;
 }
 
-/** Convert Arrow values to plain JS — handles BigInt, Uint8Array, Struct, List, nested objects. */
+/** Convert Arrow values to plain JS - handles BigInt, Uint8Array, Struct, List, nested objects. */
 function arrowToJs(val: unknown): unknown {
   if (val == null) return null;
   if (typeof val === "bigint") return Number(val);
@@ -185,7 +185,7 @@ function arrowToJs(val: unknown): unknown {
     }
     return arrowToJs(obj);
   }
-  // Plain object (e.g. from nested struct without toJSON) — recurse
+  // Plain object (e.g. from nested struct without toJSON) - recurse
   if (val && typeof val === "object" && val.constructor === Object) {
     const out: Record<string, unknown> = {};
     for (const [k, v] of Object.entries(val)) {
@@ -207,7 +207,7 @@ function cleanSql(raw: string): string | null {
       return !upper.startsWith("INSTALL") && !upper.startsWith("LOAD") && !upper.startsWith("SET ");
     });
   if (statements.length === 0) return null;
-  // Strip any trailing semicolons — DuckDB-WASM parser treats them as empty second statement
+  // Strip any trailing semicolons - DuckDB-WASM parser treats them as empty second statement
   const last = statements[statements.length - 1].replace(/;+\s*$/, "").trim();
   return last || null;
 }
@@ -226,9 +226,9 @@ interface GeomDetection {
  * Detect geometry columns via DESCRIBE. Checks two paths:
  * 1. Native GEOMETRY type (v1.5+: GEOMETRY, GEOMETRY('EPSG:4326'), etc.)
  * 2. WKB BLOB columns with well-known geo names (geom, geometry, shape, etc.)
- *    — needed when enable_geoparquet_conversion=false (avoids WASM stoi crash)
+ *    - needed when enable_geoparquet_conversion=false (avoids WASM stoi crash)
  *
- * DESCRIBE reads Parquet metadata (no data scan) — fast even for remote files.
+ * DESCRIBE reads Parquet metadata (no data scan) - fast even for remote files.
  */
 async function detectGeometryColumns(conn: any, sql: string): Promise<GeomDetection | null> {
   try {
@@ -300,7 +300,7 @@ function wrapSqlForGeometry(
   // For native GEOMETRY: ST_AsWKB converts to standard WKB. For BLOB: data is already WKB.
   const wkbExpr = isNativeGeometry ? `ST_AsWKB("${geomColumn}")` : `"${geomColumn}"`;
 
-  // EXCLUDE native GEOMETRY columns from __src.* — DuckDB-WASM can't convert GEOMETRY to Arrow
+  // EXCLUDE native GEOMETRY columns from __src.* - DuckDB-WASM can't convert GEOMETRY to Arrow
   // ("Unsupported type in DuckDB -> Arrow Conversion: GEOMETRY"). The WKB version (__geo_wkb)
   // is Arrow-compatible and used for rendering instead.
   const excludeGeom = isNativeGeometry ? ` EXCLUDE ("${geomColumn}")` : "";
@@ -339,8 +339,8 @@ export async function runQuery(input: { sql: string } | string): Promise<{
   const start = performance.now();
 
   try {
-    // Auto-detect GEOMETRY/WKB columns (fast DESCRIBE — reads Parquet metadata only).
-    // Skip for non-SELECT statements (DESCRIBE, EXPLAIN, etc.) — wrapping them makes no sense.
+    // Auto-detect GEOMETRY/WKB columns (fast DESCRIBE - reads Parquet metadata only).
+    // Skip for non-SELECT statements (DESCRIBE, EXPLAIN, etc.) - wrapping them makes no sense.
     const sqlUpper = sql.trimStart().toUpperCase();
     const isSelectQuery = sqlUpper.startsWith("SELECT") || sqlUpper.startsWith("WITH") || sqlUpper.startsWith("FROM");
     const geomInfo = isSelectQuery ? await detectGeometryColumns(conn, sql) : null;
@@ -371,14 +371,14 @@ export async function runQuery(input: { sql: string } | string): Promise<{
         for (let i = 0; i < numRows; i++) {
           const val = wkbVec.get(i);
           if (val instanceof Uint8Array) {
-            wkbs.push(val.slice()); // copy — DuckDB may invalidate buffer
+            wkbs.push(val.slice()); // copy - DuckDB may invalidate buffer
           }
         }
         if (wkbs.length > 0) wkbArrays = wkbs;
       }
     }
 
-    // Public columns — strip internal geo columns
+    // Public columns - strip internal geo columns
     const columns = rawColumns.filter((c) => !stripCols.has(c));
 
     // Convert Arrow → plain JS objects (once, stored client-side)
@@ -438,11 +438,11 @@ export async function runQuery(input: { sql: string } | string): Promise<{
 
     // Return only metadata + 3 sample rows to the LLM (saves tokens!)
     // When geometry was auto-detected, tell the AI so it doesn't try to reference
-    // synthetic lat/lng columns in follow-up SQL — they only exist in the wrapped result.
+    // synthetic lat/lng columns in follow-up SQL - they only exist in the wrapped result.
     const geometryNote = geomColumn
       ? `CRITICAL: "lat" and "lng" columns were AUTO-GENERATED from geometry column "${geomColumn}" (${isNativeGeometry ? "GEOMETRY" : "WKB BLOB"}). ` +
-        `They do NOT exist in the raw Parquet file. NEVER SELECT lat/lng directly — they will cause "column not found" errors. ` +
-        `For follow-up queries: (1) Use SELECT * — the system re-generates lat/lng automatically. ` +
+        `They do NOT exist in the raw Parquet file. NEVER SELECT lat/lng directly - they will cause "column not found" errors. ` +
+        `For follow-up queries: (1) Use SELECT * - the system re-generates lat/lng automatically. ` +
         `(2) To pick specific columns: SELECT * EXCLUDE (unwanted_col1, unwanted_col2) FROM file. ` +
         `(3) To add computed columns: SELECT *, my_expr AS alias FROM (SELECT * FROM file LIMIT 500). ` +
         `(4) For direct geometry access: ST_Y(ST_GeomFromWKB("${geomColumn}")) for lat, ST_X(ST_GeomFromWKB("${geomColumn}")) for lng.`
@@ -457,7 +457,7 @@ export async function runQuery(input: { sql: string } | string): Promise<{
       ...(geometryNote && { geometryNote }),
     };
   } catch (error: any) {
-    // DuckDB-WASM can't convert GEOMETRY to Arrow — retry with GEOMETRY columns cast to WKB.
+    // DuckDB-WASM can't convert GEOMETRY to Arrow - retry with GEOMETRY columns cast to WKB.
     // This catches cases where geometry slipped through (e.g. detection missed it).
     const msg = error?.message ?? String(error);
     if (msg.includes("Unsupported type") && msg.includes("GEOMETRY")) {
@@ -550,12 +550,12 @@ export async function runQuery(input: { sql: string } | string): Promise<{
               sampleRows: publicRows.slice(0, 3),
               geometryNote:
                 `Geometry column "${geomCols[0]}" was converted to WKB for rendering. ` +
-                `Use SELECT * for follow-up queries — lat/lng are synthetic.`,
+                `Use SELECT * for follow-up queries - lat/lng are synthetic.`,
             };
           }
         }
       } catch {
-        /* fallback failed — throw original error */
+        /* fallback failed - throw original error */
       }
     }
     throw new Error(`DuckDB query error: ${msg}`);

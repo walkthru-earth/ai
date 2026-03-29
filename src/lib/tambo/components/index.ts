@@ -1,5 +1,5 @@
 /**
- * Component registry — aggregates all component registrations.
+ * Component registry - aggregates all component registrations.
  * To add a new component: create/edit a file in this directory, import and add here.
  */
 

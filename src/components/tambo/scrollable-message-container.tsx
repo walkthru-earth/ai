@@ -67,7 +67,7 @@ export const ScrollableMessageContainer = React.forwardRef<HTMLDivElement, Scrol
       );
     }, []);
 
-    // Handle scroll events — detect user taking control vs being at bottom
+    // Handle scroll events - detect user taking control vs being at bottom
     const handleScroll = useCallback(() => {
       // Ignore scroll events caused by our own programmatic scrollTo
       if (programmaticScrollRef.current) return;
@@ -101,7 +101,7 @@ export const ScrollableMessageContainer = React.forwardRef<HTMLDivElement, Scrol
       prevMessageCountRef.current = count;
     }, [messages?.length, scrollToBottom]);
 
-    // Auto-scroll during streaming — use rAF loop for smooth tracking
+    // Auto-scroll during streaming - use rAF loop for smooth tracking
     useEffect(() => {
       if (!isStreaming || !stickToBottomRef.current) {
         cancelAnimationFrame(rafRef.current);

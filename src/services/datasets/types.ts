@@ -18,7 +18,7 @@ export interface DatasetDefinition {
   category: DatasetCategory;
 }
 
-/** Output from listDatasets — same as DatasetDefinition but without columnDescriptions for token efficiency. */
+/** Output from listDatasets - same as DatasetDefinition but without columnDescriptions for token efficiency. */
 export interface DatasetInfo {
   id: string;
   name: string;
