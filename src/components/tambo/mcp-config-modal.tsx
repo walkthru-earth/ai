@@ -154,7 +154,7 @@ MCP servers must be accessible from the browser via **HTTP** or **SSE** transpor
 
 #### Quick start with mcp-proxy
 
-[mcp-proxy](https://github.com/punkpeye/mcp-proxy) wraps any stdio MCP server as both HTTP and SSE. CORS is enabled by default.
+[mcp-proxy](https://www.npmjs.com/package/mcp-proxy) wraps any stdio MCP server as both HTTP and SSE. CORS is enabled by default.
 
 \`\`\`bash
 # Web fetch server
