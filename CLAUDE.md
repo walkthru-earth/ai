@@ -131,9 +131,9 @@ S3 base: `https://s3.us-west-2.amazonaws.com/us-west-2.opendata.source.coop/walk
 - **No `!important`**: use JS conditionals instead
 - Semantic classes: `text-destructive` not `text-red-500`, `text-primary` not `text-blue-500`
 
-## Tambo SDK (v1.2.2) - Bidirectional AI Components
+## Tambo SDK (v1.2.4) - Bidirectional AI Components
 
-Config in `src/lib/tambo/` (modular directory). All pages spread `tamboProviderConfig` (apiKey, components, tools, tamboUrl). Shared `buildContextHelpers(geo)` provides AI with user theme, geo-IP location, and pre-computed H3 cells. `buildInitialSuggestions(geo)` generates personalized suggestion chips.
+Config in `src/lib/tambo/` (modular directory). All pages spread `tamboProviderConfig` (apiKey, components, tools, tamboUrl). Both `/chat` and `/explore` wrap children with `<TamboMcpProvider>` (from `@tambo-ai/react/mcp`) inside `<TamboProvider>` for MCP hooks (elicitation, prompts, resources). Both pages pass `mcpServers` from `useMcpServers()` (localStorage-backed). Shared `buildContextHelpers(geo)` provides AI with user theme, geo-IP location, and pre-computed H3 cells. `buildInitialSuggestions(geo)` generates personalized suggestion chips.
 
 ### Modular Architecture (`src/lib/tambo/`)
 
@@ -332,6 +332,7 @@ Packages: `@geoarrow/deck.gl-layers@0.3.1`, `@walkthru-earth/objex-utils@1.1.0`,
 - Theme: system detection on first visit, settings popover cycles Dark/Light/System
 - Map basemap: CARTO Dark Matter / Positron. Always forced to `auto` (follows user's theme via MutationObserver). AI basemap prop is ignored, theme is user-controlled via settings.
 - **Thread delete**: Available in thread history dropdown (Trash icon + inline confirmation). Uses `client.threads.delete(threadId, { userKey })`. Switches to new thread if current was deleted.
+- **Thread rename**: Inline edit in thread history dropdown (Pencil icon). Uses `client.threads.update(threadId, { userKey, name })`. Refetches list on success.
 - Thread URLs: `?thread=threadId` only for real IDs (prefix `thr_`)
 - Plain `<textarea>` for all text input (no TipTap/rich-text)
 - AI must NEVER render checkboxes or selectable lists. Users cannot submit selections. Use DatasetCard components + auto-submitting suggestion chips instead.

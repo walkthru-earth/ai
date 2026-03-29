@@ -1,5 +1,6 @@
 import type { Suggestion } from "@tambo-ai/react";
 import { TamboProvider, useTambo } from "@tambo-ai/react";
+import { TamboMcpProvider } from "@tambo-ai/react/mcp";
 import { Sparkles } from "lucide-react";
 import { SettingsButton } from "@/components/settings-popover";
 import { useMcpServers } from "@/components/tambo/mcp-config-modal";
@@ -38,7 +39,9 @@ export default function Chat() {
 
   return (
     <TamboProvider {...tamboProviderConfig} mcpServers={mcpServers} userKey={userKey} contextHelpers={contextHelpers}>
-      <ChatInner suggestions={suggestions} />
+      <TamboMcpProvider>
+        <ChatInner suggestions={suggestions} />
+      </TamboMcpProvider>
     </TamboProvider>
   );
 }

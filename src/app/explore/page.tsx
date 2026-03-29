@@ -1,9 +1,11 @@
 import type { Suggestion } from "@tambo-ai/react";
 import { TamboProvider, useTambo, useTamboThreadList } from "@tambo-ai/react";
+import { TamboMcpProvider } from "@tambo-ai/react/mcp";
 import { ChevronDown, ChevronLeft, ChevronRight, Clock, MessageSquare, Plus, Share2, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SettingsButton } from "@/components/settings-popover";
 import { DashboardCanvas } from "@/components/tambo/dashboard-canvas";
+import { useMcpServers } from "@/components/tambo/mcp-config-modal";
 import {
   MessageInput,
   MessageInputError,
@@ -419,10 +421,13 @@ function ExplorerLayout({ suggestions: defaultSuggestions }: { suggestions: Sugg
 
 export default function ExplorePage() {
   const { userKey, contextHelpers, suggestions } = usePageBootstrap();
+  const mcpServers = useMcpServers();
 
   return (
-    <TamboProvider {...tamboProviderConfig} userKey={userKey} contextHelpers={contextHelpers}>
-      <ExplorerLayout suggestions={suggestions} />
+    <TamboProvider {...tamboProviderConfig} mcpServers={mcpServers} userKey={userKey} contextHelpers={contextHelpers}>
+      <TamboMcpProvider>
+        <ExplorerLayout suggestions={suggestions} />
+      </TamboMcpProvider>
     </TamboProvider>
   );
 }

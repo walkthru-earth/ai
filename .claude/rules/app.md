@@ -16,6 +16,7 @@ Tailwind v4 theme variables (light + dark). Brand colors: earth-blue, earth-cyan
 ## `explore/page.tsx` (main UI)
 
 - TamboProvider with shared `buildContextHelpers(geo)` + `buildInitialSuggestions(geo)` from `@/lib/tambo`
+- `useMcpServers()` passes MCP server config to TamboProvider, `<TamboMcpProvider>` wraps children for MCP hooks
 - `useGeoIP()` provides user location + H3 cells for personalized context and suggestions
 - MobileBottomSheet: swipeable drawer, auto-expand on send, auto-collapse on dashboard render
 - SessionHistory: thread list with auto-names, new thread button
@@ -25,8 +26,8 @@ Tailwind v4 theme variables (light + dark). Brand colors: earth-blue, earth-cyan
 
 ## `chat/page.tsx`
 
-- `ChatInner` inside TamboProvider. `useTambo()` for messages, `useReplayQueries()` for thread restore
-- Shared `buildContextHelpers(geo)` + `buildInitialSuggestions(geo)` for AI context and suggestions
+- `ChatInner` inside TamboProvider + `TamboMcpProvider`. `useTambo()` for messages, `useReplayQueries()` for thread restore
+- `useMcpServers()` passes MCP servers, shared `buildContextHelpers(geo)` + `buildInitialSuggestions(geo)` for AI context
 - `MessageThreadFull` with `initialSuggestions` prop for geo-personalized chips
 - `<SettingsButton />` in header for theme, cross-filter, query limit
 - GeoMap renders at `h-[420px]` inline (no dashboard panels)
