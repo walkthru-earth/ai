@@ -150,38 +150,40 @@ export const McpConfigModal = ({
   const instructions = `
 ###
 
-After configuring your MCP servers below, integrate them into your application.
+MCP servers must be accessible from the browser via **HTTP** or **SSE** transport. Most MCP servers run over stdio, so you need a proxy to expose them as HTTP/SSE.
 
-#### 1. Import the required hook
+#### Quick start with mcp-proxy
 
-\`\`\`tsx
-import { useMcpServers } from "@/components/tambo/mcp-config-modal";
+[mcp-proxy](https://github.com/punkpeye/mcp-proxy) wraps any stdio MCP server as both HTTP and SSE. CORS is enabled by default.
+
+\`\`\`bash
+# Web fetch server
+npx mcp-proxy --port 8080 -- npx -y @modelcontextprotocol/server-fetch
+
+# Filesystem server
+npx mcp-proxy --port 8081 -- npx -y @modelcontextprotocol/server-filesystem /tmp
+
+# Memory (knowledge graph) server
+npx mcp-proxy --port 8082 -- npx -y @modelcontextprotocol/server-memory
 \`\`\`
 
-#### 2. Load MCP servers and pass to TamboProvider:
+Then add the server URL below:
+- **HTTP** (recommended): \`http://localhost:8080/mcp\`
+- **SSE** (legacy): \`http://localhost:8080/sse\`
 
-\`\`\`tsx
-const mcpServers = useMcpServers();
+#### Alternative: supergateway
+
+\`\`\`bash
+npx -y supergateway \\
+  --stdio "npx -y @modelcontextprotocol/server-fetch" \\
+  --port 8080 --cors --outputTransport streamableHttp
 \`\`\`
 
-#### 3. Example implementation:
+URL: \`http://localhost:8080/mcp\` with **HTTP** transport.
 
-\`\`\`tsx
-function MyApp() {
-  const mcpServers = useMcpServers(); // Reactive - updates when servers change
+#### Remote MCP servers
 
-  return (
-    <TamboProvider
-      apiKey={apiKey}
-      components={components}
-      tools={tools}
-      mcpServers={mcpServers}
-    >
-      {/* Your app components */}
-    </TamboProvider>
-  );
-}
-\`\`\`
+If a server already supports HTTP/SSE (e.g. hosted services), enter its URL directly. No proxy needed. Make sure the server allows CORS requests from your domain, otherwise the browser will block the connection.
 `;
 
   const modalContent = (
