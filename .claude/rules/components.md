@@ -33,7 +33,9 @@ paths:
 
 **H3Map** (`h3-map.tsx`): Backward-compat alias → `GeoMap` with `layerType="h3"`.
 
-**Graph** (`graph.tsx`): queryId + xColumn + yColumns + chartType + xLabel + yLabel → Recharts. 10 chart types: bar, line, area, pie, scatter, radar, radialBar, treemap, composed (bar+line overlay), funnel. Cross-filter consume/emit. AI can update chartType, axes, labels at runtime. Y-axis auto-formats (5000→5k). Long labels truncated with SVG `<title>` hover. Legend renders at top. Always set xLabel/yLabel.
+**Graph** (`graph.tsx`): queryId + xColumn + yColumns + chartType + xLabel + yLabel → Recharts. 10 chart types: bar, line, area, pie, scatter, radar, radialBar, treemap, composed (bar+line overlay), funnel. Cross-filter consume/emit. AI can update chartType, axes, labels at runtime. Y-axis auto-formats (5000→5k). Long labels truncated with SVG `<title>` hover. Legend renders at top. Always set xLabel/yLabel. Consumes time filter: shows reference line at current timestamp.
+
+**TimeSlider** (`time-slider.tsx`): queryId + timestampColumn (default `time_label`) → extracts unique sorted timestamps from query result. Play/pause/prev/next controls with custom slider. Auto-converts UTC timestamps to user's local timezone via `formatLocal()`. Emits `TimeFilter` via `setTimeFilter()` on index change, clears on unmount. Cross-filters GeoMap (spatial snapshot at selected timestamp) + Graph (reference line). Props: `queryId`, `timestampColumn`, `title`, `autoplay`, `intervalMs`, `timezone`. Prevents pointer events from bubbling (drag handlers). Mandatory for weather forecast patterns (render GeoMap + TimeSlider + Graph + DataTable in one response). Wrapped with `withTamboInteractable`.
 
 **DataTable** (`data-table.tsx`): queryId → auto-derive cols/rows. Paginated 20/page. Cross-filter consume/emit. AI can update visibleColumns, title at runtime. Click row → expands action bar: **Zoom to record** (flies map to row's lat/lng or H3 hex centroid via `requestFlyTo()`) + **Copy record** (JSON to clipboard). Expanded row collapses on re-click or page change.
 

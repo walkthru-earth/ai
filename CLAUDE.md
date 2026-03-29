@@ -29,7 +29,7 @@ pnpm lint:fix     # biome auto-fix
 
 **Geometry auto-detection**: `runQuery()` auto-detects geometry columns via `DESCRIBE` (fast, metadata-only). Two paths: (1) native GEOMETRY type → `ST_AsWKB` + `ST_Centroid`, (2) WKB BLOB with well-known column name (geom, geometry, shape, etc.) → `ST_GeomFromWKB` + direct WKB passthrough. `enable_geoparquet_conversion = false` in init prevents WASM `stoi` crash on some GeoParquet files, our wrapping handles geometry instead. WKB arrays stored in query-store → GeoArrow zero-copy rendering. AI just writes `SELECT * FROM parquet_file`. **Synthetic lat/lng**: When geometry is auto-detected, `lat`/`lng` columns are injected into results, they do NOT exist in the raw Parquet file. `runQuery` returns a `geometryNote` field explaining which column holds the actual geometry. AI must use `SELECT *` (auto-wrapping re-generates lat/lng). Never reference `lat`/`lng` directly on the raw file.
 
-**Cross-filter bus**: Lightweight pub/sub in `query-store.ts`. Components emit/consume `bbox` (map viewport) and `value` (click) filters. Requires shared `queryId` + `hex`/`pentagon` column.
+**Cross-filter bus**: Lightweight pub/sub in `query-store.ts`. Components emit/consume `bbox` (map viewport) and `value` (click) filters. Requires shared `queryId` + `hex`/`pentagon` column. **Time filter bus**: `setTimeFilter()` / `useTimeFilter()` / `applyTimeFilter()` for timestamp-based cross-filtering (TimeSlider → GeoMap snapshot + Graph reference line). **Panel restore bus**: `requestRestorePanel()` / `consumeRestoreRequest()` / `useRestoreVersion()` for restoring dismissed panels.
 
 **Dashboard canvas**: Desktop = `react-grid-layout`, Touch = `@dnd-kit/sortable` (1.2s hold, grip-only drag). Panel IDs are deduplicated via `Set`. State persisted to localStorage per thread: panel order (`panel-order-${threadId}`), panel layouts/sizes (`panel-layouts-${threadId}`, debounced 500ms), dismissed panels (`panel-dismissed-${threadId}`). First panel and maps always full-width. Non-first/non-map panels pair in 2-column layout. `nonFullCount` counter tracks column position (resets after full-width panels). **Panel sizing**: `panelHeight()` returns grid rows per type: maps=10 (2× other panels), graphs=5, tables=5, QueryDisplay/InsightCard/DatasetCard=3, StatsGrid/StatsCard=2. Component name is read from Tambo's `content.name` (SDK field), NOT `content.componentName`. Maps are forced to minimum `panelHeight()` even when saved layouts exist. `isCompactComponent()` identifies StatsGrid/StatsCard/InsightCard/DatasetCard/QueryDisplay/DataCard. These get `h-auto` on touch.
 
@@ -146,13 +146,14 @@ src/lib/tambo/
 │   ├── dataset-tools.ts      # listDatasets + buildParquetUrl + describeDataset
 │   ├── cross-index.ts        # getCrossIndex - 11 cross-dataset analyses
 │   ├── suggest.ts            # suggestAnalysis - NL keyword routing
-│   ├── arcgis.ts             # describeArcGISLayer - FeatureServer metadata + pre-load
+│   ├── arcgis.ts             # exploreArcGISService + describeArcGISLayer - smart FeatureServer discovery + pre-load
 │   └── dashboard.ts          # dismissPanels - clear all or specific panels by type/id
 ├── components/
 │   ├── index.ts              # Aggregates all components into TamboComponent[]
 │   ├── geo-map.ts            # GeoMap + H3Map (deck.gl map)
 │   ├── graph.ts              # Graph (10 chart types)
 │   ├── data-table.ts         # DataTable (paginated)
+│   ├── time-slider.ts        # TimeSlider (weather time playback + cross-filter)
 │   ├── objex-viewer.ts       # ObjexViewer (3D raster/point-cloud)
 │   └── static.ts             # StatsCard, StatsGrid, InsightCard, DatasetCard, QueryDisplay, DataCard
 ├── context/
@@ -234,9 +235,10 @@ export const InteractableMyComponent = withTamboInteractable(MyComponent, {
 
 | Component | AI Can Update | Data Source | Cross-Filter |
 |-----------|--------------|-------------|--------------|
-| **GeoMap** | latitude, longitude, zoom, pitch, bearing, colorScheme, extruded, layerType, layers[] | queryId → useQueryResult | Emits: hex/pentagon click, bbox. Consumes: bbox |
-| **Graph** | chartType, xColumn, yColumns, xLabel, yLabel | queryId → useQueryResult | Emits: bar click. Consumes: bbox (filters rows) |
+| **GeoMap** | latitude, longitude, zoom, pitch, bearing, colorScheme, extruded, layerType, layers[] | queryId → useQueryResult | Emits: hex/pentagon click, bbox. Consumes: bbox, time filter |
+| **Graph** | chartType, xColumn, yColumns, xLabel, yLabel | queryId → useQueryResult | Emits: bar click. Consumes: bbox (filters rows), time filter (reference line) |
 | **DataTable** | visibleColumns, title | queryId → useQueryResult | Emits: row click. Consumes: bbox |
+| **TimeSlider** | queryId, timestampColumn, title, autoplay, intervalMs, timezone | queryId → useQueryResult | Emits: time filter (timestamp index). Cross-filters GeoMap + Graph |
 
 ### Static Components (AI sends all props, no runtime updates)
 
@@ -321,12 +323,12 @@ Layer types: `h3`, `a5`, `scatterplot`, `geojson`, `arc`, `wkb` (native geometry
 
 **Auto-routing**: `detectLayerType()` checks column names: `pentagon`/`a5_cell`/`a5_index` → a5, `hex`/`h3_index` → h3, `source_lat`+`dest_lat` → arc, `lat`/`lng` → scatterplot, `geometry`/`geojson` → geojson. WKB path takes priority when `wkbArrays` present (geometry auto-detected). Spatial analysis results (ST_Buffer, ST_Intersects, spatial joins) produce native GEOMETRY → auto-rendered as polygon/line/point via zero-copy WKB path.
 
-Packages: `@geoarrow/deck.gl-layers@0.3.1`, `@walkthru-earth/objex-utils@1.0.0`, `apache-arrow@21.1.0`, `hyparquet@1.25.1`
+Packages: `@geoarrow/deck.gl-layers@0.3.1`, `@walkthru-earth/objex-utils@1.1.0`, `apache-arrow@21.1.0`, `hyparquet@1.25.1`
 
 ## Conventions
 
 - Never show "Tambo", "DuckDB", "H3", "Parquet", "deck.gl" in UI
-- **Settings**: Gear icon (`<SettingsButton />`) in both `/chat` and `/explore`, popover with theme toggle, cross-filter toggle, and query limit (presets: 500/5K/10K/50K + custom input 100-100000). Portal to `document.body` to avoid header backdrop-blur transparency. Settings stored in `settings-store.ts` (localStorage `walkthru-settings`).
+- **Settings**: Gear icon (`<SettingsButton />`) in both `/chat` and `/explore`, popover with theme toggle, cross-filter toggle, query limit (presets: 500/5K/10K/50K + custom input 100-100000), default H3 resolution (1-10, default 5), and default A5 resolution (3-15, default 7). Portal to `document.body` to avoid header backdrop-blur transparency. Settings stored in `settings-store.ts` (localStorage `walkthru-settings`).
 - Theme: system detection on first visit, settings popover cycles Dark/Light/System
 - Map basemap: CARTO Dark Matter / Positron. Always forced to `auto` (follows user's theme via MutationObserver). AI basemap prop is ignored, theme is user-controlled via settings.
 - **Thread delete**: Available in thread history dropdown (Trash icon + inline confirmation). Uses `client.threads.delete(threadId, { userKey })`. Switches to new thread if current was deleted.

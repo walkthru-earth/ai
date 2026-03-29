@@ -20,13 +20,16 @@ paths:
 
 ## `query-store.ts`
 
-- `Map<string, StoredQuery>`, keeps last 20 results. `StoredQuery` has `rows` (JS objects), `columnArrays` (typed arrays for GeoArrow), `arrowIPC` (IPC bytes), `wkbArrays` (Uint8Array[] for auto-detected geometry), `geometryColumn` (name of detected geom col).
-- `storeQueryResult()` → auto-incremented `qr_N` ID
-- `storeQueryResultWithId(id, result)` → specific ID (thread replay)
+- `Map<string, StoredQuery>`, keeps last 20 results (auto-ID) or 40 (specific ID). `StoredQuery` has `rows` (JS objects), `columnArrays` (typed arrays for GeoArrow), `arrowIPC` (IPC bytes), `wkbArrays` (Uint8Array[] for auto-detected geometry), `geometryColumn` (name of detected geom col).
+- `storeQueryResult()` → auto-incremented `qr_N` ID (evicts oldest beyond 20)
+- `storeQueryResultWithId(id, result)` → specific ID for thread replay (evicts oldest beyond 40)
 - `useQueryResult(queryId)` - `useSyncExternalStore` reactive hook. Components MUST use this, not `getQueryResult()`
 - Cross-filter: `setCrossFilter()` / `useCrossFilter()`. Types: `value` (click), `bbox` (viewport). Toggle via `setCrossFilterEnabled()`
 - Fly-To Bus: `requestFlyTo({ latitude, longitude, zoom? })` → `useFlyToVersion()` triggers re-render → `consumeFlyTo()` returns target once. Used by DataTable "Zoom to record" → DeckGLMap `flyTo()` (sets `programmaticMoveRef` to suppress viewport save). Lightweight version-based pub/sub (same pattern as cross-filter).
+- Time Filter Bus: `setTimeFilter({ timestamps, currentIndex, timestampColumn, sourceComponent })` → `useTimeFilter()` reactive hook → `applyTimeFilter(rows, filter, selfComponent)` filters rows matching current timestamp. `clearTimeFilter()` on TimeSlider unmount. Used for weather time playback: TimeSlider emits → GeoMap shows spatial snapshot, Graph shows reference line.
 - Panel Dismiss Bus: `requestDismissPanel(target)` → `useDismissVersion()` triggers re-render → `consumeDismissRequest()` returns `{ target }` once. target: `"all"` clears everything, or component type name (e.g. `"GeoMap"`, `"Graph"`) for selective dismiss. Used by `dismissPanels` AI tool → DashboardCanvas matches target against `panel.componentName` (sourced from Tambo `content.name`, case-insensitive) or exact `panelId`. Same version-based pub/sub pattern as fly-to.
+- Panel Restore Bus: `requestRestorePanel(target)` → `useRestoreVersion()` triggers re-render → `consumeRestoreRequest()` returns `{ target }` once. Restores previously dismissed panels.
+- Dismissed Panel IDs: `syncDismissedPanelIds(Set<string>)` called by DashboardCanvas → `isPanelDismissed(id)` / `useDismissedPanelIds()` reactive read-only access.
 
 ## Data Layer (modular registry)
 

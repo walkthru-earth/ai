@@ -14,17 +14,18 @@ paths:
 ```
 src/lib/tambo/
 ├── index.ts              # Aggregator: tamboProviderConfig + re-exports
-├── tools/                # 8 tool registrations (1 file per tool or related group)
+├── tools/                # 9 tool registrations (1 file per tool or related group)
 │   ├── run-sql.ts        # runSQL - most critical, queryId pattern
 │   ├── dataset-tools.ts  # listDatasets + buildParquetUrl + describeDataset
 │   ├── cross-index.ts    # getCrossIndex (11 analyses)
 │   ├── suggest.ts        # suggestAnalysis
-│   ├── arcgis.ts         # describeArcGISLayer - ArcGIS FeatureServer metadata + pre-load
+│   ├── arcgis.ts         # exploreArcGISService + describeArcGISLayer - smart discovery + pre-load
 │   └── dashboard.ts      # dismissPanels - clear all or specific panels by type/id
-├── components/           # 11 component registrations
+├── components/           # 12 component registrations
 │   ├── geo-map.ts        # GeoMap + H3Map (deck.gl)
 │   ├── graph.ts          # Graph (10 chart types)
 │   ├── data-table.ts     # DataTable (paginated)
+│   ├── time-slider.ts    # TimeSlider (weather time playback + cross-filter)
 │   ├── objex-viewer.ts   # ObjexViewer (3D raster)
 │   └── static.ts         # StatsCard, StatsGrid, InsightCard, DatasetCard, QueryDisplay, DataCard
 ├── context/              # AI context helpers (split by concern)
@@ -39,7 +40,7 @@ src/lib/tambo/
 - `tamboProviderConfig` - base config for all pages
 - `buildContextHelpers(geo)` - assembles behavior + DuckDB + datasets + tips into AI context
 - `buildInitialSuggestions(geo)` - 10 geo-personalized suggestions (5 primary + 5 extended)
-- `tools` / `components` - aggregated arrays
+- `tools` (9 tools) / `components` (12 components) - aggregated arrays
 
 ### Editing guide
 - **Add a tool**: create file in `tools/`, add to `tools/index.ts`
@@ -61,7 +62,7 @@ src/lib/tambo/
 
 ## `settings-store.ts`
 
-Centralized settings store via `useSyncExternalStore` + localStorage (`walkthru-settings`). Manages theme (`dark`/`light`/`system`), queryLimit (default 10000). Exports: `getSettings()`, `updateSettings(partial)`, `useSettings()`, `DEFAULT_QUERY_LIMIT`, `QUERY_LIMIT_PRESETS`. Migrates from old `"theme"` localStorage key.
+Centralized settings store via `useSyncExternalStore` + localStorage (`walkthru-settings`). Manages theme (`dark`/`light`/`system`), queryLimit (default 10000), defaultH3Res (1-10, default 5), defaultA5Res (3-15, default 7). Exports: `getSettings()`, `updateSettings(partial)`, `useSettings()`, `DEFAULT_QUERY_LIMIT`, `QUERY_LIMIT_PRESETS`, `H3_RES_RANGE`, `A5_RES_RANGE`. Migrates from old `"theme"` localStorage key.
 
 ## `use-theme-effect.ts`
 
