@@ -2,7 +2,7 @@ import { type StagedImage, useIsTamboTokenUpdating, useTambo, useTamboThreadInpu
 import {
   type TamboElicitationRequest,
   type TamboElicitationResponse,
-  useTamboElicitationContext,
+  useTamboMcpElicitation,
 } from "@tambo-ai/react/mcp";
 import { cva, type VariantProps } from "class-variance-authority";
 import { ArrowUp, Image as ImageIcon, Paperclip, Square, X } from "lucide-react";
@@ -276,7 +276,7 @@ const MessageInputInternal = React.forwardRef<HTMLFormElement, MessageInputProps
     const submittingRef = React.useRef(false);
 
     // Use elicitation context (optional)
-    const { elicitation, resolveElicitation } = useTamboElicitationContext();
+    const { elicitation, resolveElicitation } = useTamboMcpElicitation();
 
     React.useEffect(() => {
       // On mount, load any stored draft value, but only if current value is empty
