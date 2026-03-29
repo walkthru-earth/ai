@@ -5,6 +5,7 @@ import {
   DropdownMenuTrigger,
 } from "@radix-ui/react-dropdown-menu";
 import { MCPTransport, type McpServerInfo } from "@tambo-ai/react";
+import { useTamboMcpServers } from "@tambo-ai/react/mcp";
 import { motion } from "framer-motion";
 import { ChevronDown, Trash2, X } from "lucide-react";
 import React from "react";
@@ -119,6 +120,25 @@ export const McpConfigModal = ({
     if (e.target === e.currentTarget) {
       onClose();
     }
+  };
+
+  // Get actual connection status from TamboMcpProvider (must be inside TamboMcpProvider)
+  const connectedServers = useTamboMcpServers();
+
+  const getConnectionStatus = (url: string): "connected" | "failed" | "pending" => {
+    const match = connectedServers.find((s) => s.url === url);
+    if (!match) return "pending";
+    if ("connectionError" in match && match.connectionError) return "failed";
+    if ("client" in match && match.client) return "connected";
+    return "pending";
+  };
+
+  const getConnectionError = (url: string): string | null => {
+    const match = connectedServers.find((s) => s.url === url);
+    if (match && "connectionError" in match && match.connectionError) {
+      return match.connectionError.message;
+    }
+    return null;
   };
 
   const getTransportDisplayText = (transport: MCPTransport) => {
@@ -313,19 +333,43 @@ function MyApp() {
           {/* Server List */}
           {mcpServers.length > 0 ? (
             <div>
-              <h4 className="font-medium mb-3 text-foreground">Connected Servers ({mcpServers.length})</h4>
+              <h4 className="font-medium mb-3 text-foreground">Configured Servers ({mcpServers.length})</h4>
               <div className="space-y-2">
                 {mcpServers.map((server, index) => {
                   const serverInfo = getServerInfo(server);
+                  const status = getConnectionStatus(serverInfo.url);
+                  const error = getConnectionError(serverInfo.url);
                   return (
                     <div
                       key={index}
-                      className="flex items-start justify-between p-4 border border-muted rounded-lg hover:border-muted-backdrop transition-colors duration-150"
+                      className={cn(
+                        "flex items-start justify-between p-4 border rounded-lg transition-colors duration-150",
+                        status === "failed"
+                          ? "border-destructive/40 bg-destructive/5"
+                          : "border-muted hover:border-muted-backdrop",
+                      )}
                     >
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center mb-1">
-                          <div className="w-2 h-2 bg-earth-green rounded-full mr-3 flex-shrink-0"></div>
+                          <div
+                            className={cn(
+                              "w-2 h-2 rounded-full mr-3 flex-shrink-0",
+                              status === "connected" && "bg-earth-green",
+                              status === "failed" && "bg-destructive",
+                              status === "pending" && "bg-muted-foreground animate-pulse",
+                            )}
+                          />
                           <span className="text-foreground font-medium truncate">{serverInfo.url}</span>
+                          <span
+                            className={cn(
+                              "ml-2 text-xs px-1.5 py-0.5 rounded flex-shrink-0",
+                              status === "connected" && "bg-earth-green/10 text-earth-green",
+                              status === "failed" && "bg-destructive/10 text-destructive",
+                              status === "pending" && "bg-muted text-muted-foreground",
+                            )}
+                          >
+                            {status}
+                          </span>
                         </div>
                         <div className="ml-5 space-y-1">
                           {serverInfo.name && (
@@ -336,6 +380,11 @@ function MyApp() {
                           <div className="text-sm text-muted-foreground">
                             <span className="font-medium">Transport:</span> {serverInfo.transport}
                           </div>
+                          {error && (
+                            <div className="text-sm text-destructive">
+                              <span className="font-medium">Error:</span> {error}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <button
