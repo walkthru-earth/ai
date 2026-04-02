@@ -8,6 +8,7 @@ import { describeArcGISLayerTool, exploreArcGISServiceTool } from "./arcgis";
 import { getCrossIndexTool } from "./cross-index";
 import { dismissPanelsTool } from "./dashboard";
 import { buildParquetUrlTool, describeDatasetTool, listDatasetsTool } from "./dataset-tools";
+import { exportCSVTool } from "./export";
 import { runSQLTool } from "./run-sql";
 import { suggestAnalysisTool } from "./suggest";
 
@@ -21,4 +22,5 @@ export const tools: TamboTool[] = [
   exploreArcGISServiceTool,
   describeArcGISLayerTool,
   dismissPanelsTool,
+  exportCSVTool,
 ];

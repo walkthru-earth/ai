@@ -1,10 +1,11 @@
 import { withTamboInteractable } from "@tambo-ai/react";
-import { Check, ChevronLeft, ChevronRight, Clipboard, Locate } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Clipboard, Download, Locate } from "lucide-react";
 import * as React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { z } from "zod";
 import { CardSkeleton } from "@/components/ui/card-skeleton";
 import { cn } from "@/lib/utils";
+import { exportQueryToCSV } from "@/services/export";
 import { applyCrossFilter, requestFlyTo, setCrossFilter, useCrossFilter, useQueryResult } from "@/services/query-store";
 import { useInDashboardPanel } from "./panel-context";
 
@@ -350,6 +351,16 @@ export const DataTable = React.forwardRef<HTMLDivElement, DataTableProps>(
               ? `${safePage * PAGE_SIZE + 1}–${Math.min((safePage + 1) * PAGE_SIZE, totalRows)} of ${totalRows.toLocaleString()}`
               : `${totalRows.toLocaleString()} rows`}
           </span>
+          {queryId && (
+            <button
+              type="button"
+              onClick={() => exportQueryToCSV({ queryId, filename: title ?? "export" })}
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs text-muted-foreground hover:bg-muted/50 transition-colors"
+            >
+              <Download className="w-3 h-3" />
+              CSV
+            </button>
+          )}
           {caption && <span className="text-xs text-muted-foreground/60 truncate flex-1 text-right">{caption}</span>}
           {totalPages > 1 && (
             <div className="flex items-center gap-1 ml-auto">
