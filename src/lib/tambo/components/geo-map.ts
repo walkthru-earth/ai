@@ -20,9 +20,8 @@ export const geoMapComponent: TamboComponent = {
     "GeoJSON: SELECT ST_AsGeoJSON(geometry) AS geometry, <metric> AS value ... (LAST RESORT, prefer native geometry); " +
     "Arcs: SELECT source_lat, source_lng, dest_lat, dest_lng, <metric> AS value ... ; " +
     "MULTI-LAYER: set `layers` array (max 5). Each layer has id, queryId, layerType, column mappings, colorScheme, opacity, visible. " +
-    "To add a layer: update_component_props with layers array including existing + new layer. " +
-    "To remove a layer: update with layers array excluding that layer. " +
-    "To toggle visibility: set visible=false on a layer. " +
+    "Layer management (add/remove/toggle) uses update_component_props ONLY when the user selected this map via the Edit pencil button (isSelected=true). " +
+    "Otherwise, create a new GeoMap with the desired layers. " +
     "Props: layerType, latitude/longitude/zoom (view), pitch (0-85, camera tilt), bearing (-180 to 180, rotation), colorMetric (legend), colorScheme, extruded (3D), basemap ('auto' always, never override), layers (multi-layer). " +
     "CINEMATIC VIEWS: pitch=45-60 + bearing=-15 to -30 for dramatic 3D city perspectives. Combine with extruded=true for immersive building/population views. " +
     "colorScheme: 'blue-red' | 'viridis' | 'plasma' | 'warm' | 'cool' | 'spectral' (see behavior rules for when to use each). " +

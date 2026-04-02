@@ -517,26 +517,75 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
   // Multi-layer mode: determine if using `layers` array or single `queryId`
   const isMultiLayer = layersProp != null && layersProp.length > 0;
 
+  // Synthesize a single LayerEntry from direct props (for layer control when not multi-layer)
+  const synthesizedLayer = useMemo<z.infer<typeof layerEntrySchema> | null>(() => {
+    if (isMultiLayer || !queryId) return null;
+    return {
+      id: queryId,
+      queryId,
+      layerType: explicitLayerType,
+      hexColumn,
+      pentagonColumn,
+      valueColumn,
+      latColumn,
+      lngColumn,
+      geometryColumn,
+      sourceLatColumn,
+      sourceLngColumn,
+      destLatColumn,
+      destLngColumn,
+      colorScheme,
+      colorMetric: colorMetric ?? undefined,
+      opacity: undefined,
+      visible: true,
+    };
+  }, [
+    isMultiLayer,
+    queryId,
+    explicitLayerType,
+    hexColumn,
+    pentagonColumn,
+    valueColumn,
+    latColumn,
+    lngColumn,
+    geometryColumn,
+    sourceLatColumn,
+    sourceLngColumn,
+    destLatColumn,
+    destLngColumn,
+    colorScheme,
+    colorMetric,
+  ]);
+
   // Layer control overrides (persisted to localStorage)
-  const storageKey = isMultiLayer ? `geomap-layers:${layersProp?.map((l) => l.id).join(",")}` : undefined;
+  const storageKey = isMultiLayer
+    ? `geomap-layers:${layersProp?.map((l) => l.id).join(",")}`
+    : queryId
+      ? `geomap-layers:${queryId}`
+      : undefined;
 
   const [layerOverrides, setLayerOverrides] = React.useState<z.infer<typeof layerEntrySchema>[] | null>(() => {
     if (!storageKey) return null;
     return readStorage<z.infer<typeof layerEntrySchema>[] | null>(storageKey, null);
   });
 
-  // Effective layers = overrides (if same IDs) or original prop
+  // Effective layers = overrides (if same IDs) or original prop, with single-layer synthesis fallback
   const effectiveLayers = useMemo(() => {
-    if (!isMultiLayer || !layersProp) return layersProp;
-    if (!layerOverrides) return layersProp;
-    // Validate override IDs still match props (AI may have changed layers)
-    const propIds = new Set(layersProp.map((l) => l.id));
+    const baseLayers = isMultiLayer ? layersProp : synthesizedLayer ? [synthesizedLayer] : undefined;
+    if (!baseLayers) return undefined;
+    if (!layerOverrides) return baseLayers;
+    // Validate override IDs still match base layers (AI may have changed layers)
+    const baseIds = new Set(baseLayers.map((l) => l.id));
     const overrideIds = new Set(layerOverrides.map((l) => l.id));
-    if (propIds.size !== overrideIds.size || ![...propIds].every((id) => overrideIds.has(id))) {
-      return layersProp; // IDs changed, discard stale overrides
+    if (baseIds.size !== overrideIds.size || ![...baseIds].every((id) => overrideIds.has(id))) {
+      return baseLayers; // IDs changed, discard stale overrides
     }
     return layerOverrides;
-  }, [isMultiLayer, layersProp, layerOverrides]);
+  }, [isMultiLayer, layersProp, synthesizedLayer, layerOverrides]);
+
+  // Single-layer effective visibility/opacity from layer control overrides
+  const singleLayerVisible = !isMultiLayer ? effectiveLayers?.[0]?.visible !== false : true;
+  const singleLayerOpacity = !isMultiLayer ? (effectiveLayers?.[0]?.opacity ?? undefined) : undefined;
 
   const handleUpdateLayers = React.useCallback(
     (updated: z.infer<typeof layerEntrySchema>[]) => {
@@ -665,7 +714,7 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
     } else {
       // Single-layer mode (backward compat)
       const qr = qr0;
-      if (queryId && qr && qr.rows.length > 0) {
+      if (queryId && qr && qr.rows.length > 0 && singleLayerVisible) {
         // Apply time filter - narrows rows to the current timestamp step
         const timeFilteredRows = qr.wkbArrays?.length ? qr.rows : applyTimeFilter(qr.rows, timeFilter, "GeoMap");
 
@@ -688,6 +737,7 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
             columnArrays: qr.columnArrays,
             arrowIPC: qr.arrowIPC,
             wkbArrays: qr.wkbArrays,
+            opacity: singleLayerOpacity,
           },
           boundsAcc,
         );
@@ -743,6 +793,7 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
     destLngColumn,
     colorScheme,
     timeFilter,
+    singleLayerVisible,
   ]);
 
   // Precompute H3 centroids once when data loads - used for both bounds and bbox cross-filter
@@ -931,8 +982,10 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
     }
   }, [primaryType, totalFeatureCount, isMultiLayer, layerConfigs.length]);
 
-  // Loading state - multi-layer with all hidden still shows the map shell + layer control
-  const allLayersHidden = isMultiLayer && effectiveLayers && effectiveLayers.length > 0 && visibleLayers.length === 0;
+  // Loading state - all layers hidden still shows the map shell + layer control
+  const allLayersHidden = isMultiLayer
+    ? effectiveLayers && effectiveLayers.length > 0 && visibleLayers.length === 0
+    : !!queryId && !singleLayerVisible;
   const hasAnyQueryId = isMultiLayer ? visibleLayers.length > 0 || allLayersHidden : !!queryId;
   if (!hasAnyQueryId) {
     return (
@@ -970,8 +1023,8 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
         onTouchStart={(e) => e.stopPropagation()}
         onTouchMove={(e) => e.stopPropagation()}
       >
-        {/* Layer control - only for multi-layer maps */}
-        {isMultiLayer && effectiveLayers && effectiveLayers.length > 1 && (
+        {/* Layer control - always shown when layers exist */}
+        {effectiveLayers && effectiveLayers.length > 0 && (
           <LayerControlPanel layers={effectiveLayers} onUpdateLayers={handleUpdateLayers} />
         )}
         {hasData ? (
