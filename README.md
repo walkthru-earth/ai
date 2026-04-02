@@ -38,14 +38,16 @@ User → AI Agent → runSQL tool → DuckDB-WASM (in-browser)
                                     ↓
                               Query Store (queryId)
                                     ↓
-                        GeoMap / Graph / DataTable
-                              ↕ Cross-Filter Bus
+                   GeoMap / Graph / DataTable / TimeSlider
+                         ↕ Cross-Filter + Time-Filter Bus
+                                    ↓
+                              CSV Export / Fly-To
 ```
 
 - **Zero-token data bridge**: AI returns only a `queryId` (~10 tokens). Components read full query results directly from the client-side store, no data passes through the LLM.
 - **DuckDB-WASM**: Full SQL engine runs entirely in the browser, querying S3-hosted Parquet files via HTTP. No backend needed.
 - **Cross-filtering**: Pan/zoom the map → chart and table filter to visible hexes. Click a chart bar → map and table highlight. Toggle on/off globally.
-- **Shareable threads**: Each conversation gets a URL (`?thread=thr_...`). Opening a shared link replays all SQL queries in DuckDB to restore the dashboard state.
+- **Shareable threads**: Each conversation gets a URL (`?thread=thr_...`). Opening a shared link replays all SQL queries in DuckDB to restore the dashboard state. Threads can be renamed and deleted from the history dropdown.
 - **Static SPA**: Fully client-side. Deploys to any CDN, S3, or GitHub Pages.
 
 ## Datasets
@@ -92,8 +94,8 @@ src/
 │   └── ui/                       # shadcn/ui primitives
 ├── lib/
 │   └── tambo/                    # Modular AI configuration
-│       ├── tools/                # 8 tool registrations (runSQL, datasets×3, cross-index, suggest, arcgis, dashboard)
-│       ├── components/           # 11 component registrations
+│       ├── tools/                # 10 tool registrations (runSQL, datasets×3, cross-index, suggest, arcgis×2, dashboard, export)
+│       ├── components/           # 12 component registrations
 │       ├── context/              # AI context (behavior, DuckDB rules, dataset paths, tips)
 │       └── suggestions.ts        # Geo-personalized suggestion chips
 └── services/
@@ -102,20 +104,27 @@ src/
     ├── resolvers.ts              # Weather date + Overture release resolution
     ├── suggest-analysis.ts       # NL keyword → dataset routing
     ├── duckdb-wasm.ts            # DuckDB init, query execution, geometry detection
-    └── query-store.ts            # Reactive query result store + cross-filter bus
+    ├── export.ts                 # CSV export (browser download via Blob URL)
+    └── query-store.ts            # Reactive query result store + cross-filter/time-filter bus
 ```
 
 ## Features
 
 - **Interactive maps** - deck.gl + MapLibre with H3 hexagons, A5 pentagons, scatterplot, arc, WKB geometry layers, 6 color schemes, 3D extrusion, light/dark basemap
-- **Multi-layer support** - Up to 5 layers per map with floating control panel
+- **Multi-layer support** - Up to 5 layers per map with floating layer control panel (always visible, single or multi-layer) for toggle, opacity, and reorder
 - **Charts** - 10 chart types (bar, line, area, pie, scatter, radar, radialBar, treemap, composed, funnel) via Recharts
-- **Data tables** - Auto-derived columns with sorting, pagination, and cross-filter highlighting
+- **Data tables** - Auto-derived columns with pagination, cross-filter highlighting, row zoom-to-record, and CSV export
+- **CSV export** - Download any query result as CSV via AI tool or DataTable button
+- **Time slider** - Playback weather forecasts and time-series data with cross-filtering (spatial snapshot on map, reference line on chart)
+- **Edit with AI** - Click the pencil button on any panel to focus the AI on updating that specific component (zoom, colors, chart type, columns, etc.)
 - **Insight cards** - AI-generated analysis summaries with severity levels
 - **Cross-index analyses** - 11 composite scores joining 2-5 datasets (walkability, heat vulnerability, etc.)
 - **GeoArrow zero-copy** - DuckDB Arrow tables → GPU buffers with no JS intermediary. Auto-detects geometry columns
 - **Geometry auto-detection** - Parquet files with GEOMETRY columns auto-render on the map. Just `SELECT *`
-- **Mobile responsive** - Bottom sheet chat on mobile, touch-optimized dashboard
+- **Panel management** - Dismiss and restore panels by type or ID. Dashboard accumulates a history of analyses per thread
+- **MCP server support** - Connect external MCP servers (tools, resources, prompts, elicitations) via settings
+- **Thread management** - Rename, delete, and share threads. Opening a shared link replays all SQL to restore dashboard state
+- **Mobile responsive** - Bottom sheet chat on mobile, touch-optimized dashboard with grip-only drag
 - **Theme** - Dark/light/system with full CSS variable theming
 - **Geo-personalized** - Suggestion chips and initial context based on user's location
 

@@ -7,7 +7,7 @@ paths:
 
 ## queryId-driven (zero tokens to LLM)
 
-**GeoMap** (`geo-map.tsx` + `geo-map-deckgl.tsx`): Generic deck.gl map, 6 layer types (h3, a5, scatterplot, geojson, arc, wkb). Auto-detects from column names + wkbArrays presence. Detection priority: a5 (`pentagon`/`a5_cell`/`a5_index`) → h3 (`hex`/`h3_index`) → wkb (auto-detected GEOMETRY) → arc → scatterplot → geojson. **A5 from H3 data**: All datasets are H3-indexed. For A5 rendering, compute A5 cells from H3 centroids using `a5_lonlat_to_cell(h3_cell_to_lng(h3_index), h3_cell_to_lat(h3_index), res)`. A5 resolution must be coarser than H3 source to avoid gaps (H3 res 3→A5 5-6, H3 res 4→A5 6-7, H3 res 5→A5 7-8). GROUP BY a5_cell when multiple H3 cells map to same pentagon. Basemap: always forced to `auto` (follows user's theme, AI basemap prop is ignored to prevent stale dark/light from old threads). AI can update props (zoom, pitch, bearing, colorScheme, layerType) at runtime via `withTamboInteractable`. Pitch (0-85): 0=top-down, 45-60=cinematic 3D. Bearing (-180 to 180): camera rotation. Both default to extruded-based values (45/-15 when extruded, 0/0 otherwise) if not set by AI. Supports multi-layer via `layers` array prop (max 5). Each layer has `id`, `queryId`, `layerType`, `pentagonColumn`, columns, `colorScheme`, `opacity`, `visible`. Floating layer control panel (top-left) for toggle/opacity/reorder persists to localStorage. Uses 5 fixed `useQueryResult` hook slots for React rules compliance. `LayerConfig` in deckgl has per-layer `id`, `colorScheme`, `opacity`, `minVal`, `maxVal`, `columnArrays`, `arrowIPC`, `wkbArrays`, `columnMapping` (includes `pentagonColumn`).
+**GeoMap** (`geo-map.tsx` + `geo-map-deckgl.tsx`): Generic deck.gl map, 6 layer types (h3, a5, scatterplot, geojson, arc, wkb). Auto-detects from column names + wkbArrays presence. Detection priority: a5 (`pentagon`/`a5_cell`/`a5_index`) → h3 (`hex`/`h3_index`) → wkb (auto-detected GEOMETRY) → arc → scatterplot → geojson. **A5 from H3 data**: All datasets are H3-indexed. For A5 rendering, compute A5 cells from H3 centroids using `a5_lonlat_to_cell(h3_cell_to_lng(h3_index), h3_cell_to_lat(h3_index), res)`. A5 resolution must be coarser than H3 source to avoid gaps (H3 res 3→A5 5-6, H3 res 4→A5 6-7, H3 res 5→A5 7-8). GROUP BY a5_cell when multiple H3 cells map to same pentagon. Basemap: always forced to `auto` (follows user's theme, AI basemap prop is ignored to prevent stale dark/light from old threads). AI can update props (zoom, pitch, bearing, colorScheme, layerType) at runtime via `withTamboInteractable`. Pitch (0-85): 0=top-down, 45-60=cinematic 3D. Bearing (-180 to 180): camera rotation. Both default to extruded-based values (45/-15 when extruded, 0/0 otherwise) if not set by AI. Supports multi-layer via `layers` array prop (max 5). Each layer has `id`, `queryId`, `layerType`, `pentagonColumn`, columns, `colorScheme`, `opacity`, `visible`. Floating layer control panel (top-left) always shown when any layers exist (single or multi-layer), for toggle/opacity/reorder. Single-layer maps synthesize a `LayerEntry` from direct props. Persists to localStorage. Uses 5 fixed `useQueryResult` hook slots for React rules compliance. `LayerConfig` in deckgl has per-layer `id`, `colorScheme`, `opacity`, `minVal`, `maxVal`, `columnArrays`, `arrowIPC`, `wkbArrays`, `columnMapping` (includes `pentagonColumn`).
 
 **Map viewport persistence** (`geo-map.tsx` + `geo-map-deckgl.tsx`):
 - User pan/zoom/tilt persisted to localStorage: `geomap-viewport:{queryId}` (single layer) or `geomap-viewport:{layerIds}` (multi-layer).
@@ -37,7 +37,7 @@ paths:
 
 **TimeSlider** (`time-slider.tsx`): queryId + timestampColumn (default `time_label`) → extracts unique sorted timestamps from query result. Play/pause/prev/next controls with custom slider. Auto-converts UTC timestamps to user's local timezone via `formatLocal()`. Emits `TimeFilter` via `setTimeFilter()` on index change, clears on unmount. Cross-filters GeoMap (spatial snapshot at selected timestamp) + Graph (reference line). Props: `queryId`, `timestampColumn`, `title`, `autoplay`, `intervalMs`, `timezone`. Prevents pointer events from bubbling (drag handlers). Mandatory for weather forecast patterns (render GeoMap + TimeSlider + Graph + DataTable in one response). Wrapped with `withTamboInteractable`.
 
-**DataTable** (`data-table.tsx`): queryId → auto-derive cols/rows. Paginated 20/page. Cross-filter consume/emit. AI can update visibleColumns, title at runtime. Click row → expands action bar: **Zoom to record** (flies map to row's lat/lng or H3 hex centroid via `requestFlyTo()`) + **Copy record** (JSON to clipboard). Expanded row collapses on re-click or page change.
+**DataTable** (`data-table.tsx`): queryId → auto-derive cols/rows. Paginated 20/page. Cross-filter consume/emit. AI can update visibleColumns, title at runtime. Click row → expands action bar: **Zoom to record** (flies map to row's lat/lng or H3 hex centroid via `requestFlyTo()`) + **Copy record** (JSON to clipboard). Expanded row collapses on re-click or page change. **CSV export**: Download button in footer exports full query result via `exportQueryToCSV()` from `services/export.ts`.
 
 All use `useQueryResult(queryId)`, `withTamboInteractable` (propsSchema only), `useInDashboardPanel()`.
 
@@ -63,7 +63,8 @@ All viz components use `useInDashboardPanel()` to detect context:
 
 ## Dashboard (`dashboard-canvas.tsx`)
 
-- Panel header: `[grip] [title] ... [maximize] [close]`. Title from `content.props.title`.
+- Panel header: `[grip] [title] ... [edit] [maximize] [close]`. Title from `content.props.title`.
+- **Edit with AI (Pencil button)**: Only shown on interactable panels (GeoMap, Graph, DataTable, TimeSlider, ObjexViewer). Clicking marks the component as `isSelected` via `useTamboInteractable().setInteractableSelected()`. The AI sees `isSelected: true` in its context and focuses its next response on that component. Selection is one-shot (auto-cleared after AI responds via `isIdle` transition). Toggle: click again to deselect. Visual: `border-primary ring-1 ring-primary/30` on the panel, `bg-primary/15 text-primary` on the button.
 - Panel ID dedup: `Set<string>` with `compIdx` suffix for collisions.
 - Desktop: `react-grid-layout`, rowHeight 80px. `panelHeight()`: maps=10 (2× other panels), graphs=5, tables=5, QueryDisplay/InsightCard/DatasetCard=3, StatsGrid/StatsCard=2, default=4. All panels full-width (`w: 12`). Component name read from Tambo's `content.name` (SDK field), NOT `content.componentName`. Maps forced to minimum `panelHeight()` even with saved layouts.
 - **Compact components**: `isCompactComponent()` identifies StatsGrid, StatsCard, InsightCard, DatasetCard, QueryDisplay, DataCard. These get `h-auto` on touch. Note: panelHeight differs per type (see above), not all get 2 rows.
@@ -92,8 +93,9 @@ All viz components use `useInDashboardPanel()` to detect context:
 
 ## UPDATE vs CREATE NEW
 
-- **Update existing** (`update_component_props`): appearance changes OR data swap, zoom, pitch, bearing, colors, chart type, hide columns, or new `queryId`. Changing `queryId` works, `useQueryResult` reactively picks up new data. Use when user says "show X instead" or "change this to Y".
-- **Create new**: when user wants both old and new visible for comparison ("also show X", "compare with Y").
+- **Default: Always CREATE NEW** components with fresh queryId. Every new question gets its own panels, building up a dashboard history.
+- **Only UPDATE existing** (`update_component_props`) when: (1) the user clicked the "Edit with AI" pencil button on a panel (component has `isSelected: true`), AND (2) their message modifies that panel (zoom, pitch, colors, chart type, filter, hide columns). Changing `queryId` works when updating.
+- If no component is selected, always create new panels, even for "show me X instead" or "change this to Y".
 
 ## Chat
 

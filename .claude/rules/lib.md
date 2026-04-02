@@ -14,13 +14,14 @@ paths:
 ```
 src/lib/tambo/
 ├── index.ts              # Aggregator: tamboProviderConfig + re-exports
-├── tools/                # 9 tool registrations (1 file per tool or related group)
+├── tools/                # 10 tool registrations (1 file per tool or related group)
 │   ├── run-sql.ts        # runSQL - most critical, queryId pattern
 │   ├── dataset-tools.ts  # listDatasets + buildParquetUrl + describeDataset
 │   ├── cross-index.ts    # getCrossIndex (11 analyses)
 │   ├── suggest.ts        # suggestAnalysis
 │   ├── arcgis.ts         # exploreArcGISService + describeArcGISLayer - smart discovery + pre-load
-│   └── dashboard.ts      # dismissPanels - clear all or specific panels by type/id
+│   ├── dashboard.ts      # dismissPanels - clear all or specific panels by type/id
+│   └── export.ts         # exportCSV - download query results as CSV
 ├── components/           # 12 component registrations
 │   ├── geo-map.ts        # GeoMap + H3Map (deck.gl)
 │   ├── graph.ts          # Graph (10 chart types)
@@ -40,7 +41,7 @@ src/lib/tambo/
 - `tamboProviderConfig` - base config for all pages
 - `buildContextHelpers(geo)` - assembles behavior + DuckDB + datasets + tips into AI context
 - `buildInitialSuggestions(geo)` - 10 geo-personalized suggestions (5 primary + 5 extended)
-- `tools` (9 tools) / `components` (12 components) - aggregated arrays
+- `tools` (10 tools) / `components` (12 components) - aggregated arrays
 
 ### Editing guide
 - **Add a tool**: create file in `tools/`, add to `tools/index.ts`

@@ -31,7 +31,7 @@ pnpm lint:fix     # biome auto-fix
 
 **Cross-filter bus**: Lightweight pub/sub in `query-store.ts`. Components emit/consume `bbox` (map viewport) and `value` (click) filters. Requires shared `queryId` + `hex`/`pentagon` column. **Time filter bus**: `setTimeFilter()` / `useTimeFilter()` / `applyTimeFilter()` for timestamp-based cross-filtering (TimeSlider → GeoMap snapshot + Graph reference line). **Panel restore bus**: `requestRestorePanel()` / `consumeRestoreRequest()` / `useRestoreVersion()` for restoring dismissed panels.
 
-**Dashboard canvas**: Desktop = `react-grid-layout`, Touch = `@dnd-kit/sortable` (1.2s hold, grip-only drag). Panel IDs are deduplicated via `Set`. State persisted to localStorage per thread: panel order (`panel-order-${threadId}`), panel layouts/sizes (`panel-layouts-${threadId}`, debounced 500ms), dismissed panels (`panel-dismissed-${threadId}`). First panel and maps always full-width. Non-first/non-map panels pair in 2-column layout. `nonFullCount` counter tracks column position (resets after full-width panels). **Panel sizing**: `panelHeight()` returns grid rows per type: maps=10 (2× other panels), graphs=5, tables=5, QueryDisplay/InsightCard/DatasetCard=3, StatsGrid/StatsCard=2. Component name is read from Tambo's `content.name` (SDK field), NOT `content.componentName`. Maps are forced to minimum `panelHeight()` even when saved layouts exist. `isCompactComponent()` identifies StatsGrid/StatsCard/InsightCard/DatasetCard/QueryDisplay/DataCard. These get `h-auto` on touch.
+**Dashboard canvas**: Desktop = `react-grid-layout`, Touch = `@dnd-kit/sortable` (1.2s hold, grip-only drag). Panel IDs are deduplicated via `Set`. State persisted to localStorage per thread: panel order (`panel-order-${threadId}`), panel layouts/sizes (`panel-layouts-${threadId}`, debounced 500ms), dismissed panels (`panel-dismissed-${threadId}`). First panel and maps always full-width. Non-first/non-map panels pair in 2-column layout. `nonFullCount` counter tracks column position (resets after full-width panels). **Panel sizing**: `panelHeight()` returns grid rows per type: maps=10 (2× other panels), graphs=5, tables=5, QueryDisplay/InsightCard/DatasetCard=3, StatsGrid/StatsCard=2. Component name is read from Tambo's `content.name` (SDK field), NOT `content.componentName`. Maps are forced to minimum `panelHeight()` even when saved layouts exist. `isCompactComponent()` identifies StatsGrid/StatsCard/InsightCard/DatasetCard/QueryDisplay/DataCard. These get `h-auto` on touch. **Edit with AI**: Pencil button on interactable panels (GeoMap, Graph, DataTable, TimeSlider, ObjexViewer). Uses `useTamboInteractable().setInteractableSelected()` to mark the component for AI focus. One-shot selection, auto-cleared when AI finishes responding.
 
 **Data service (modular)**:
 - `src/services/datasets/` - 9 dataset modules + registry index
@@ -131,7 +131,7 @@ S3 base: `https://s3.us-west-2.amazonaws.com/us-west-2.opendata.source.coop/walk
 - **No `!important`**: use JS conditionals instead
 - Semantic classes: `text-destructive` not `text-red-500`, `text-primary` not `text-blue-500`
 
-## Tambo SDK (v1.2.4) - Bidirectional AI Components
+## Tambo SDK (v1.2.5) - Bidirectional AI Components
 
 Config in `src/lib/tambo/` (modular directory). All pages spread `tamboProviderConfig` (apiKey, components, tools, tamboUrl). Both `/chat` and `/explore` wrap children with `<TamboMcpProvider>` (from `@tambo-ai/react/mcp`) inside `<TamboProvider>` for MCP hooks (elicitation, prompts, resources). Both pages pass `mcpServers` from `useMcpServers()` (localStorage-backed). Shared `buildContextHelpers(geo)` provides AI with user theme, geo-IP location, and pre-computed H3 cells. `buildInitialSuggestions(geo)` generates personalized suggestion chips.
 
@@ -147,7 +147,8 @@ src/lib/tambo/
 │   ├── cross-index.ts        # getCrossIndex - 11 cross-dataset analyses
 │   ├── suggest.ts            # suggestAnalysis - NL keyword routing
 │   ├── arcgis.ts             # exploreArcGISService + describeArcGISLayer - smart FeatureServer discovery + pre-load
-│   └── dashboard.ts          # dismissPanels - clear all or specific panels by type/id
+│   ├── dashboard.ts          # dismissPanels - clear all or specific panels by type/id
+│   └── export.ts             # exportCSV - download query results as CSV file
 ├── components/
 │   ├── index.ts              # Aggregates all components into TamboComponent[]
 │   ├── geo-map.ts            # GeoMap + H3Map (deck.gl map)
@@ -250,11 +251,11 @@ StatsCard, StatsGrid, InsightCard, DatasetCard, QueryDisplay, DataCard. AI provi
 
 ### UPDATE vs CREATE NEW Components
 
-**Update existing** (`update_component_props`) for appearance changes OR data replacement on the same panel, zoom, pitch, bearing, colors, chart type, hide columns, or a new `queryId` to swap data in place. Changing `queryId` via `update_component_props` works, `useQueryResult` reactively picks up the new data. Use update when the user says "show me X instead" or "change this to Y". **Create new** component when the user wants to see both old and new data side by side for comparison ("also show X", "compare with Y").
+**Default: Always CREATE NEW** components with fresh queryId. Every new question gets its own panels, building up a rich dashboard history. **Only UPDATE existing** (`update_component_props`) when the user has clicked the "Edit with AI" pencil button on a specific panel (component will have `isSelected: true` in interactable context) AND their message is about modifying that panel (zoom, pitch, bearing, colors, chart type, hide columns, filter). Changing `queryId` via `update_component_props` works when updating. If no component is selected, always create new panels.
 
 ### Multi-Layer GeoMap
 
-`layers` array prop (max 5). Each layer: `{ id, queryId, layerType, hexColumn, pentagonColumn, valueColumn, ..., colorScheme, opacity, visible }`. Floating layer control panel (top-left) for toggle/opacity/reorder persists to localStorage (`geomap-layers:{layerIds}`). Map viewport (zoom/pan/pitch/bearing) persisted to localStorage (`geomap-viewport:{queryId|layerIds}`), only user gestures saved, AI flyTo/fitBounds suppressed via `programmaticMoveRef`. Uses 5 fixed `useQueryResult` hook slots (React hooks can't be called conditionally).
+`layers` array prop (max 5). Each layer: `{ id, queryId, layerType, hexColumn, pentagonColumn, valueColumn, ..., colorScheme, opacity, visible }`. Floating layer control panel (top-left) always shown when any layers exist (single or multi-layer), for toggle/opacity/reorder. Persists to localStorage (`geomap-layers:{layerIds}`). Single-layer maps synthesize a `LayerEntry` from direct props so the control panel works. Map viewport (zoom/pan/pitch/bearing) persisted to localStorage (`geomap-viewport:{queryId|layerIds}`), only user gestures saved, AI flyTo/fitBounds suppressed via `programmaticMoveRef`. Uses 5 fixed `useQueryResult` hook slots (React hooks can't be called conditionally).
 
 ### Adding a New Bidirectional Component (checklist)
 

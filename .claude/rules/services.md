@@ -31,6 +31,10 @@ paths:
 - Panel Restore Bus: `requestRestorePanel(target)` → `useRestoreVersion()` triggers re-render → `consumeRestoreRequest()` returns `{ target }` once. Restores previously dismissed panels.
 - Dismissed Panel IDs: `syncDismissedPanelIds(Set<string>)` called by DashboardCanvas → `isPanelDismissed(id)` / `useDismissedPanelIds()` reactive read-only access.
 
+## `export.ts`
+
+- `exportQueryToCSV({ queryId, filename? })`: reads `StoredQuery` from query-store, builds RFC 4180 CSV (proper escaping), triggers browser download via Blob URL. Used by AI `exportCSV` tool and DataTable footer button. Returns `{ success, rowCount, filename }`.
+
 ## Data Layer (modular registry)
 
 ### `datasets/` - 9 dataset modules

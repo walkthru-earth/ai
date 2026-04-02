@@ -4,7 +4,16 @@ paths:
   - "src/components/tambo/**"
 ---
 
-# Tambo SDK Reference (@tambo-ai/react v1.2.2+, latest v1.2.4)
+# Tambo SDK Reference (@tambo-ai/react v1.2.5+)
+
+## What's New in v1.2.5 (from v1.2.4)
+
+- **Registry-level tool ownership** (v1.2.2): `withTamboInteractable` now tracks tool ownership per component via `registerToolForComponent`/`unregisterToolsForComponent`. Cleanup on unmount is ownership-based, no hardcoded tool name conventions. Fixes leaked interactable tools after component unmount.
+- **Clean interactable tool cleanup** (v1.2.1): Interactable tools are properly removed when components unmount, preventing stale `update_component_props` tools from accumulating.
+- **New dependency: `@ag-ui/core`** (Agent-User Interaction Protocol): Tambo now builds on the AG-UI protocol for agent-UI communication schemas.
+- **New dependency: `@tambo-ai/client`** (v1.0.5): Framework-agnostic client extracted from react SDK. Supports `fast-json-patch` for prop deltas and `@standard-schema/spec` for schema validation.
+- **Suggestions retry on 404** (v1.2.6, pending npm release): `useTamboSuggestions` will retry up to 3 times with exponential backoff when the assistant message hasn't been persisted yet. Fixes intermittent empty suggestion chips after AI responses.
+- **Interactable selection fix** (v1.2.6, pending npm release): `isSelected` was always `false` because the context helper read a non-existent field. Selections are now one-shot (auto-cleared after context capture).
 
 ## TamboProvider Props
 
@@ -43,7 +52,7 @@ paths:
 | `useTamboContextAttachment()` | `{ attachments, addContextAttachment, removeContextAttachment, clearContextAttachments }` | One-shot context for next message |
 | `useTamboRegistry()` | `{ registerComponent, registerTool, registerTools, componentList, toolRegistry }` | Runtime component/tool registration |
 | `useTamboSuggestions(options?)` | `{ suggestions, generate, accept, isGenerating, isAccepting, selectedSuggestionId }` | Suggestion chips with accept/generate |
-| `useTamboInteractable()` | `{ addInteractableComponent, removeInteractableComponent, updateInteractableComponentProps, ... }` | Interactable registry (prefer withTamboInteractable) |
+| `useTamboInteractable()` | `{ interactableComponents, addInteractableComponent, removeInteractableComponent, updateInteractableComponentProps, setInteractableSelected, clearInteractableSelections, ... }` | Interactable registry + selection API (prefer withTamboInteractable for registration, use selection API in parent components like DashboardCanvas) |
 | `useTamboCurrentComponent()` | `{ componentName, props, interactableId, description }` | Current component metadata |
 | `useTamboCurrentMessage()` | `TamboThreadMessage` | Current message from provider |
 | `useComponentContent()` | `{ componentId, threadId, messageId, componentName }` | Component instance metadata |
@@ -113,6 +122,16 @@ Wrapped components receive extra props: `interactableId?: string`, `onInteractab
 
 Components receive `_tambo_componentId`, `_tambo_*` hidden props. **Never spread `{...props}` onto DOM elements**. Destructure only the props you need.
 
+### Component Selection (Edit with AI)
+
+Dashboard panels with interactable components (GeoMap, Graph, DataTable, TimeSlider, ObjexViewer) show a Pencil "Edit with AI" button. When clicked:
+1. `useTamboInteractable().setInteractableSelected(componentId, true)` marks the component
+2. AI sees `isSelected: true` in the interactable context and focuses its next response on that component
+3. Selection is one-shot: auto-cleared visually when AI finishes responding (`isIdle` transition)
+4. Tambo SDK (v1.2.6+) also clears `isSelected` internally after capturing context
+
+**Important**: `useTamboInteractable()` is called in `DashboardCanvas` (parent), NOT inside the wrapped components themselves (that would cause setState-during-render). The parent finds the matching interactable by component name from `interactableComponents` array.
+
 ## Context System
 
 | Type | When Called | Lifecycle | Use Case |
@@ -176,8 +195,9 @@ Tambo messages contain `content` blocks (Anthropic-style). Five content types:
 
 ## UPDATE vs CREATE NEW
 
-- **Update existing** (`update_component_props`): appearance changes OR data replacement on the same panel. Zoom, pitch, bearing, colors, chart type, hide columns, or a new `queryId` to swap data in place. Changing `queryId` via `update_component_props` works because `useQueryResult` reactively picks up the new data via `useSyncExternalStore`. Use update when the user says "show me X instead" or "change this to Y".
-- **Create new** component when the user wants to see both old and new data side by side for comparison ("also show X", "compare with Y").
+- **Default: Always CREATE NEW** components with fresh queryId. Every new question gets its own panels, building up a dashboard history.
+- **Only UPDATE existing** (`update_component_props`) when: (1) a component has `isSelected: true` in interactable context (user clicked "Edit with AI" pencil on that panel), AND (2) the user's message modifies that specific panel (zoom, pitch, colors, chart type, filter, hide columns, swap data). Changing `queryId` via `update_component_props` works because `useQueryResult` reactively picks up the new data via `useSyncExternalStore`.
+- If no component is selected, always create new panels, even for "show me X instead" or "change this to Y".
 
 ## State Persistence (Bidirectional Sync via localStorage)
 
