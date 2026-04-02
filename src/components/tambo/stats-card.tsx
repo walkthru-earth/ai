@@ -70,7 +70,7 @@ export const StatsCard = React.forwardRef<HTMLDivElement, StatsCardProps>(
       <div
         ref={ref}
         className={cn(
-          "rounded-xl border bg-gradient-to-br p-4 transition-all hover:shadow-md",
+          "rounded-xl border bg-card bg-gradient-to-br p-4 transition-all hover:shadow-md",
           COLOR_CLASSES[color ?? "blue"],
         )}
       >
