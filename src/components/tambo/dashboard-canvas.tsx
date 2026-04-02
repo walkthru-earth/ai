@@ -9,7 +9,7 @@ import {
 } from "@dnd-kit/core";
 import { arrayMove, SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useTambo } from "@tambo-ai/react";
+import { useTambo, useTamboInteractable } from "@tambo-ai/react";
 import type * as React from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ResponsiveGridLayout, useContainerWidth } from "react-grid-layout";
@@ -24,7 +24,7 @@ import {
 } from "@/services/query-store";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
-import { GripVertical, Maximize2, Minimize2, X } from "lucide-react";
+import { GripVertical, Maximize2, Minimize2, Pencil, X } from "lucide-react";
 import { PanelContext } from "./panel-context";
 
 interface DashboardCanvasProps {
@@ -84,6 +84,9 @@ function formatComponentName(name: string): string {
     .replace(/([a-z])([A-Z])/g, "$1 $2");
 }
 
+/** Component names that are wrapped with withTamboInteractable (AI can update their props). */
+const INTERACTABLE_NAMES = new Set(["GeoMap", "H3Map", "Graph", "DataTable", "TimeSlider", "ObjexViewer"]);
+
 interface PanelInfo {
   id: string;
   component: React.ReactNode;
@@ -98,11 +101,15 @@ function SortablePanel({
   minH,
   removePanel,
   toggleMaximize,
+  selectPanel,
+  isSelected,
 }: {
   panel: PanelInfo;
   minH: string;
   removePanel: (id: string) => void;
   toggleMaximize: (id: string) => void;
+  selectPanel: ((id: string, componentName: string) => void) | null;
+  isSelected: boolean;
 }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
     id: panel.id,
@@ -118,9 +125,10 @@ function SortablePanel({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "rounded-xl border border-border bg-card overflow-hidden flex flex-col shadow-sm transition-shadow",
+        "rounded-xl border bg-card overflow-hidden flex flex-col shadow-sm transition-shadow",
         minH,
         isDragging && "ring-2 ring-earth-blue/40 opacity-80 shadow-lg z-50",
+        isSelected ? "border-primary ring-1 ring-primary/30" : "border-border",
       )}
     >
       {/* Header - drag handle is ONLY the grip icon area */}
@@ -137,6 +145,20 @@ function SortablePanel({
           <GripVertical className="w-3.5 h-3.5" />
         </div>
         <span className="text-xs font-semibold text-foreground truncate flex-1">{panel.title}</span>
+        {selectPanel && (
+          <button
+            onClick={() => selectPanel(panel.id, panel.componentName)}
+            className={cn(
+              "p-1 rounded transition-colors flex-shrink-0",
+              isSelected
+                ? "bg-primary/15 text-primary"
+                : "hover:bg-muted/50 text-muted-foreground/30 hover:text-muted-foreground",
+            )}
+            title="Edit with AI"
+          >
+            <Pencil className="w-2.5 h-2.5" />
+          </button>
+        )}
         <button
           onClick={() => toggleMaximize(panel.id)}
           className="p-1 rounded hover:bg-muted/50 transition-colors text-muted-foreground/30 hover:text-muted-foreground flex-shrink-0"
@@ -167,11 +189,43 @@ function SortablePanel({
 /* ── Main component ──────────────────────────────────────────────── */
 
 export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
-  const { messages, currentThreadId } = useTambo();
+  const { messages, currentThreadId, isIdle } = useTambo();
+  const { interactableComponents, setInteractableSelected, clearInteractableSelections } = useTamboInteractable();
   const [maximizedId, setMaximizedId] = useState<string | null>(null);
+  const [selectedPanelId, setSelectedPanelId] = useState<string | null>(null);
   const prevThreadRef = useRef<string | null | undefined>(null);
   const { width, containerRef } = useContainerWidth({ initialWidth: 800 });
   const isTouch = useIsTouchDevice();
+
+  // Clear visual selection after AI responds (isIdle means run finished)
+  const prevIdle = useRef(isIdle);
+  useEffect(() => {
+    if (isIdle && !prevIdle.current) {
+      setSelectedPanelId(null);
+    }
+    prevIdle.current = isIdle;
+  }, [isIdle]);
+
+  // Select a panel for AI editing: mark the matching interactable component as selected
+  const selectPanel = useCallback(
+    (panelId: string, componentName: string) => {
+      const alreadySelected = selectedPanelId === panelId;
+      if (alreadySelected) {
+        // Toggle off
+        clearInteractableSelections();
+        setSelectedPanelId(null);
+        return;
+      }
+      // Find the interactable component that matches this panel's component name
+      const match = interactableComponents.find((ic) => ic.name === componentName);
+      if (match) {
+        clearInteractableSelections();
+        setInteractableSelected(match.id, true);
+        setSelectedPanelId(panelId);
+      }
+    },
+    [selectedPanelId, interactableComponents, setInteractableSelected, clearInteractableSelections],
+  );
 
   // Storage keys - all scoped per thread
   const orderKey = currentThreadId ? `panel-order-${currentThreadId}` : null;
@@ -522,6 +576,7 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
               {orderedPanels.map((panel) => {
                 const compact = isCompactComponent(panel.componentName || "");
                 const minH = compact ? "h-auto" : "h-[280px]";
+                const isInteractable = INTERACTABLE_NAMES.has(panel.componentName);
                 return (
                   <SortablePanel
                     key={panel.id}
@@ -529,6 +584,8 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
                     minH={minH}
                     removePanel={removePanel}
                     toggleMaximize={toggleMaximize}
+                    selectPanel={isInteractable ? selectPanel : null}
+                    isSelected={selectedPanelId === panel.id}
                   />
                 );
               })}
@@ -568,33 +625,54 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
             useCSSTransforms: true,
           } as any)}
         >
-          {orderedPanels.map((panel) => (
-            <div
-              key={panel.id}
-              className="rounded-xl border border-border bg-card overflow-hidden flex flex-col shadow-sm hover:shadow-md transition-shadow"
-            >
-              {/* Desktop header - entire bar is drag handle */}
-              <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border/30 bg-muted/10 flex-shrink-0 select-none panel-drag-handle cursor-grab active:cursor-grabbing">
-                <GripVertical className="w-3 h-3 text-muted-foreground/30 flex-shrink-0" />
-                <span className="text-xs font-semibold text-foreground truncate flex-1">{panel.title}</span>
-                <button
-                  onClick={() => toggleMaximize(panel.id)}
-                  className="p-1 rounded hover:bg-muted/50 transition-colors text-muted-foreground/30 hover:text-muted-foreground flex-shrink-0"
-                >
-                  <Maximize2 className="w-2.5 h-2.5" />
-                </button>
-                <button
-                  onClick={() => removePanel(panel.id)}
-                  className="p-1 rounded hover:bg-destructive/20 transition-colors text-muted-foreground/30 hover:text-destructive flex-shrink-0"
-                >
-                  <X className="w-2.5 h-2.5" />
-                </button>
+          {orderedPanels.map((panel) => {
+            const isInteractable = INTERACTABLE_NAMES.has(panel.componentName);
+            const isSelected = selectedPanelId === panel.id;
+            return (
+              <div
+                key={panel.id}
+                className={cn(
+                  "rounded-xl border bg-card overflow-hidden flex flex-col shadow-sm hover:shadow-md transition-shadow",
+                  isSelected ? "border-primary ring-1 ring-primary/30" : "border-border",
+                )}
+              >
+                {/* Desktop header - entire bar is drag handle */}
+                <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border/30 bg-muted/10 flex-shrink-0 select-none panel-drag-handle cursor-grab active:cursor-grabbing">
+                  <GripVertical className="w-3 h-3 text-muted-foreground/30 flex-shrink-0" />
+                  <span className="text-xs font-semibold text-foreground truncate flex-1">{panel.title}</span>
+                  {isInteractable && (
+                    <button
+                      onClick={() => selectPanel(panel.id, panel.componentName)}
+                      className={cn(
+                        "p-1 rounded transition-colors flex-shrink-0",
+                        isSelected
+                          ? "bg-primary/15 text-primary"
+                          : "hover:bg-muted/50 text-muted-foreground/30 hover:text-muted-foreground",
+                      )}
+                      title="Edit with AI"
+                    >
+                      <Pencil className="w-2.5 h-2.5" />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => toggleMaximize(panel.id)}
+                    className="p-1 rounded hover:bg-muted/50 transition-colors text-muted-foreground/30 hover:text-muted-foreground flex-shrink-0"
+                  >
+                    <Maximize2 className="w-2.5 h-2.5" />
+                  </button>
+                  <button
+                    onClick={() => removePanel(panel.id)}
+                    className="p-1 rounded hover:bg-destructive/20 transition-colors text-muted-foreground/30 hover:text-destructive flex-shrink-0"
+                  >
+                    <X className="w-2.5 h-2.5" />
+                  </button>
+                </div>
+                <div className="panel-content flex-1 min-h-0 overflow-auto">
+                  <PanelContext.Provider value={true}>{panel.component}</PanelContext.Provider>
+                </div>
               </div>
-              <div className="panel-content flex-1 min-h-0 overflow-auto">
-                <PanelContext.Provider value={true}>{panel.component}</PanelContext.Provider>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </ResponsiveGridLayout>
       )}
       {!maximizedId && children}
