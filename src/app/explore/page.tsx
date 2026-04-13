@@ -291,11 +291,16 @@ function ExplorerLayout({ suggestions: defaultSuggestions }: { suggestions: Sugg
           <>
             {/* Header */}
             <div className="px-4 py-3 flex items-center gap-2.5 border-b border-border/30">
-              <WalkthruLogo size={20} />
-              <div className="flex-1 min-w-0 flex items-center gap-1.5">
-                <h1 className="text-sm font-bold text-foreground leading-none">walkthru.earth</h1>
-                <Sparkles className="w-3.5 h-3.5 text-earth-cyan" />
-              </div>
+              <a
+                href="https://walkthru.earth/links"
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-2 min-w-0 flex-1 hover:opacity-80 transition-opacity"
+              >
+                <WalkthruLogo size={20} />
+                <h1 className="text-sm font-bold text-foreground leading-none truncate">walkthru.earth</h1>
+                <Sparkles className="w-3.5 h-3.5 text-earth-cyan flex-shrink-0" />
+              </a>
               <SettingsButton />
               <button
                 onClick={() => setShowHistory(!showHistory)}
@@ -376,9 +381,16 @@ function ExplorerLayout({ suggestions: defaultSuggestions }: { suggestions: Sugg
         {/* Expanded: full-screen header with history + new thread */}
         {mobileChat === "expanded" && (
           <div className="flex items-center gap-1.5 px-3 py-2 border-b border-border/30 flex-shrink-0">
-            <WalkthruLogo size={16} />
-            <span className="text-xs font-bold text-foreground">walkthru.earth</span>
-            <Sparkles className="w-3 h-3 text-earth-cyan flex-shrink-0" />
+            <a
+              href="https://walkthru.earth/links"
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
+            >
+              <WalkthruLogo size={16} />
+              <span className="text-xs font-bold text-foreground">walkthru.earth</span>
+              <Sparkles className="w-3 h-3 text-earth-cyan flex-shrink-0" />
+            </a>
             <span className="flex-1" />
             <button
               onClick={() => setShowHistory(!showHistory)}

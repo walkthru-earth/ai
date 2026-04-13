@@ -109,11 +109,16 @@ export default function Home() {
 
       {/* Top bar */}
       <div className="relative z-20 flex items-center justify-between px-4 sm:px-6 pt-4">
-        <div className="flex items-center gap-2">
+        <a
+          href="https://walkthru.earth/links"
+          target="_blank"
+          rel="noreferrer"
+          className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+        >
           <WalkthruLogo size={20} />
           <span className="text-sm font-bold text-foreground">walkthru.earth</span>
           <Sparkles className="w-3.5 h-3.5 text-earth-cyan" />
-        </div>
+        </a>
         <ThemeSwitcher />
       </div>
 
@@ -247,7 +252,12 @@ export default function Home() {
         {/* Footer */}
         <footer className="pt-8 border-t border-border text-center">
           <p className="text-xs text-muted-foreground">
-            <a href="https://walkthru.earth" className="hover:text-foreground transition-colors">
+            <a
+              href="https://walkthru.earth/links"
+              target="_blank"
+              rel="noreferrer"
+              className="hover:text-foreground transition-colors"
+            >
               walkthru.earth
             </a>{" "}
             &middot; CC BY 4.0

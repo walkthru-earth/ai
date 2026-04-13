@@ -273,7 +273,15 @@ export function StyleEditorLayout({ suggestions: defaultSuggestions }: { suggest
           <>
             {/* Header */}
             <div className="px-4 py-3 flex items-center gap-2.5 border-b border-border/30">
-              <WalkthruLogo size={20} />
+              <a
+                href="https://walkthru.earth/links"
+                target="_blank"
+                rel="noreferrer"
+                className="flex-shrink-0 hover:opacity-80 transition-opacity"
+                title="walkthru.earth"
+              >
+                <WalkthruLogo size={20} />
+              </a>
               <div className="flex-1 min-w-0 flex items-center gap-1.5">
                 <h1 className="text-sm font-bold text-foreground leading-none">Style Editor</h1>
                 <Palette className="w-3.5 h-3.5 text-earth-cyan" />
@@ -345,7 +353,15 @@ export function StyleEditorLayout({ suggestions: defaultSuggestions }: { suggest
       >
         {mobileChat === "expanded" && (
           <div className="flex items-center gap-1.5 px-3 py-2 border-b border-border/30 flex-shrink-0">
-            <WalkthruLogo size={16} />
+            <a
+              href="https://walkthru.earth/links"
+              target="_blank"
+              rel="noreferrer"
+              className="flex-shrink-0 hover:opacity-80 transition-opacity"
+              title="walkthru.earth"
+            >
+              <WalkthruLogo size={16} />
+            </a>
             <span className="text-xs font-bold text-foreground">Style Editor</span>
             <Palette className="w-3 h-3 text-earth-cyan flex-shrink-0" />
             <span className="flex-1" />

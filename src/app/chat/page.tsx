@@ -19,9 +19,16 @@ function ChatInner({ suggestions }: { suggestions: Suggestion[] }) {
   return (
     <div className="h-screen flex flex-col">
       <header className="border-b border-border bg-background px-4 py-3 flex items-center gap-3 flex-shrink-0">
-        <WalkthruLogo size={20} />
-        <h1 className="font-bold text-sm text-foreground">walkthru.earth</h1>
-        <Sparkles className="w-3.5 h-3.5 text-earth-cyan" />
+        <a
+          href="https://walkthru.earth/links"
+          target="_blank"
+          rel="noreferrer"
+          className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+        >
+          <WalkthruLogo size={20} />
+          <h1 className="font-bold text-sm text-foreground">walkthru.earth</h1>
+          <Sparkles className="w-3.5 h-3.5 text-earth-cyan" />
+        </a>
         <span className="text-xs text-muted-foreground hidden sm:inline">AI-powered urban intelligence</span>
         <span className="flex-1" />
         <SettingsButton />
