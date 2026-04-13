@@ -35,6 +35,27 @@ paths:
 
 - `exportQueryToCSV({ queryId, filename? })`: reads `StoredQuery` from query-store, builds RFC 4180 CSV (proper escaping), triggers browser download via Blob URL. Used by AI `exportCSV` tool and DataTable footer button. Returns `{ success, rowCount, filename }`.
 
+## `panel-store.ts`
+
+- Lightweight registry of active dashboard panels. `DashboardCanvas` syncs panel info here on every render.
+- `syncActivePanels(panels)` - called by DashboardCanvas when panels change
+- `getActivePanels()` - non-reactive read for resource listing
+- `PanelEntry`: `{ id, componentName, title, queryId? }`
+- Used by explore page's `listResources`/`getResource` to expose panels as `panel://ComponentName/panelId` resources for @-mentions.
+
+## `style-store.ts`
+
+- Reactive `StyleSpecification` state via `useSyncExternalStore`. Single module-level variable.
+- `getStyle()` / `setStyle(style)` - non-reactive read/write for tools
+- `useStyle()` / `useStyleVersion()` - reactive hooks for components
+- `loadStyleFromUrl(url)` - fetch + validate + set
+- `exportStyleJSON()` - formatted JSON string
+- `downloadStyleJSON()` - blob download trigger (shared, replaces 3 inline implementations)
+- `getLayerById(id)` / `getSourceById(id)` - lookup helpers for `inspectStyle` tool
+- `getStyleInventory()` - source/layer summary for @-mention listing
+- `getCompactStyleFingerprint()` - token-optimized fingerprint for AI context (~1 token per layer)
+- `EMPTY_STYLE` - minimal starting style (dark background, MapLibre demo glyphs/sprites)
+
 ## Data Layer (modular registry)
 
 ### `datasets/` - 9 dataset modules

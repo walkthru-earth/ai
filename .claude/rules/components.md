@@ -63,7 +63,8 @@ All viz components use `useInDashboardPanel()` to detect context:
 
 ## Dashboard (`dashboard-canvas.tsx`)
 
-- Panel header: `[grip] [title] ... [edit] [maximize] [close]`. Title from `content.props.title`.
+- Panel header: `[grip] [title] ... [@] [edit] [maximize] [close]`. Title from `content.props.title`.
+- **Mention in chat (@ button)**: Shown on ALL panels when `onMentionPanel` prop is provided. Inserts `@panel:ComponentName("title")` into chat input via `useTamboThreadInput().setValue`. Opens chat sidebar and mobile sheet. Panel info synced to `panel-store.ts` for `listResources`/`getResource` on TamboProvider.
 - **Edit with AI (Pencil button)**: Only shown on interactable panels (GeoMap, Graph, DataTable, TimeSlider, ObjexViewer). Clicking marks the component as `isSelected` via `useTamboInteractable().setInteractableSelected()`. The AI sees `isSelected: true` in its context and focuses its next response on that component. Selection is one-shot (auto-cleared after AI responds via `isIdle` transition). Toggle: click again to deselect. Visual: `border-primary ring-1 ring-primary/30` on the panel, `bg-primary/15 text-primary` on the button.
 - Panel ID dedup: `Set<string>` with `compIdx` suffix for collisions.
 - Desktop: `react-grid-layout`, rowHeight 80px. `panelHeight()`: maps=10 (2× other panels), graphs=5, tables=5, QueryDisplay/InsightCard/DatasetCard=3, StatsGrid/StatsCard=2, default=4. All panels full-width (`w: 12`). Component name read from Tambo's `content.name` (SDK field), NOT `content.componentName`. Maps forced to minimum `panelHeight()` even with saved layouts.
@@ -79,10 +80,11 @@ All viz components use `useInDashboardPanel()` to detect context:
 
 ## Message Input (`message-input.tsx`)
 
-- Plain native `<textarea>` only. No TipTap/rich-text.
+- Plain native `<textarea>` only. No TipTap/rich-text. No overlay-based highlighting (CSS Custom Highlight API doesn't support textarea).
 - Types inline: `ImageItems`, `getImageItems()`, `TamboEditor`, `ResourceItem`, `PromptItem`.
 - Compound component: `MessageInput.Textarea`, `.SubmitButton`, `.Toolbar`, etc.
 - `invalid_previous_run` error → auto `startNewThread()`, preserves user text for resend.
+- **MentionChips** (`mention-chips.tsx`): Shared component rendering `@type:id` mentions as colored pill chips above the textarea. Supports `@panel` (green), `@source` (cyan), `@layer` (primary). Click chip to remove. Used in both `/explore` and `/style-editor` inputs. Extracts mentions via `/@(\w+):(\S+)/g` regex.
 
 ## Auto-scroll (`scrollable-message-container.tsx`)
 

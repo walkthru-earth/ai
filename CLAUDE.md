@@ -13,7 +13,7 @@ pnpm lint:fix     # biome auto-fix
 ```
 
 - **Vite** (not Next.js) - `vite.config.ts`: React plugin, `@tailwindcss/vite`, `base: "/ai"`, output to `out/`
-- **React Router** - `src/App.tsx` defines routes: `/`, `/chat`, `/explore`, `/interactables`
+- **React Router** - `src/App.tsx` defines routes: `/`, `/chat`, `/explore`, `/interactables`, `/style-editor` (lazy-loaded)
 - **Entry point**: `index.html` → `src/main.tsx` → `<BrowserRouter basename="/ai">`
 - **Biome** (not ESLint) - `biome.json`: 2-space indent, double quotes, semicolons, 120 chars
 - **Pre-commit**: lefthook runs `pnpx @biomejs/biome check --write` on staged files
@@ -325,6 +325,42 @@ Layer types: `h3`, `a5`, `scatterplot`, `geojson`, `arc`, `wkb` (native geometry
 **Auto-routing**: `detectLayerType()` checks column names: `pentagon`/`a5_cell`/`a5_index` → a5, `hex`/`h3_index` → h3, `source_lat`+`dest_lat` → arc, `lat`/`lng` → scatterplot, `geometry`/`geojson` → geojson. WKB path takes priority when `wkbArrays` present (geometry auto-detected). Spatial analysis results (ST_Buffer, ST_Intersects, spatial joins) produce native GEOMETRY → auto-rendered as polygon/line/point via zero-copy WKB path.
 
 Packages: `@geoarrow/deck.gl-layers@0.3.1`, `@walkthru-earth/objex-utils@1.1.0`, `apache-arrow@21.1.0`, `hyparquet@1.25.1`
+
+## @Mention System
+
+Unified mention system across all pages. Mentions use `@type:id` format in chat input. Rendered as colored chip pills above the textarea via shared `MentionChips` component (`src/components/tambo/mention-chips.tsx`).
+
+**Mention types (resources, user-initiated):**
+| Type | Format | Page | What it references |
+|------|--------|------|--------------------|
+| `@panel` | `@panel:GeoMap("title")` | `/explore` | Dashboard panel (via `@` button on panel header) |
+| `@source` | `@source:versatiles-shortbread` | `/style-editor` | MapLibre style source |
+| `@layer` | `@layer:water` | `/style-editor` | MapLibre style layer |
+
+**Tools (AI-callable, NOT mentions):**
+- `listDatasets`, `buildParquetUrl`, `describeDataset` (dataset discovery)
+- `runSQL` (query execution)
+- `suggestAnalysis`, `getCrossIndex` (analysis routing)
+- Style editor tools: `inspectStyle`, `updateLayer`, `updateSource`, `updateMapSettings`, `validateStyle`, `setStyle`, `loadStyleUrl`
+
+**Key distinction:** Mentions are user-initiated references to existing UI elements (panels, layers, sources). Tools are AI-callable functions. Datasets are exposed as tools, not mentions, because AI needs to compose SQL queries around them.
+
+**Panel resources** (`/explore`): `listResources`/`getResource` on `TamboProvider` exposes active dashboard panels as `panel://ComponentName/panelId` resources. `DashboardCanvas` syncs panel info to `panel-store.ts`. Panel resource includes queryId, row count, columns, and sample rows.
+
+**Style resources** (`/style-editor`): `listResources`/`getResource` exposes style sources and layers as `style://source/id` and `style://layer/id` resources with full JSON.
+
+## Style Editor (`/style-editor`)
+
+AI-powered MapLibre style editor. Separate `TamboProvider` config with style-specific tools and context (`src/lib/tambo-style-editor/`). Lazy-loaded via `React.lazy()`.
+
+- **Layout**: Desktop = side-by-side chat + full-bleed map. Mobile = bottom sheet chat + map.
+- **Style store** (`src/services/style-store.ts`): Reactive `StyleSpecification` state via `useSyncExternalStore`. Tools modify, map renders, users export.
+- **Token optimization**: Context sends compact fingerprint (~50-100 tokens) instead of full style. AI calls `inspectStyle` tool on-demand to read details.
+- **Tools**: `inspectStyle`, `updateLayer`, `updateSource`, `updateMapSettings`, `validateStyle`, `setStyle`, `loadStyleUrl`. Shared `safeParseJson` utility in `tools/utils.ts`.
+- **Presets**: 10 VersaTiles/MapLibre styles in `presets.ts`. Loaded via `loadStyleFromUrl`.
+- **Feature click**: Map click shows `SourcePopup` with layer/source info and "Mention" buttons to insert `@layer:id` or `@source:id` into chat.
+- **Slash commands**: `/paint`, `/layout`, `/filter`, `/source`, `/layer`, `/light`, `/terrain`, `/labels`, `/3d`, `/theme`, `/load`, `/preset`, `/export`, `/validate`.
+- **Validation**: Uses `@maplibre/maplibre-gl-style-spec` `validateStyleMin` for spec-level validation.
 
 ## Conventions
 

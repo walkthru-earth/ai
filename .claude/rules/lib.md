@@ -77,3 +77,35 @@ Persistent anonymous user key (localStorage `walkthru-user-key`). SDK requires `
 
 - `cn()` - clsx + tailwind-merge
 - `basePath` - `import.meta.env.BASE_URL` (from Vite `base` config, defaults to `/ai`)
+
+## `tambo-style-editor/` (modular AI config for Style Editor)
+
+Separate from main `tambo/` config since style editor uses completely different tools and context. Same modular structure.
+
+```
+src/lib/tambo-style-editor/
+├── index.ts                  # Aggregator: styleEditorProviderConfig + re-exports
+├── tools/
+│   ├── index.ts              # Aggregates 7 tools
+│   ├── utils.ts              # Shared safeParseJson (accepts string or object)
+│   ├── inspect.ts            # inspectStyle - on-demand layer/source/root reader
+│   ├── update-layer.ts       # updateLayer - add/update/remove with deep merge
+│   ├── update-source.ts      # updateSource - add/update/remove
+│   ├── update-map-settings.ts # updateMapSettings - root-level props
+│   ├── set-style.ts          # setStyle - full replacement
+│   ├── load-style-url.ts     # loadStyleUrl - fetch remote style
+│   └── validate-style.ts     # validateStyle - @maplibre/maplibre-gl-style-spec
+├── context/
+│   ├── index.ts              # buildStyleEditorContext() - compact fingerprint + spec
+│   ├── behavior.ts           # AI behavior rules (decisiveness, batch ops, tools)
+│   ├── maplibre-spec.ts      # Compressed MapLibre Style v8 reference (~1200 tokens)
+│   └── shortbread-schema.ts  # VersaTiles/OSM tile schema (~400 tokens, conditional)
+├── presets.ts                # 10 curated style presets (VersaTiles + MapLibre demo)
+└── suggestions.ts            # 5 style editor suggestion chips
+```
+
+### Key exports
+- `styleEditorProviderConfig` - base TamboProvider config (tools, no components)
+- `buildStyleEditorContext()` - compact fingerprint + spec + conditional Shortbread schema
+- `styleEditorSuggestions` - 5 initial suggestion chips
+- `styleEditorTools` - 7 tools (inspect, update layer/source/settings, validate, set, load)
