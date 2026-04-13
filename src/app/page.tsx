@@ -8,6 +8,7 @@ import {
   MapPin,
   MessageSquare,
   Mountain,
+  Palette,
   Sparkles,
   TreePine,
   Users,
@@ -169,6 +170,16 @@ export default function Home() {
                 >
                   <MessageSquare className="w-4 h-4" />
                   Chat Mode
+                </Link>
+                <Link
+                  to="/style-editor"
+                  className="group flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-medium text-sm text-muted-foreground bg-card border border-border hover:bg-muted/50 transition-colors"
+                >
+                  <Palette className="w-4 h-4 text-earth-cyan" />
+                  Style Editor
+                  <span className="ml-0.5 px-1.5 py-0.5 rounded-md text-[9px] font-bold tracking-wider uppercase bg-earth-cyan/15 text-earth-cyan border border-earth-cyan/30">
+                    Beta
+                  </span>
                 </Link>
               </div>
             </ApiKeyCheck>
