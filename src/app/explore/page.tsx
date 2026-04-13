@@ -29,6 +29,7 @@ import { WalkthruLogo } from "@/components/walkthru-logo";
 import { tamboProviderConfig } from "@/lib/tambo";
 import { useReplayQueries } from "@/lib/thread-hooks";
 import { usePageBootstrap } from "@/lib/use-page-bootstrap";
+import { useUrlParamsSync } from "@/lib/use-url-params";
 import { basePath, cn } from "@/lib/utils";
 import { getActivePanels } from "@/services/panel-store";
 import { getQueryResult } from "@/services/query-store";
@@ -193,7 +194,7 @@ function ExplorerLayout({ suggestions: defaultSuggestions }: { suggestions: Sugg
   const [showHistory, setShowHistory] = useState(false);
   // Mobile: "collapsed" = input bar at bottom, "expanded" = full-screen chat
   const [mobileChat, setMobileChat] = useState<"collapsed" | "expanded">("collapsed");
-  const { messages, currentThreadId, switchThread } = useTambo();
+  const { messages } = useTambo();
   const { value: inputValue, setValue: setInputValue } = useTamboThreadInput();
 
   // Auto-expand mobile chat when a new message arrives (user submitted)
@@ -220,40 +221,9 @@ function ExplorerLayout({ suggestions: defaultSuggestions }: { suggestions: Sugg
     prevComponentCount.current = count;
   }, [messages]);
 
-  // Sync thread ID from URL → Tambo on initial load only (for shared links).
-  // Must NOT re-run on currentThreadId changes, otherwise startNewThread() gets
-  // overridden by the stale URL param before the URL-update effect clears it.
-  const initialSyncDone = useRef(false);
-  useEffect(() => {
-    if (initialSyncDone.current) return;
-    initialSyncDone.current = true;
-    const params = new URLSearchParams(window.location.search);
-    const urlThread = params.get("thread");
-    if (urlThread?.startsWith("thr_") && urlThread !== currentThreadId) {
-      switchThread(urlThread);
-    } else if (urlThread && !urlThread.startsWith("thr_")) {
-      // Invalid thread param. Clean URL
-      params.delete("thread");
-      const qs = params.toString();
-      window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
-    }
-  }, [currentThreadId, switchThread]);
-
-  // Update URL when thread changes (without full navigation).
-  // Real thread IDs (thr_...) → set param. New/placeholder threads → clear param.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (currentThreadId?.startsWith("thr_")) {
-      if (params.get("thread") !== currentThreadId) {
-        params.set("thread", currentThreadId);
-        window.history.replaceState(null, "", `?${params.toString()}`);
-      }
-    } else if (params.has("thread")) {
-      params.delete("thread");
-      const qs = params.toString();
-      window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
-    }
-  }, [currentThreadId]);
+  // Bidirectional URL param sync: ?thread=<id> (shared links) + ?q=<prompt>
+  // (one-shot starter from the home page chips). Shared with /chat.
+  useUrlParamsSync();
 
   // Replay SQL queries from restored thread to repopulate the query store
   useReplayQueries(messages);

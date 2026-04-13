@@ -9,9 +9,13 @@ import { WalkthruLogo } from "@/components/walkthru-logo";
 import { tamboProviderConfig } from "@/lib/tambo";
 import { useReplayQueries } from "@/lib/thread-hooks";
 import { usePageBootstrap } from "@/lib/use-page-bootstrap";
+import { useUrlParamsSync } from "@/lib/use-url-params";
 
 function ChatInner({ suggestions }: { suggestions: Suggestion[] }) {
   const { messages } = useTambo();
+
+  // Shared ?thread= + ?q= URL param sync (same as /explore)
+  useUrlParamsSync();
 
   // Replay SQL queries from restored threads to repopulate the query store
   useReplayQueries(messages);
