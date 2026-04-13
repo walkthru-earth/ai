@@ -15,6 +15,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ResponsiveGridLayout, useContainerWidth } from "react-grid-layout";
 import { readStorage, writeStorage } from "@/lib/storage";
 import { basePath, cn } from "@/lib/utils";
+import { syncActivePanels } from "@/services/panel-store";
 import {
   consumeDismissRequest,
   consumeRestoreRequest,
@@ -24,13 +25,15 @@ import {
 } from "@/services/query-store";
 import "react-grid-layout/css/styles.css";
 import "react-resizable/css/styles.css";
-import { GripVertical, Maximize2, Minimize2, Pencil, X } from "lucide-react";
+import { AtSign, GripVertical, Maximize2, Minimize2, Pencil, X } from "lucide-react";
 import { PanelContext } from "./panel-context";
 
 interface DashboardCanvasProps {
   className?: string;
   /** Overlay content (e.g. floating toolbar) - hidden when a panel is maximized */
   children?: React.ReactNode;
+  /** Called when user wants to @mention a panel in the chat input. */
+  onMentionPanel?: (panelId: string, componentName: string, title: string) => void;
 }
 
 /** Panel height in grid rows (×80px). Maps get 2× default height. */
@@ -92,6 +95,7 @@ interface PanelInfo {
   component: React.ReactNode;
   componentName: string;
   title: string;
+  queryId?: string;
 }
 
 /* ── Sortable panel wrapper for touch (dnd-kit) ──────────────────── */
@@ -102,6 +106,7 @@ function SortablePanel({
   removePanel,
   toggleMaximize,
   selectPanel,
+  mentionPanel,
   isSelected,
 }: {
   panel: PanelInfo;
@@ -109,6 +114,7 @@ function SortablePanel({
   removePanel: (id: string) => void;
   toggleMaximize: (id: string) => void;
   selectPanel: ((id: string, componentName: string) => void) | null;
+  mentionPanel?: (id: string, componentName: string, title: string) => void;
   isSelected: boolean;
 }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
@@ -145,6 +151,15 @@ function SortablePanel({
           <GripVertical className="w-3.5 h-3.5" />
         </div>
         <span className="text-xs font-semibold text-foreground truncate flex-1">{panel.title}</span>
+        {mentionPanel && (
+          <button
+            onClick={() => mentionPanel(panel.id, panel.componentName, panel.title)}
+            className="p-1 rounded transition-colors flex-shrink-0 hover:bg-muted/50 text-muted-foreground/30 hover:text-muted-foreground"
+            title="Mention in chat"
+          >
+            <AtSign className="w-2.5 h-2.5" />
+          </button>
+        )}
         {selectPanel && (
           <button
             onClick={() => selectPanel(panel.id, panel.componentName)}
@@ -188,7 +203,7 @@ function SortablePanel({
 
 /* ── Main component ──────────────────────────────────────────────── */
 
-export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
+export function DashboardCanvas({ className, children, onMentionPanel }: DashboardCanvasProps) {
   const { messages, currentThreadId, isIdle } = useTambo();
   const { interactableComponents, setInteractableSelected, clearInteractableSelections } = useTamboInteractable();
   const [maximizedId, setMaximizedId] = useState<string | null>(null);
@@ -308,13 +323,21 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
             const name = (content as any).componentName ?? (content as any).name ?? "";
             const propsTitle = (content as any).props?.title;
             const title = typeof propsTitle === "string" && propsTitle.trim() ? propsTitle : formatComponentName(name);
-            result.push({ id: panelId, component: content.renderedComponent, componentName: name, title });
+            const queryId = (content as any).props?.queryId as string | undefined;
+            result.push({ id: panelId, component: content.renderedComponent, componentName: name, title, queryId });
           }
         }
       }
     }
     return result;
   }, [messages, dismissedIds]);
+
+  // Sync panels to panel-store for @-mention resource listing
+  useEffect(() => {
+    syncActivePanels(
+      panels.map((p) => ({ id: p.id, componentName: p.componentName, title: p.title, queryId: p.queryId })),
+    );
+  }, [panels]);
 
   // Keep panelOrder in sync - maps always float to top among new panels
   const panelIds = useMemo(() => panels.map((p) => p.id), [panels]);
@@ -585,6 +608,7 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
                     removePanel={removePanel}
                     toggleMaximize={toggleMaximize}
                     selectPanel={isInteractable ? selectPanel : null}
+                    mentionPanel={onMentionPanel}
                     isSelected={selectedPanelId === panel.id}
                   />
                 );
@@ -640,6 +664,15 @@ export function DashboardCanvas({ className, children }: DashboardCanvasProps) {
                 <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border/30 bg-muted/10 flex-shrink-0 select-none panel-drag-handle cursor-grab active:cursor-grabbing">
                   <GripVertical className="w-3 h-3 text-muted-foreground/30 flex-shrink-0" />
                   <span className="text-xs font-semibold text-foreground truncate flex-1">{panel.title}</span>
+                  {onMentionPanel && (
+                    <button
+                      onClick={() => onMentionPanel(panel.id, panel.componentName, panel.title)}
+                      className="p-1 rounded transition-colors flex-shrink-0 hover:bg-muted/50 text-muted-foreground/30 hover:text-muted-foreground"
+                      title="Mention in chat"
+                    >
+                      <AtSign className="w-2.5 h-2.5" />
+                    </button>
+                  )}
                   {isInteractable && (
                     <button
                       onClick={() => selectPanel(panel.id, panel.componentName)}

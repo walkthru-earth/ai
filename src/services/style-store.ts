@@ -183,9 +183,10 @@ export function getCompactStyleFingerprint(): string {
   const rootProps: string[] = [];
   if (currentStyle.sprite) rootProps.push("sprite");
   if (currentStyle.glyphs) rootProps.push("glyphs");
-  if ((currentStyle as any).terrain) rootProps.push("terrain");
-  if ((currentStyle as any).sky) rootProps.push("sky");
-  if ((currentStyle as any).light) rootProps.push("light");
+  const styleExt = currentStyle as unknown as Record<string, unknown>;
+  if (styleExt.terrain) rootProps.push("terrain");
+  if (styleExt.sky) rootProps.push("sky");
+  if (styleExt.light) rootProps.push("light");
   if (rootProps.length > 0) lines.push(`has: ${rootProps.join(", ")}`);
 
   return lines.join("\n");

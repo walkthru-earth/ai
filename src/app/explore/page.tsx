@@ -1,11 +1,12 @@
 import type { Suggestion } from "@tambo-ai/react";
-import { TamboProvider, useTambo, useTamboThreadList } from "@tambo-ai/react";
+import { TamboProvider, useTambo, useTamboThreadInput, useTamboThreadList } from "@tambo-ai/react";
 import { TamboMcpProvider } from "@tambo-ai/react/mcp";
 import { ChevronDown, ChevronLeft, ChevronRight, Clock, MessageSquare, Plus, Share2, Sparkles } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SettingsButton } from "@/components/settings-popover";
 import { DashboardCanvas } from "@/components/tambo/dashboard-canvas";
 import { useMcpServers } from "@/components/tambo/mcp-config-modal";
+import { MentionChips } from "@/components/tambo/mention-chips";
 import {
   MessageInput,
   MessageInputError,
@@ -29,6 +30,8 @@ import { tamboProviderConfig } from "@/lib/tambo";
 import { useReplayQueries } from "@/lib/thread-hooks";
 import { usePageBootstrap } from "@/lib/use-page-bootstrap";
 import { basePath, cn } from "@/lib/utils";
+import { getActivePanels } from "@/services/panel-store";
+import { getQueryResult } from "@/services/query-store";
 
 /* ── Helper: extract thread preview name ──────────────────────────── */
 
@@ -191,6 +194,7 @@ function ExplorerLayout({ suggestions: defaultSuggestions }: { suggestions: Sugg
   // Mobile: "collapsed" = input bar at bottom, "expanded" = full-screen chat
   const [mobileChat, setMobileChat] = useState<"collapsed" | "expanded">("collapsed");
   const { messages, currentThreadId, switchThread } = useTambo();
+  const { value: inputValue, setValue: setInputValue } = useTamboThreadInput();
 
   // Auto-expand mobile chat when a new message arrives (user submitted)
   const prevMessageCount = useRef(messages.length);
@@ -256,6 +260,23 @@ function ExplorerLayout({ suggestions: defaultSuggestions }: { suggestions: Sugg
 
   const isEmpty = useMemo(() => !messages || messages.filter((m) => m.role !== "system").length === 0, [messages]);
 
+  const handleMentionPanel = useCallback(
+    (_panelId: string, componentName: string, title: string) => {
+      const mention = `@panel:${componentName}("${title}") `;
+      setInputValue(inputValue ? `${inputValue}${mention}` : mention);
+      setIsChatOpen(true);
+      setMobileChat("expanded");
+    },
+    [inputValue, setInputValue],
+  );
+
+  const removeMention = useCallback(
+    (mention: string) => {
+      setInputValue(inputValue.replace(mention, "").replace(/ {2,}/g, " ").trim());
+    },
+    [inputValue, setInputValue],
+  );
+
   return (
     <div className="flex h-screen bg-background relative grain">
       {/* ── Desktop: side-by-side layout ─────────────────────────── */}
@@ -307,6 +328,7 @@ function ExplorerLayout({ suggestions: defaultSuggestions }: { suggestions: Sugg
 
                 <div className="p-3 border-t border-border/30">
                   <MessageInput variant="bordered">
+                    <MentionChips value={inputValue} onRemove={removeMention} />
                     <MessageInputTextarea placeholder="Ask about weather, terrain, buildings, population..." />
                     <MessageInputToolbar>
                       <MessageInputFileButton />
@@ -338,7 +360,7 @@ function ExplorerLayout({ suggestions: defaultSuggestions }: { suggestions: Sugg
 
       {/* Dashboard - all AI components become draggable/resizable panels */}
       {/* Floating toolbar passed as children - hidden when a panel is maximized */}
-      <DashboardCanvas className="bg-muted/30">
+      <DashboardCanvas className="bg-muted/30" onMentionPanel={handleMentionPanel}>
         {mobileChat === "collapsed" && (
           <div className="sm:hidden fixed top-2 right-2 z-20 flex items-center gap-1 rounded-lg glass-panel-subtle px-1.5 py-1">
             <SettingsButton />
@@ -405,6 +427,7 @@ function ExplorerLayout({ suggestions: defaultSuggestions }: { suggestions: Sugg
         {/* Input bar - always visible */}
         <div className={cn("p-2", mobileChat === "expanded" && "border-t border-border/30")}>
           <MessageInput variant="bordered">
+            <MentionChips value={inputValue} onRemove={removeMention} />
             <MessageInputTextarea placeholder="Ask about weather, terrain, buildings, population..." />
             <MessageInputToolbar>
               <MessageInputSubmitButton />
@@ -417,6 +440,50 @@ function ExplorerLayout({ suggestions: defaultSuggestions }: { suggestions: Sugg
   );
 }
 
+/* ── Panel Resources (for @-mention in chat) ─────────────────────── */
+
+async function listPanelResources(search?: string) {
+  const panels = getActivePanels();
+  const items = panels.map((p) => ({
+    uri: `panel://${p.componentName}/${p.id}`,
+    name: `${p.title} [${p.componentName}]`,
+    mimeType: "application/json",
+  }));
+  if (search) {
+    const q = search.toLowerCase();
+    return items.filter((item) => item.name.toLowerCase().includes(q));
+  }
+  return items;
+}
+
+async function getPanelResource(uri: string) {
+  const match = uri.match(/^panel:\/\/(\w+)\/(.+)$/);
+  if (!match) return { uri, text: `Unknown resource: ${uri}` };
+
+  const [, , panelId] = match;
+  const panels = getActivePanels();
+  const panel = panels.find((p) => p.id === panelId);
+  if (!panel) return { uri, text: `Panel '${panelId}' not found` };
+
+  const info: Record<string, unknown> = {
+    panelId: panel.id,
+    componentName: panel.componentName,
+    title: panel.title,
+  };
+
+  if (panel.queryId) {
+    info.queryId = panel.queryId;
+    const result = getQueryResult(panel.queryId);
+    if (result) {
+      info.rowCount = result.rows.length;
+      info.columns = result.rows[0] ? Object.keys(result.rows[0]) : [];
+      info.sampleRows = result.rows.slice(0, 3);
+    }
+  }
+
+  return { uri, text: JSON.stringify(info, null, 2), mimeType: "application/json" };
+}
+
 /* ── Page ──────────────────────────────────────────────────────────── */
 
 export default function ExplorePage() {
@@ -424,7 +491,14 @@ export default function ExplorePage() {
   const mcpServers = useMcpServers();
 
   return (
-    <TamboProvider {...tamboProviderConfig} mcpServers={mcpServers} userKey={userKey} contextHelpers={contextHelpers}>
+    <TamboProvider
+      {...tamboProviderConfig}
+      mcpServers={mcpServers}
+      userKey={userKey}
+      contextHelpers={contextHelpers}
+      listResources={listPanelResources}
+      getResource={getPanelResource}
+    >
       <TamboMcpProvider>
         <ExplorerLayout suggestions={suggestions} />
       </TamboMcpProvider>
