@@ -25,6 +25,7 @@ const DATASETS = [
     name: "Weather",
     cells: "GraphCast AI",
     color: "from-blue-500/20 to-cyan-500/10 border-blue-500/20",
+    prompt: "Show me the latest weather forecast in my area",
   },
   {
     id: "terrain",
@@ -32,6 +33,7 @@ const DATASETS = [
     name: "Terrain",
     cells: "10.5B cells",
     color: "from-emerald-500/20 to-green-500/10 border-emerald-500/20",
+    prompt: "Show me the terrain and elevation near me",
   },
   {
     id: "building",
@@ -39,6 +41,7 @@ const DATASETS = [
     name: "Buildings",
     cells: "2.75B",
     color: "from-amber-500/20 to-orange-500/10 border-amber-500/20",
+    prompt: "Show the building density in my area",
   },
   {
     id: "population",
@@ -46,6 +49,7 @@ const DATASETS = [
     name: "Population",
     cells: "SSP2 to 2100",
     color: "from-rose-500/20 to-pink-500/10 border-rose-500/20",
+    prompt: "Show me population projections through 2100 near me",
   },
   {
     id: "places",
@@ -53,6 +57,7 @@ const DATASETS = [
     name: "Places",
     cells: "72M POIs",
     color: "from-violet-500/20 to-purple-500/10 border-violet-500/20",
+    prompt: "What are the most common points of interest near me?",
   },
   {
     id: "transportation",
@@ -60,6 +65,7 @@ const DATASETS = [
     name: "Transport",
     cells: "343M segments",
     color: "from-teal-500/20 to-cyan-500/10 border-teal-500/20",
+    prompt: "Show me the transportation network around me",
   },
   {
     id: "base",
@@ -67,6 +73,7 @@ const DATASETS = [
     name: "Environment",
     cells: "Land & Water",
     color: "from-lime-500/20 to-green-500/10 border-lime-500/20",
+    prompt: "Show land use and water features near me",
   },
   {
     id: "buildings-overture",
@@ -74,6 +81,7 @@ const DATASETS = [
     name: "Building Types",
     cells: "Use & Class",
     color: "from-orange-500/20 to-yellow-500/10 border-orange-500/20",
+    prompt: "What types of buildings are in my area?",
   },
   {
     id: "addresses",
@@ -81,21 +89,22 @@ const DATASETS = [
     name: "Addresses",
     cells: "Global",
     color: "from-sky-500/20 to-blue-500/10 border-sky-500/20",
+    prompt: "How many addresses and postcodes are in my area?",
   },
 ];
 
-const ANALYSES = [
-  "Urban Density",
-  "Housing Pressure",
-  "Landslide Risk",
-  "Vertical Living",
-  "Population Growth",
-  "Shrinking Cities",
-  "Walkability",
-  "15-Minute City",
-  "Biophilic Index",
-  "Heat Vulnerability",
-  "Water Security",
+const ANALYSES: { name: string; prompt: string }[] = [
+  { name: "Urban Density", prompt: "Compute urban density near me" },
+  { name: "Housing Pressure", prompt: "Show housing pressure in my area" },
+  { name: "Landslide Risk", prompt: "Assess landslide risk near me" },
+  { name: "Vertical Living", prompt: "Show vertical living indicators near me" },
+  { name: "Population Growth", prompt: "Show population growth projections near me" },
+  { name: "Shrinking Cities", prompt: "Show shrinking cities indicators near me" },
+  { name: "Walkability", prompt: "Show walkability near me" },
+  { name: "15-Minute City", prompt: "Show the 15-minute city analysis near me" },
+  { name: "Biophilic Index", prompt: "Compute the biophilic index near me" },
+  { name: "Heat Vulnerability", prompt: "Assess heat vulnerability near me" },
+  { name: "Water Security", prompt: "Assess water security near me" },
 ];
 
 export default function Home() {
@@ -180,14 +189,16 @@ export default function Home() {
             {DATASETS.map((ds) => {
               const Icon = ds.icon;
               return (
-                <div
+                <Link
                   key={ds.id}
-                  className={`rounded-xl border bg-gradient-to-br p-3 sm:p-4 transition-all hover:scale-[1.02] cursor-default ${ds.color}`}
+                  to={`/explore?q=${encodeURIComponent(ds.prompt)}`}
+                  className={`rounded-xl border bg-gradient-to-br p-3 sm:p-4 transition-all hover:scale-[1.02] ${ds.color}`}
+                  title={ds.prompt}
                 >
                   <Icon className="w-5 h-5 mb-2 sm:mb-3 opacity-80 text-foreground" />
                   <p className="font-semibold text-foreground text-sm">{ds.name}</p>
                   <p className="font-[family-name:var(--font-mono)] text-xs text-muted-foreground mt-0.5">{ds.cells}</p>
-                </div>
+                </Link>
               );
             })}
           </div>
@@ -204,13 +215,15 @@ export default function Home() {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            {ANALYSES.map((name) => (
-              <span
-                key={name}
-                className="px-3 py-1.5 rounded-lg border border-border bg-card/50 text-sm text-muted-foreground hover:text-foreground hover:border-earth-cyan/30 transition-colors cursor-default"
+            {ANALYSES.map((a) => (
+              <Link
+                key={a.name}
+                to={`/explore?q=${encodeURIComponent(a.prompt)}`}
+                className="px-3 py-1.5 rounded-lg border border-border bg-card/50 text-sm text-muted-foreground hover:text-foreground hover:border-earth-cyan/30 transition-colors"
+                title={a.prompt}
               >
-                {name}
-              </span>
+                {a.name}
+              </Link>
             ))}
           </div>
         </div>
