@@ -109,7 +109,7 @@ export const MessageThreadFull = React.forwardRef<HTMLDivElement, MessageThreadF
 
           {/* Message input */}
           <div className="px-4 pb-4">
-            <MessageInput>
+            <MessageInput variant="bordered">
               <MessageInputTextarea placeholder="Type your message or paste images..." />
               <MessageInputToolbar>
                 <MessageInputFileButton />
