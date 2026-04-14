@@ -142,6 +142,19 @@ function emit() {
 
 export function setCrossFilter(filter: CrossFilter): void {
   if (!crossFilterEnabled) return;
+  // Skip emit on value-equal filters to avoid repeated emissions during map
+  // viewport drift where the computed bbox produces the same filter values.
+  if (
+    currentFilter &&
+    currentFilter.sourceComponent === filter.sourceComponent &&
+    currentFilter.filterType === filter.filterType &&
+    currentFilter.column === filter.column &&
+    currentFilter.sourceQueryId === filter.sourceQueryId &&
+    currentFilter.values.length === filter.values.length &&
+    currentFilter.values.every((v, i) => v === filter.values[i])
+  ) {
+    return;
+  }
   currentFilter = filter;
   emit();
 }
@@ -255,6 +268,18 @@ function emitTimeFilter() {
 }
 
 export function setTimeFilter(filter: TimeFilter): void {
+  // Skip emit when the new filter is value-equal to the current one. Each emit
+  // wakes every subscriber (GeoMap, Graph) with a new filter reference, which
+  // triggers layerConfig re-computation and potential render cascades.
+  if (
+    currentTimeFilter &&
+    currentTimeFilter.currentIndex === filter.currentIndex &&
+    currentTimeFilter.timestampColumn === filter.timestampColumn &&
+    currentTimeFilter.sourceComponent === filter.sourceComponent &&
+    currentTimeFilter.timestamps === filter.timestamps
+  ) {
+    return;
+  }
   currentTimeFilter = filter;
   emitTimeFilter();
 }

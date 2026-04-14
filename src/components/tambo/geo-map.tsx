@@ -642,7 +642,10 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
   const qr2 = useQueryResult(isMultiLayer ? visibleLayers[2]?.queryId : undefined);
   const qr3 = useQueryResult(isMultiLayer ? visibleLayers[3]?.queryId : undefined);
   const qr4 = useQueryResult(isMultiLayer ? visibleLayers[4]?.queryId : undefined);
-  const queryResults = [qr0, qr1, qr2, qr3, qr4];
+  // Stable reference array: only allocates a new array when the individual query
+  // results actually change. Spreading into useMemo deps otherwise works element-wise
+  // but adjacent stable-ref slots keep the memo honest.
+  const queryResults = useMemo(() => [qr0, qr1, qr2, qr3, qr4], [qr0, qr1, qr2, qr3, qr4]);
 
   // Transform data: multi-layer or single-layer
   const {
@@ -778,7 +781,7 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
     isMultiLayer,
     visibleLayers,
     queryId,
-    ...queryResults,
+    queryResults,
     explicitLayerType,
     hexColumn,
     pentagonColumn,
@@ -794,24 +797,31 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
     colorScheme,
     timeFilter,
     singleLayerVisible,
+    singleLayerOpacity,
+    qr0,
   ]);
 
   // Precompute H3 centroids once when data loads - used for both bounds and bbox cross-filter
   const hasH3Layer = layerConfigs.some((c) => c.type === "h3");
-  const [h3Centroids, setH3Centroids] = React.useState<Map<string, [number, number]>>(new Map());
+  const EMPTY_H3_CENTROIDS = React.useRef<Map<string, [number, number]>>(new Map()).current;
+  const [h3Centroids, setH3Centroids] = React.useState<Map<string, [number, number]>>(EMPTY_H3_CENTROIDS);
   const [h3Bounds, setH3Bounds] = React.useState<[[number, number], [number, number]] | null>(null);
   React.useEffect(() => {
     if (!hasH3Layer || layerConfigs.length === 0) {
-      setH3Bounds(null);
-      setH3Centroids(new Map());
+      // Guard: only setState when values actually change to avoid allocation churn
+      // that could cascade into the parent panel's re-registration cycle.
+      setH3Bounds((prev) => (prev === null ? prev : null));
+      setH3Centroids((prev) => (prev.size === 0 ? prev : EMPTY_H3_CENTROIDS));
       return;
     }
     // Gather all H3 hex data across layers
     const allHexData = layerConfigs.filter((c) => c.type === "h3").flatMap((c) => c.data);
     if (allHexData.length === 0) return;
 
+    let cancelled = false;
     import("h3-js")
       .then((h3) => {
+        if (cancelled) return;
         const centroids = new Map<string, [number, number]>();
         let minLat = 90;
         let maxLat = -90;
@@ -833,18 +843,33 @@ export const GeoMap = React.forwardRef<HTMLDivElement, GeoMapProps>((props, ref)
             /* invalid hex */
           }
         }
+        if (cancelled) return;
         setH3Centroids(centroids);
         if (!bounds && minLat <= maxLat) {
-          setH3Bounds([
-            [minLng, minLat],
-            [maxLng, maxLat],
-          ]);
+          setH3Bounds((prev) => {
+            if (
+              prev &&
+              prev[0][0] === minLng &&
+              prev[0][1] === minLat &&
+              prev[1][0] === maxLng &&
+              prev[1][1] === maxLat
+            ) {
+              return prev;
+            }
+            return [
+              [minLng, minLat],
+              [maxLng, maxLat],
+            ];
+          });
         } else {
-          setH3Bounds(null);
+          setH3Bounds((prev) => (prev === null ? prev : null));
         }
       })
       .catch(() => {});
-  }, [hasH3Layer, layerConfigs, bounds]);
+    return () => {
+      cancelled = true;
+    };
+  }, [hasH3Layer, layerConfigs, bounds, EMPTY_H3_CENTROIDS]);
 
   const finalBounds = bounds ?? h3Bounds;
 

@@ -42,11 +42,18 @@ paths:
 All use `useQueryResult(queryId)`, `withTamboInteractable` (propsSchema only), `useInDashboardPanel()`.
 
 **setState rules for interactable components**:
-- Do NOT use `useTamboComponentState`, `useTamboInteractable()`, or `useTamboCurrentComponent()`. All cause "setState during render" errors with `withTamboInteractable`.
+- Do NOT use `useTamboComponentState`, `useTamboInteractable()`, or `useTamboCurrentComponent()` **inside a `withTamboInteractable`-wrapped component body**. All cause "setState during render" errors.
+- `useTamboInteractable()` IS allowed in PARENT components that mount interactables (e.g. `DashboardCanvas`). That's the supported pattern for the "Edit with AI" selection API.
 - NEVER call setState directly in render body. Always use `useEffect` or callbacks. Example: data-table pagination reset uses `useEffect(safePage)`, not inline `if (safePage !== page) setPage()`.
 - Dashboard toggleMaximize uses `queueMicrotask()` to defer setState.
 - Thread reset in DashboardCanvas uses `useEffect(currentThreadId)` not render-body setState.
 - Root cause: `withTamboInteractable` re-registers with `TamboRegistryProvider` during render; any setState that triggers mount/unmount of wrapped components during that cycle causes the React warning.
+
+**Render-loop safeguards (React minified error #185)**:
+- Never spread a non-memoized array into a `useMemo`/`useEffect` dep list (`...queryResults`). Wrap the array in `useMemo` so slot count + each element are stable. Unstable deps force memos to recompute every render and cascade through `useTimeFilter` / `useCrossFilter` subscribers.
+- `useEffect` blocks that call `setState(new Map())` or `setState([...])` unconditionally churn allocations even when the logical value is unchanged. Use functional updates with equality checks: `setX((prev) => equal(prev, next) ? prev : next)`.
+- Pub/sub emitters (`setTimeFilter`, `setCrossFilter` in `query-store`) MUST value-check before emitting. A no-op emit wakes every subscriber, and subscribers that re-derive via `useMemo` (GeoMap's `layerConfigs`, Graph's `resolvedData`) produce new references that propagate cascades. Rule: mutate `currentX` + `emit()` only when the new payload differs from the stored one.
+- Dashboard panels read component name from `content.name` (SDK raw content block), NOT `content.componentName` (only set on `withTamboInteractable` config + `TamboCurrentComponent` hook). Reading the wrong field makes `INTERACTABLE_NAMES.has(...)` silently return false and hides the "Edit with AI" pencil.
 
 ## Inline props (AI sends values directly)
 

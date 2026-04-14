@@ -116,9 +116,23 @@ export const TimeSlider = React.forwardRef<HTMLDivElement, TimeSliderProps>(
       return () => clearInterval(interval);
     }, [playing, timestamps.length, intervalMs]);
 
-    // Emit time filter on index change (useEffect - NEVER during render)
+    // Emit time filter on index change (useEffect - NEVER during render).
+    // Avoid emitting identical consecutive filters: every call creates a new object
+    // reference that wakes every `useTimeFilter()` subscriber (GeoMap, Graph), so
+    // repeated equal emits manifest as cascading re-renders in the dashboard.
+    const lastEmittedRef = React.useRef<{ ts: string[]; idx: number; col: string } | null>(null);
     useEffect(() => {
       if (timestamps.length === 0) return;
+      const last = lastEmittedRef.current;
+      if (
+        last &&
+        last.idx === index &&
+        last.col === timestampColumn &&
+        last.ts === timestamps // useMemo reference equality on timestamps
+      ) {
+        return;
+      }
+      lastEmittedRef.current = { ts: timestamps, idx: index, col: timestampColumn };
       setTimeFilter({
         timestamps,
         currentIndex: index,

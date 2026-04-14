@@ -320,7 +320,11 @@ export function DashboardCanvas({ className, children, onMentionPanel }: Dashboa
           usedIds.add(panelId);
           compIdx++;
           if (!dismissedIds.has(panelId)) {
-            const name = (content as any).componentName ?? (content as any).name ?? "";
+            // Tambo SDK exposes the registered component name as `content.name`.
+            // `componentName` only exists on the interactable config/hook, never on
+            // raw content blocks, so reading it first would always be undefined and
+            // break INTERACTABLE_NAMES lookups (silently disables "Edit with AI").
+            const name = (content as any).name ?? (content as any).componentName ?? "";
             const propsTitle = (content as any).props?.title;
             const title = typeof propsTitle === "string" && propsTitle.trim() ? propsTitle : formatComponentName(name);
             const queryId = (content as any).props?.queryId as string | undefined;
