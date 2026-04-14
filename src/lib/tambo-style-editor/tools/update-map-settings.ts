@@ -6,7 +6,7 @@
 import type { TamboTool } from "@tambo-ai/react";
 import { z } from "zod";
 import { getStyle, setStyle } from "@/services/style-store";
-import { safeParseJson } from "./utils";
+import { parseJsonObject } from "./utils";
 
 async function updateMapSettingsFn(input: {
   name?: string;
@@ -36,21 +36,24 @@ async function updateMapSettingsFn(input: {
   if (input.pitch !== undefined && input.pitch !== null) updates.pitch = input.pitch;
 
   // JSON string fields for complex objects
-  if (input.lightJson) {
-    const light = safeParseJson(input.lightJson);
-    if (light) updates.light = light;
+  const parseErrors: string[] = [];
+  for (const [field, key] of [
+    ["lightJson", "light"],
+    ["skyJson", "sky"],
+    ["terrainJson", "terrain"],
+    ["transitionJson", "transition"],
+  ] as const) {
+    const raw = input[field];
+    if (raw === undefined || raw === null || raw === "") continue;
+    const parsed = parseJsonObject(raw);
+    if (!parsed.ok) {
+      parseErrors.push(`${field}: ${parsed.error}`);
+      continue;
+    }
+    updates[key] = parsed.value;
   }
-  if (input.skyJson) {
-    const sky = safeParseJson(input.skyJson);
-    if (sky) updates.sky = sky;
-  }
-  if (input.terrainJson) {
-    const terrain = safeParseJson(input.terrainJson);
-    if (terrain) updates.terrain = terrain;
-  }
-  if (input.transitionJson) {
-    const transition = safeParseJson(input.transitionJson);
-    if (transition) updates.transition = transition;
+  if (parseErrors.length > 0) {
+    return { success: false, error: parseErrors.join(" | ") };
   }
 
   if (Object.keys(updates).length === 0) {

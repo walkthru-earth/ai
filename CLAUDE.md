@@ -341,7 +341,7 @@ Unified mention system across all pages. Mentions use `@type:id` format in chat 
 - `listDatasets`, `buildParquetUrl`, `describeDataset` (dataset discovery)
 - `runSQL` (query execution)
 - `suggestAnalysis`, `getCrossIndex` (analysis routing)
-- Style editor tools: `inspectStyle`, `updateLayer`, `updateSource`, `updateMapSettings`, `validateStyle`, `setStyle`, `loadStyleUrl`
+- Style editor tools: `inspectStyle`, `setLayerProperty`, `updateLayer`, `updateSource`, `updateMapSettings`, `validateStyle`, `setStyle`, `loadStyleUrl`
 
 **Key distinction:** Mentions are user-initiated references to existing UI elements (panels, layers, sources). Tools are AI-callable functions. Datasets are exposed as tools, not mentions, because AI needs to compose SQL queries around them.
 
@@ -356,7 +356,8 @@ AI-powered MapLibre style editor. Separate `TamboProvider` config with style-spe
 - **Layout**: Desktop = side-by-side chat + full-bleed map. Mobile = bottom sheet chat + map.
 - **Style store** (`src/services/style-store.ts`): Reactive `StyleSpecification` state via `useSyncExternalStore`. Tools modify, map renders, users export.
 - **Token optimization**: Context sends compact fingerprint (~50-100 tokens) instead of full style. AI calls `inspectStyle` tool on-demand to read details.
-- **Tools**: `inspectStyle`, `updateLayer`, `updateSource`, `updateMapSettings`, `validateStyle`, `setStyle`, `loadStyleUrl`. Shared `safeParseJson` utility in `tools/utils.ts`.
+- **Tools**: `inspectStyle`, `setLayerProperty`, `updateLayer`, `updateSource`, `updateMapSettings`, `validateStyle`, `setStyle`, `loadStyleUrl`. Shared JSON parsing utilities in `tools/utils.ts` (`parseJsonValue`, `parseJsonObject`) surface `JSON.parse` errors with position snippet and bracket-mismatch hints so the AI self-corrects on the first retry.
+- **Surgical editor**: `setLayerProperty` is the preferred tool for single-property edits. Takes `layerId` + `patches: [{path, valueJson?, unset?}]` with dot-notation paths like `paint.fill-color`, `layout.visibility`, `minzoom`, `maxzoom`, `filter`. The AI only serializes the VALUE (not the whole `paint` object), so a bracket typo in a nested expression no longer corrupts other properties. Auto-validates via `validateStyleMin` and rolls back on error. Zoom range requests ("show at zoom 3 to 5") resolve to two patches in one call.
 - **Presets**: 10 VersaTiles/MapLibre styles in `presets.ts`. Loaded via `loadStyleFromUrl`.
 - **Feature click**: Map click shows `SourcePopup` with layer/source info and "Mention" buttons to insert `@layer:id` or `@source:id` into chat.
 - **Slash commands**: `/paint`, `/layout`, `/filter`, `/source`, `/layer`, `/light`, `/terrain`, `/labels`, `/3d`, `/theme`, `/load`, `/preset`, `/export`, `/validate`.

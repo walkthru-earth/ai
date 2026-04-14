@@ -6,14 +6,19 @@
 import type { TamboTool } from "@tambo-ai/react";
 import { z } from "zod";
 import { getStyle, setStyle } from "@/services/style-store";
-import { safeParseJson } from "./utils";
+import { parseJsonObject } from "./utils";
 
 async function updateSourceFn(input: { action: "add" | "update" | "remove"; sourceId: string; sourceJson?: string }) {
   const style = getStyle();
   if (!style) return { success: false, error: "No style loaded" };
 
   const { action, sourceId } = input;
-  const source = input.sourceJson ? safeParseJson(input.sourceJson) : null;
+  let source: Record<string, unknown> | null = null;
+  if (input.sourceJson !== undefined) {
+    const parsed = parseJsonObject(input.sourceJson);
+    if (!parsed.ok) return { success: false, error: parsed.error };
+    source = parsed.value;
+  }
   const sources = { ...(style.sources || {}) };
 
   if (action === "remove") {

@@ -24,6 +24,22 @@ export const styleEditorBehavior = [
     "Pass the paint/layout properties directly. " +
     'Example: updateLayer(action="update", layerId="water", layerJson={"paint":{"fill-color":"#0000ff"}})',
 
+  // Surgical path-based editor (PREFERRED for most edits)
+  "PREFER setLayerProperty for ANY single-property change (color, opacity, visibility, minzoom/maxzoom, filter). " +
+    "It avoids serializing large nested expressions, so it's dramatically more reliable for case/match/interpolate values. " +
+    "Paths are dot-notation: 'paint.fill-color', 'layout.visibility', 'minzoom', 'maxzoom', 'filter'. " +
+    "valueJson is the JSON-encoded VALUE only. Strings must be quoted: '\"#ff0000\"'. Numbers unquoted: '3'. " +
+    "Batch multiple patches in one call when they belong together. Auto-validates and rolls back on error.",
+  "ZOOM RANGE ('show this layer from zoom 3 to 5 only'): use setLayerProperty with TWO patches in one call: " +
+    "[{path:'minzoom', valueJson:'3'}, {path:'maxzoom', valueJson:'5'}]. " +
+    "To clear a zoom constraint, use unset:true on that path.",
+  "HIDE/SHOW a layer: setLayerProperty layerId='x', patches=[{path:'layout.visibility', valueJson:'\"none\"'}] (or '\"visible\"').",
+  "OVERRIDE ONE FEATURE (e.g. color Egypt red while keeping the rest): first inspectStyle(target='layer') to read the current paint.fill-color, " +
+    "then setLayerProperty with path='paint.fill-color' and valueJson wrapping the existing expression in a case: " +
+    '["case",["==",["get","ADM0_A3"],"EGY"],"#e31a1c",<original-expression>]. ' +
+    "Because you only pass the value, not the whole paint object, a bracket mistake no longer corrupts other properties.",
+  "If a tool returns a JSON parse error, READ the 'near:' snippet and bracket count. That is the exact position of the problem. Fix it in one retry, do not loop.",
+
   // Core editing rules
   "Always VALIDATE after modifications. Call validateStyle to catch errors.",
   "Prefer INCREMENTAL changes (updateLayer, updateSource) over full replacement (setStyle).",

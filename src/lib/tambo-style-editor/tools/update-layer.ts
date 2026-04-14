@@ -11,7 +11,7 @@ import type { LayerSpecification } from "@maplibre/maplibre-gl-style-spec";
 import type { TamboTool } from "@tambo-ai/react";
 import { z } from "zod";
 import { getStyle, setStyle } from "@/services/style-store";
-import { safeParseJson } from "./utils";
+import { parseJsonObject } from "./utils";
 
 function deepMerge(target: Record<string, unknown>, source: Record<string, unknown>): Record<string, unknown> {
   const result = { ...target };
@@ -52,14 +52,25 @@ async function updateLayerFn(input: {
     return { success: true, action: "removed", layerId, layerCount: layers.length };
   }
 
-  const layer = input.layerJson ? safeParseJson(input.layerJson) : null;
+  let layer: Record<string, unknown> | null = null;
+  if (input.layerJson !== undefined) {
+    const parsed = parseJsonObject(input.layerJson);
+    if (!parsed.ok) {
+      return {
+        success: false,
+        error: parsed.error,
+        hint: "For a single nested value (e.g. paint.fill-color with a case/match expression), prefer setLayerProperty to avoid serializing the whole object.",
+      };
+    }
+    layer = parsed.value;
+  }
 
   if (action === "add") {
     if (!layer || !layer.type) {
       return {
         success: false,
         error:
-          'layerJson must be valid JSON with "type". Example: {"type":"fill","source":"mysrc","paint":{"fill-color":"#ff0000"}}',
+          'layerJson must be a JSON object with "type". Example: {"type":"fill","source":"mysrc","paint":{"fill-color":"#ff0000"}}',
       };
     }
     if (layers.some((l) => l.id === layerId)) {
@@ -105,7 +116,8 @@ async function updateLayerFn(input: {
     if (!layer) {
       return {
         success: false,
-        error: 'layerJson must be valid JSON. Example: {"paint":{"fill-color":"#ff0000"}}',
+        error: 'layerJson required for update. Example: {"paint":{"fill-color":"#ff0000"}}',
+        hint: "For a single property, prefer setLayerProperty(layerId, patches=[{path:'paint.fill-color', valueJson:'\"#ff0000\"'}]).",
       };
     }
     layers[idx] = deepMerge(layers[idx] as unknown as Record<string, unknown>, {
@@ -127,10 +139,11 @@ async function updateLayerFn(input: {
 export const updateLayerTool: TamboTool = {
   name: "updateLayer",
   description:
-    "Add, update, or remove a layer in the MapLibre style. " +
+    "Add, update, or remove a whole layer in the MapLibre style. " +
     "For 'add': layerJson must include type, source, paint. " +
     "For 'update': layerJson contains only changed properties (deep-merged). " +
-    "For 'remove': just layerId, no layerJson needed.",
+    "For 'remove': just layerId, no layerJson needed. " +
+    "PREFER setLayerProperty for single-property edits (color, zoom range, visibility, filter), it avoids serializing large nested expressions.",
   tool: updateLayerFn,
   inputSchema: z.object({
     action: z.enum(["add", "update", "remove"]).describe("add: new layer, update: modify existing, remove: delete"),
@@ -148,6 +161,7 @@ export const updateLayerTool: TamboTool = {
   outputSchema: z.object({
     success: z.boolean(),
     error: z.string().optional(),
+    hint: z.string().optional(),
     action: z.string().optional(),
     layerId: z.string().optional(),
     layerCount: z.number().optional(),

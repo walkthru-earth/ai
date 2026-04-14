@@ -86,10 +86,11 @@ Separate from main `tambo/` config since style editor uses completely different 
 src/lib/tambo-style-editor/
 ├── index.ts                  # Aggregator: styleEditorProviderConfig + re-exports
 ├── tools/
-│   ├── index.ts              # Aggregates 7 tools
-│   ├── utils.ts              # Shared safeParseJson (accepts string or object)
+│   ├── index.ts              # Aggregates 8 tools
+│   ├── utils.ts              # parseJsonValue / parseJsonObject - surface JSON.parse errors with position snippet + bracket mismatch hint. safeParseJson kept for compat.
 │   ├── inspect.ts            # inspectStyle - on-demand layer/source/root reader
-│   ├── update-layer.ts       # updateLayer - add/update/remove with deep merge
+│   ├── set-layer-property.ts # setLayerProperty - surgical path-based setter (PREFERRED for single-prop edits), auto-validates + rollback
+│   ├── update-layer.ts       # updateLayer - add/update/remove whole layer with deep merge
 │   ├── update-source.ts      # updateSource - add/update/remove
 │   ├── update-map-settings.ts # updateMapSettings - root-level props
 │   ├── set-style.ts          # setStyle - full replacement
@@ -108,4 +109,4 @@ src/lib/tambo-style-editor/
 - `styleEditorProviderConfig` - base TamboProvider config (tools, no components)
 - `buildStyleEditorContext()` - compact fingerprint + spec + conditional Shortbread schema
 - `styleEditorSuggestions` - 5 initial suggestion chips
-- `styleEditorTools` - 7 tools (inspect, update layer/source/settings, validate, set, load)
+- `styleEditorTools` - 8 tools (inspect, setLayerProperty, update layer/source/settings, validate, set, load)
