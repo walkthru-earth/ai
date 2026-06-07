@@ -72,6 +72,12 @@ export function buildInitialSuggestions(geo: GeoIP | null) {
         detailedSuggestion: `Show me road and transport network around ${city} - road types, rail, cycling infra.`,
         messageId: "s-transport",
       },
+      {
+        id: "s-global-heat",
+        title: "Where is it hottest now",
+        detailedSuggestion: "Which countries and major cities have temperatures above 40C right now?",
+        messageId: "s-global-heat",
+      },
     ];
   }
   // Fallback when geo-IP is blocked or unavailable
@@ -137,6 +143,12 @@ export function buildInitialSuggestions(geo: GeoIP | null) {
       title: "Transport network",
       detailedSuggestion: "Show me road and transport network around Berlin - road types, rail, cycling infra.",
       messageId: "s-transport",
+    },
+    {
+      id: "s-global-heat",
+      title: "Where is it hottest now",
+      detailedSuggestion: "Which countries and major cities have temperatures above 40C right now?",
+      messageId: "s-global-heat",
     },
   ];
 }

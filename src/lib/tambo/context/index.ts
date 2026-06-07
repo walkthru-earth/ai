@@ -9,6 +9,7 @@ import { behaviorRules } from "./behavior";
 import { buildComponentTips } from "./component-tips";
 import { datasetPaths, S3_BASE } from "./dataset-paths";
 import { buildDuckdbWasmNotes } from "./duckdb-notes";
+import { buildReferenceLayerTips } from "./reference-layers";
 
 /** Returns the current UI theme: "dark" or "light". */
 function getCurrentTheme(): "dark" | "light" {
@@ -102,6 +103,7 @@ export function buildContextHelpers(geo: GeoIP | null) {
         s3Base: S3_BASE,
         datasets: datasetPaths,
         componentTips: buildComponentTips(),
+        referenceLayers: buildReferenceLayerTips(queryLimit),
       };
     },
   };
