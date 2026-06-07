@@ -83,6 +83,7 @@ export function buildDuckdbWasmNotes(queryLimit: number): string[] {
       "If you ORDER BY an expression that is NOT in SELECT (e.g. ORDER BY CAST(timestamp AS TIMESTAMP) when only a strftime'd time_label is selected), " +
       "it fails with 'column must appear in the GROUP BY clause'. Fix: add that expression to the SELECT list, " +
       "or ORDER BY a selected column / its position (ORDER BY 1). To sort chronologically while displaying a formatted label, " +
-      "SELECT the raw timestamp too (or ORDER BY the time_label which is already chronological for fixed-width formats).",
+      "SELECT the raw timestamp too and ORDER BY that raw timestamp. Only ORDER BY time_label when the label format is lexicographically sortable " +
+      "(e.g. ISO '%Y-%m-%d %H:%M'). The '%b %d %H:%M' format used for weather sorts alphabetically by month name (Apr, Aug, Dec...), NOT chronologically.",
   ];
 }
