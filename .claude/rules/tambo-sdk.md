@@ -4,16 +4,26 @@ paths:
   - "src/components/tambo/**"
 ---
 
-# Tambo SDK Reference (@tambo-ai/react v1.2.5+)
+# Tambo SDK Reference (@tambo-ai/react v1.2.8+)
 
-## What's New in v1.2.5 (from v1.2.4)
+## Installed versions
 
-- **Registry-level tool ownership** (v1.2.2): `withTamboInteractable` now tracks tool ownership per component via `registerToolForComponent`/`unregisterToolsForComponent`. Cleanup on unmount is ownership-based, no hardcoded tool name conventions. Fixes leaked interactable tools after component unmount.
-- **Clean interactable tool cleanup** (v1.2.1): Interactable tools are properly removed when components unmount, preventing stale `update_component_props` tools from accumulating.
-- **New dependency: `@ag-ui/core`** (Agent-User Interaction Protocol): Tambo now builds on the AG-UI protocol for agent-UI communication schemas.
-- **New dependency: `@tambo-ai/client`** (v1.0.5): Framework-agnostic client extracted from react SDK. Supports `fast-json-patch` for prop deltas and `@standard-schema/spec` for schema validation.
-- **Suggestions retry on 404** (v1.2.6, pending npm release): `useTamboSuggestions` will retry up to 3 times with exponential backoff when the assistant message hasn't been persisted yet. Fixes intermittent empty suggestion chips after AI responses.
-- **Interactable selection fix** (v1.2.6, pending npm release): `isSelected` was always `false` because the context helper read a non-existent field. Selections are now one-shot (auto-cleared after context capture).
+`@tambo-ai/react` 1.2.8, `@tambo-ai/typescript-sdk` 0.96.3, bundled `@tambo-ai/client` 1.1.3, `@ag-ui/core` 0.0.44. Peer requirements satisfied by our tree: react 19, zod 4.x, `@modelcontextprotocol/sdk` 1.29.0.
+
+## What's New in v1.2.8 (from v1.2.5)
+
+- **Interactable selection fix** (v1.2.6, now shipped): `isSelected` was always `false` because the context helper read a non-existent field. This is fixed and live, so the selection now reaches the model. Selections are one-shot (auto-cleared after context capture). This is what makes the "Edit with AI" pencil flow on dashboard panels actually focus the model on the selected panel.
+- **Suggestions retry on 404** (v1.2.6, now shipped): `useTamboSuggestions` retries up to 3 times with exponential backoff when the assistant message hasn't been persisted yet. Fixes intermittent empty suggestion chips after AI responses.
+- **v1.2.7 and v1.2.8**: dependency bumps only, no public API changes. All hook and component signatures below are unchanged.
+- **`@tambo-ai/client` 0.1.0 to 1.1.3**: framework-agnostic client extracted from the react SDK. Supports `fast-json-patch` for prop deltas and `@standard-schema/spec` for schema validation. Internal dependency, not imported directly.
+- **`@ag-ui/core` (Agent-User Interaction Protocol, 0.0.44)**: Tambo builds on the AG-UI protocol for agent-UI communication schemas.
+
+### typescript-sdk 0.94.1 to 0.96.3
+
+- **`Message` type now exported** (v0.95.0): `import type { Message } from "@tambo-ai/typescript-sdk"` (re-exported via the `Threads` resource alongside `ComponentContent`). Use it for typing raw thread message payloads instead of hand-rolled shapes.
+- **Env-based client config** (v0.96.0): the client reads `TAMBO_API_KEY`, `TAMBO_AI_BASE_URL`, `TAMBO_AI_LOG`, and accepts `defaultHeaders`. This is a Node/server feature. Our browser SPA still passes `apiKey` via `VITE_*` to `TamboProvider`, there is no `process.env` at runtime, so the env path does not apply client-side.
+- **Debug logs redact api-key headers** (v0.96.1). v0.96.2/0.96.3 are codegen/CI chores only.
+- No breaking changes across this range.
 
 ## TamboProvider Props
 
@@ -192,6 +202,8 @@ Tambo messages contain `content` blocks (Anthropic-style). Five content types:
 **CRITICAL**: The component name is `content.name`, NOT `content.componentName`. The `componentName` field exists only on `withTamboInteractable` config and `TamboCurrentComponent` hook, never on raw message content blocks. DashboardCanvas reads `content.name` to determine panel type for sizing and classification.
 
 **TamboThreadMessage** fields: `id`, `role` (`user`/`assistant`/`system`), `content: Content[]`, `createdAt?`, `metadata?`, `parentMessageId?`, `reasoning?: string[]`, `reasoningDurationMS?`.
+
+The raw server-side payload type is exported from the SDK as `Message` (v0.95.0+): `import type { Message } from "@tambo-ai/typescript-sdk"`. Use it for typing API-level message responses. `TamboThreadMessage` is the react-enriched form (adds `renderedComponent` and convenience fields).
 
 ## UPDATE vs CREATE NEW
 

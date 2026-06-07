@@ -131,7 +131,7 @@ S3 base: `https://s3.us-west-2.amazonaws.com/us-west-2.opendata.source.coop/walk
 - **No `!important`**: use JS conditionals instead
 - Semantic classes: `text-destructive` not `text-red-500`, `text-primary` not `text-blue-500`
 
-## Tambo SDK (v1.2.5) - Bidirectional AI Components
+## Tambo SDK (v1.2.8) - Bidirectional AI Components
 
 Config in `src/lib/tambo/` (modular directory). All pages spread `tamboProviderConfig` (apiKey, components, tools, tamboUrl). Both `/chat` and `/explore` wrap children with `<TamboMcpProvider>` (from `@tambo-ai/react/mcp`) inside `<TamboProvider>` for MCP hooks (elicitation, prompts, resources). Both pages pass `mcpServers` from `useMcpServers()` (localStorage-backed). Shared `buildContextHelpers(geo)` provides AI with user theme, geo-IP location, and pre-computed H3 cells. `buildInitialSuggestions(geo)` generates personalized suggestion chips.
 

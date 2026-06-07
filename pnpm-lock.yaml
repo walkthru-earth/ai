@@ -57,11 +57,11 @@ importers:
         specifier: ^3.0.0
         version: 3.0.0(leaflet@1.9.4)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       '@tambo-ai/react':
-        specifier: 1.2.5
-        version: 1.2.5(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(@types/json-schema@7.0.15)(@types/node@25.8.0)(@types/react@19.2.14)(quansync@0.2.11)(react@19.2.6)(typescript@5.9.3)(zod-to-json-schema@3.25.2(zod@4.3.6))(zod@4.3.6)
+        specifier: 1.2.8
+        version: 1.2.8(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(@types/json-schema@7.0.15)(@types/node@25.8.0)(@types/react@19.2.14)(quansync@0.2.11)(react@19.2.6)(typescript@5.9.3)(zod-to-json-schema@3.25.2(zod@4.3.6))(zod@4.3.6)
       '@tambo-ai/typescript-sdk':
-        specifier: ^0.94.1
-        version: 0.94.1
+        specifier: ^0.96.3
+        version: 0.96.3
       '@walkthru-earth/objex-utils':
         specifier: ^1.3.1
         version: 1.3.1(apache-arrow@21.1.0)(hyparquet-compressors@1.1.1)(hyparquet@1.25.8)(yaml@2.9.0)
@@ -2088,8 +2088,8 @@ packages:
     peerDependencies:
       vite: ^5.2.0 || ^6 || ^7 || ^8
 
-  '@tambo-ai/client@0.1.0':
-    resolution: {integrity: sha512-fJrbaUXSo8J06fpn28SMhlaPRiXo3rAyZ0KMPZm03ueWqZXIWOC8z3iWJs0Fgfd4K8RZ+cWKIsym3iQNJ90OBw==}
+  '@tambo-ai/client@1.1.3':
+    resolution: {integrity: sha512-hderqBfueCgHS2A0UU0h+2IEbljyzM6v8sNVUjenKlpcRu0HyPeW20zRnYg8mz6YhU8IGmm0ILQGoBKqkyx+yw==}
     peerDependencies:
       zod: ^3.25.76 || ^4
       zod-to-json-schema: ^3.25.1
@@ -2099,8 +2099,8 @@ packages:
       zod-to-json-schema:
         optional: true
 
-  '@tambo-ai/react@1.2.5':
-    resolution: {integrity: sha512-pJJkbHBNClpUeQZIxpjUQqBl0HjdJ07l0J3o0QDxkEwNc6U8uQcE10az/tRAJRDYUenvhpMfR9iuN1nIRBFsVQ==}
+  '@tambo-ai/react@1.2.8':
+    resolution: {integrity: sha512-8LZdmdwHKo2DA0oymKLOPLurHYnxlEwjNKc79H02l4k2nXTLKO7PAGOFzs1+6ot8NLue8yAsY/35N+eDg0fGew==}
     peerDependencies:
       '@modelcontextprotocol/sdk': ^1.27.1
       '@types/react': ^18.0.0 || ^19.0.0
@@ -2113,12 +2113,12 @@ packages:
       zod-to-json-schema:
         optional: true
 
-  '@tambo-ai/typescript-sdk@0.93.1':
-    resolution: {integrity: sha512-jeVpls5sJcWhHaS9AdPieY4ng5qOThyckvX9hf4Txabh1zrJdySmsGlV04MlfyWcvZNNzsuJC0QTuzutjdSYrw==}
+  '@tambo-ai/typescript-sdk@0.96.0':
+    resolution: {integrity: sha512-LKQSHLumJG5OPAyviBcSsoLn5LsCRJxpEUkCkv7dfRXj26K1rdIQupbhiEh2605uDiVd3X9ShWvwzg5Oj+Qlqg==}
     hasBin: true
 
-  '@tambo-ai/typescript-sdk@0.94.1':
-    resolution: {integrity: sha512-4pirkA6mI4auq7YMLW9hrsdsXWJ8A1DSrIyVobmWhpfhKOQ9rwsGnph5wIvlho8RasKRzlOC0x6fjJboUlq8xA==}
+  '@tambo-ai/typescript-sdk@0.96.3':
+    resolution: {integrity: sha512-s8Ofgy853lsQi2Cxj2p8Ms0OUGrZzBcV1H0WBIU+6nEV//G+Gx50dXr3WWfc22tTj5kbx8GB5TfnaHZuii75yA==}
     hasBin: true
 
   '@tanstack/query-core@5.100.10':
@@ -6970,13 +6970,13 @@ snapshots:
       tailwindcss: 4.3.0
       vite: 6.4.2(@types/node@25.8.0)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0)
 
-  '@tambo-ai/client@0.1.0(@types/json-schema@7.0.15)(quansync@0.2.11)(zod-to-json-schema@3.25.2(zod@4.3.6))(zod@4.3.6)':
+  '@tambo-ai/client@1.1.3(@types/json-schema@7.0.15)(quansync@0.2.11)(zod-to-json-schema@3.25.2(zod@4.3.6))(zod@4.3.6)':
     dependencies:
       '@ag-ui/core': 0.0.44
       '@modelcontextprotocol/sdk': 1.29.0(zod@4.3.6)
       '@standard-community/standard-json': 0.3.5(@standard-schema/spec@1.1.0)(@types/json-schema@7.0.15)(quansync@0.2.11)(zod-to-json-schema@3.25.2(zod@4.3.6))(zod@4.3.6)
       '@standard-schema/spec': 1.1.0
-      '@tambo-ai/typescript-sdk': 0.93.1
+      '@tambo-ai/typescript-sdk': 0.96.0
       fast-json-patch: 3.1.1
       partial-json: 0.1.7
     optionalDependencies:
@@ -6994,11 +6994,11 @@ snapshots:
       - typebox
       - valibot
 
-  '@tambo-ai/react@1.2.5(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(@types/json-schema@7.0.15)(@types/node@25.8.0)(@types/react@19.2.14)(quansync@0.2.11)(react@19.2.6)(typescript@5.9.3)(zod-to-json-schema@3.25.2(zod@4.3.6))(zod@4.3.6)':
+  '@tambo-ai/react@1.2.8(@modelcontextprotocol/sdk@1.29.0(zod@4.3.6))(@types/json-schema@7.0.15)(@types/node@25.8.0)(@types/react@19.2.14)(quansync@0.2.11)(react@19.2.6)(typescript@5.9.3)(zod-to-json-schema@3.25.2(zod@4.3.6))(zod@4.3.6)':
     dependencies:
       '@ag-ui/core': 0.0.44
-      '@tambo-ai/client': 0.1.0(@types/json-schema@7.0.15)(quansync@0.2.11)(zod-to-json-schema@3.25.2(zod@4.3.6))(zod@4.3.6)
-      '@tambo-ai/typescript-sdk': 0.94.1
+      '@tambo-ai/client': 1.1.3(@types/json-schema@7.0.15)(quansync@0.2.11)(zod-to-json-schema@3.25.2(zod@4.3.6))(zod@4.3.6)
+      '@tambo-ai/typescript-sdk': 0.96.3
       '@tanstack/react-query': 5.100.10(react@19.2.6)
       '@types/react': 19.2.14
       fast-equals: 6.0.0
@@ -7028,9 +7028,9 @@ snapshots:
       - typescript
       - valibot
 
-  '@tambo-ai/typescript-sdk@0.93.1': {}
+  '@tambo-ai/typescript-sdk@0.96.0': {}
 
-  '@tambo-ai/typescript-sdk@0.94.1': {}
+  '@tambo-ai/typescript-sdk@0.96.3': {}
 
   '@tanstack/query-core@5.100.10': {}
 
