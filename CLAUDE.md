@@ -305,7 +305,7 @@ StatsCard, StatsGrid, InsightCard, DatasetCard, QueryDisplay, DataCard. AI provi
 
 ## GeoArrow Zero-Copy Rendering
 
-Map layers use `@geoarrow/deck.gl-layers` + `@walkthru-earth/objex-utils` for zero-copy Arrow → GPU rendering. Data pipeline:
+Map layers use `@geoarrow/deck.gl-geoarrow` + `@walkthru-earth/objex-utils` for zero-copy Arrow → GPU rendering. Data pipeline:
 
 ```
 DuckDB-WASM → Arrow Table → columnArrays (typed array views) + arrowIPC (bytes)
@@ -325,7 +325,7 @@ Layer types: `h3`, `a5`, `scatterplot`, `geojson`, `arc`, `wkb` (native geometry
 
 **Auto-routing**: `detectLayerType()` checks column names: `pentagon`/`a5_cell`/`a5_index` → a5, `hex`/`h3_index` → h3, `source_lat`+`dest_lat` → arc, `lat`/`lng` → scatterplot, `geometry`/`geojson` → geojson. WKB path takes priority when `wkbArrays` present (geometry auto-detected). Spatial analysis results (ST_Buffer, ST_Intersects, spatial joins) produce native GEOMETRY → auto-rendered as polygon/line/point via zero-copy WKB path.
 
-Packages: `@geoarrow/deck.gl-layers@0.3.1`, `@walkthru-earth/objex-utils@1.1.0`, `apache-arrow@21.1.0`, `hyparquet@1.25.1`
+Packages: `@geoarrow/deck.gl-geoarrow@0.4.1` (renamed from `@geoarrow/deck.gl-layers`), `@walkthru-earth/objex-utils@1.5.0`, `apache-arrow@21.1.0`, `hyparquet@1.26.0`
 
 ## @Mention System
 

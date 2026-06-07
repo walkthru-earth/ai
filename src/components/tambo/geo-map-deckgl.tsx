@@ -6,7 +6,7 @@ import {
   GeoArrowPathLayer,
   GeoArrowPolygonLayer,
   GeoArrowScatterplotLayer,
-} from "@geoarrow/deck.gl-layers";
+} from "@geoarrow/deck.gl-geoarrow";
 import type { GeoArrowGeomType, GeoArrowResult } from "@walkthru-earth/objex-utils";
 import { buildGeoArrowTables } from "@walkthru-earth/objex-utils";
 import { Field, FixedSizeList, Float64, makeData, makeVector, Table, vectorFromArray } from "apache-arrow";
