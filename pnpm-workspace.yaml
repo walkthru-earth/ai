@@ -1,0 +1,14 @@
+# pnpm v11+ settings (moved out of package.json "pnpm" field and .npmrc).
+# Only auth/registry settings are read from .npmrc now, everything else lives here.
+
+# shamefully-hoist=true equivalent: hoist all deps to root node_modules.
+shamefullyHoist: true
+
+# Build-script approval (replaces v10 onlyBuiltDependencies/neverBuiltDependencies).
+# true = allow the package's install scripts to run, false = block them.
+allowBuilds:
+  core-js: true
+  esbuild: true
+  lefthook: true
+  protobufjs: true
+  '@vaadin/vaadin-usage-statistics': false
