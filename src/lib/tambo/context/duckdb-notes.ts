@@ -79,5 +79,10 @@ export function buildDuckdbWasmNotes(queryLimit: number): string[] {
     "CROSS-DATASET: All datasets share h3_index. Joins are trivial BUT resolutions MUST match across all files. " +
       "Shared range: res 3-5. UNPIVOT population for time-series charts. " +
       "Use h3_cell_to_lat/lng to derive coordinates from h3_index directly.",
+    "GROUP BY ALL gotcha: GROUP BY ALL only groups columns in the SELECT list. " +
+      "If you ORDER BY an expression that is NOT in SELECT (e.g. ORDER BY CAST(timestamp AS TIMESTAMP) when only a strftime'd time_label is selected), " +
+      "it fails with 'column must appear in the GROUP BY clause'. Fix: add that expression to the SELECT list, " +
+      "or ORDER BY a selected column / its position (ORDER BY 1). To sort chronologically while displaying a formatted label, " +
+      "SELECT the raw timestamp too (or ORDER BY the time_label which is already chronological for fixed-width formats).",
   ];
 }

@@ -273,6 +273,23 @@ function buildGeoArrowArcTable(
 }
 
 /**
+ * GeoArrow deck.gl layers (`@geoarrow/deck.gl-geoarrow`) require their geometry
+ * accessor to be an Arrow `Data` (a single chunk), NOT a `Vector`.
+ * `table.getChild(name)` returns a `Vector`; feeding that in makes the layer's
+ * `getPointChild`/`getLineStringChild`/`getPolygonChild` return a child Vector
+ * whose `.values` is `undefined`, so the GPU receives no coordinates and the map
+ * renders nothing. Our tables are always single-chunk (built from one contiguous
+ * Float64Array), so the first chunk is the whole column.
+ */
+function geomData(table: Table, column: string) {
+  const vec = table.getChild(column);
+  if (!vec || vec.data.length === 0) {
+    throw new Error(`GeoArrow table missing geometry column "${column}"`);
+  }
+  return vec.data[0];
+}
+
+/**
  * Build GeoArrow layers from WKB arrays using objex-utils (true zero-copy).
  * WKB binary → DataView reads → pre-allocated Float64Array → Arrow Table.
  * No intermediate JS objects, no GeoJSON parsing.
@@ -513,7 +530,7 @@ function buildLayers(
               new GeoArrowScatterplotLayer({
                 id: `scatter-ga-${layerId}`,
                 data: table,
-                getPosition: table.getChild("geom")!,
+                getPosition: geomData(table, "geom"),
                 pickable: true,
                 filled: true,
                 stroked: true,
@@ -608,7 +625,7 @@ function buildLayers(
                   new GeoArrowScatterplotLayer({
                     id: `wkb-scatter-${layerId}-${geoLayerType}`,
                     data: gr.table,
-                    getPosition: gr.table.getChild("geometry")!,
+                    getPosition: geomData(gr.table, "geometry"),
                     pickable: true,
                     filled: true,
                     stroked: true,
@@ -639,7 +656,7 @@ function buildLayers(
                   new GeoArrowPathLayer({
                     id: `wkb-path-${layerId}-${geoLayerType}`,
                     data: gr.table,
-                    getPath: gr.table.getChild("geometry")!,
+                    getPath: geomData(gr.table, "geometry"),
                     pickable: true,
                     getColor: ({ index, data }: any) => {
                       const v = data.data.getChild("value")?.get(index);
@@ -661,7 +678,7 @@ function buildLayers(
                   new GeoArrowPolygonLayer({
                     id: `wkb-poly-${layerId}-${geoLayerType}`,
                     data: gr.table,
-                    getPolygon: gr.table.getChild("geometry")!,
+                    getPolygon: geomData(gr.table, "geometry"),
                     pickable: true,
                     stroked: true,
                     filled: true,
@@ -762,8 +779,8 @@ function buildLayers(
               new GeoArrowArcLayer({
                 id: `arc-ga-${layerId}`,
                 data: table,
-                getSourcePosition: table.getChild("source")!,
-                getTargetPosition: table.getChild("target")!,
+                getSourcePosition: geomData(table, "source"),
+                getTargetPosition: geomData(table, "target"),
                 pickable: true,
                 getSourceColor: ({ index, data }: any) => {
                   const v = data.data.getChild("value")?.get(index);
